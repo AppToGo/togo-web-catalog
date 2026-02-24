@@ -1,36 +1,91 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# ToGo Web Catalog
 
-## Getting Started
+Catálogo web ultra ligero para negocios ToGo. **100% Server Components**, HTML plano + Tailwind CSS.
 
-First, run the development server:
+## 🚀 Arquitectura
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+- **Next.js 15** con App Router
+- **100% Server Components** (casi cero `use client`)
+- **Tailwind CSS 4** - solo clases utilitarias
+- **Server Actions** - forms sin JavaScript cliente
+- **Zero UI Libraries** - no shadcn, no Radix, no component libraries
+
+## 📦 Estructura
+
+```
+app/
+├── page.tsx                    # Landing (Server Component)
+├── layout.tsx                  # Root layout
+├── globals.css                 # Tailwind + CSS variables
+├── catalog/[token]/
+│   ├── page.tsx                # Catálogo (Server Component)
+│   └── success/page.tsx        # Confirmación (Server Component)
+
+components/                     # Server Components puros
+├── catalog-header.tsx          # Header con carrito
+├── category-list.tsx           # Filtros de categoría
+├── product-card.tsx            # Tarjeta de producto
+└── cart-section.tsx            # Carrito + checkout
+
+lib/
+├── types.ts                    # Interfaces TypeScript
+├── api.ts                      # Fetch functions
+├── theme.ts                    # Temas CSS variables
+└── actions.ts                  # Server Actions
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## ⚡ Performance
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+| Métrica | Valor |
+|---------|-------|
+| First Load JS | ~102 kB |
+| Server Components | 100% |
+| Client Components | 0% |
+| External JS | 0 |
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## 🏃‍♂️ Quick Start
 
-## Learn More
+```bash
+# Instalar
+npm install
 
-To learn more about Next.js, take a look at the following resources:
+# Desarrollo (puerto 3001)
+npm run dev
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+# Build
+npm run build
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## 🔌 API Endpoints
 
-## Deploy on Vercel
+El catálogo consume:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- `GET /web-catalog/:token` - Catálogo
+- `GET /web-catalog/:token/cart` - Carrito
+- `POST /web-catalog/:token/cart` - Agregar item
+- `POST /web-catalog/:token/order` - Crear orden
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## 📝 Uso
+
+1. Generar token:
+```bash
+curl -X POST http://localhost:3000/debug/generate-web-token \
+  -d '{"businessId": "demo"}'
+```
+
+2. Abrir catálogo:
+```
+http://localhost:3001/catalog/{token}
+```
+
+## 🎨 Temas
+
+CSS variables dinámicas por industria:
+- `modern` - Restaurantes (default)
+- `classic` - Carnicerías
+- `minimal` - Cafés
+- `playful` - Heladerías
+
+## 📄 Licencia
+
+Propietario - ToGo Team
