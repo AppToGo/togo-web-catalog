@@ -12,6 +12,16 @@ export interface Category {
   name: string;
   description?: string;
   sortOrder: number;
+  icon?: string;
+  color?: string;
+}
+
+export interface SubCategory {
+  id: string;
+  name: string;
+  description?: string;
+  sortOrder: number;
+  industryCategoryId: string;
 }
 
 export interface Product {
@@ -21,13 +31,15 @@ export interface Product {
   price: number;
   sku: string;
   imageUrl?: string;
-  categoryId: string;
+  categoryId: string; // Category ID del negocio
+  industryCategoryId: string; // Industry Category ID
   active: boolean;
 }
 
 export interface Catalog {
   businessId: string;
-  categories: Category[];
+  categories: Category[]; // Industry Categories
+  subCategories: SubCategory[]; // Categorías del negocio
   products: Product[];
 }
 

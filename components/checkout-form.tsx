@@ -3,11 +3,11 @@
  * Client Component mínimo para manejar el submit y redirección
  */
 
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { createOrderAction } from '@/lib/actions';
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { createOrderAction } from "@/lib/actions";
 
 interface CheckoutFormProps {
   token: string;
@@ -20,9 +20,9 @@ export function CheckoutForm({ token, total }: CheckoutFormProps) {
   const [error, setError] = useState<string | null>(null);
 
   const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('es-CO', {
-      style: 'currency',
-      currency: 'COP',
+    return new Intl.NumberFormat("es-CO", {
+      style: "currency",
+      currency: "COP",
       minimumFractionDigits: 0,
     }).format(price);
   };
@@ -34,12 +34,13 @@ export function CheckoutForm({ token, total }: CheckoutFormProps) {
     try {
       await createOrderAction(formData);
       // El redirect se maneja en el Server Action, pero si falla:
-    } catch (err: any) {
+    } catch (err: unknown) {
       // Si es un error de redirección de Next.js, ignorarlo
-      if (err?.message?.includes('NEXT_REDIRECT')) {
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      if (errorMessage.includes("NEXT_REDIRECT")) {
         return;
       }
-      setError(err?.message || 'Error al crear el pedido');
+      setError(errorMessage || "Error al crear el pedido");
       setIsLoading(false);
     }
   }
@@ -47,7 +48,7 @@ export function CheckoutForm({ token, total }: CheckoutFormProps) {
   return (
     <form action={handleSubmit} className="space-y-3">
       <input type="hidden" name="token" value={token} />
-      
+
       {error && (
         <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
           {error}
@@ -81,7 +82,9 @@ export function CheckoutForm({ token, total }: CheckoutFormProps) {
 
       <div className="pt-2">
         <div className="flex justify-between items-center mb-3">
-          <span className="text-[var(--color-muted-foreground)]">Total a pagar</span>
+          <span className="text-[var(--color-muted-foreground)]">
+            Total a pagar
+          </span>
           <span className="text-xl font-bold text-[var(--color-foreground)]">
             {formatPrice(total)}
           </span>
@@ -92,7 +95,7 @@ export function CheckoutForm({ token, total }: CheckoutFormProps) {
           disabled={isLoading}
           className="w-full py-3 bg-[var(--color-primary)] text-[var(--color-primary-foreground)] font-semibold rounded-[var(--radius)] hover:opacity-90 active:scale-[0.98] transition-all disabled:opacity-50"
         >
-          {isLoading ? 'Procesando...' : 'Confirmar pedido'}
+          {isLoading ? "Procesando..." : "Confirmar pedido"}
         </button>
       </div>
 

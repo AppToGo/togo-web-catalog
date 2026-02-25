@@ -1,6 +1,6 @@
 /**
  * Product Card
- * Server Component con Server Action para agregar al carrito
+ * Server Component - Ultra ligero, solo HTML
  */
 
 import type { Product } from '@/lib/types';
@@ -44,6 +44,13 @@ export function ProductCard({ product, token, quantityInCart }: ProductCardProps
             {quantityInCart} en carrito
           </div>
         ) : null}
+
+        {/* Overlay de detalle - visible en hover */}
+        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100 pointer-events-none">
+          <span className="bg-white/90 text-black text-xs font-medium px-3 py-1.5 rounded-full shadow-lg">
+            Click para detalle
+          </span>
+        </div>
       </div>
 
       {/* Contenido */}
@@ -63,7 +70,7 @@ export function ProductCard({ product, token, quantityInCart }: ProductCardProps
             {formatPrice(product.price)}
           </span>
 
-          {/* Form con Server Action */}
+          {/* Form con Server Action - funciona sin JS */}
           <form action={addToCartAction}>
             <input type="hidden" name="token" value={token} />
             <input type="hidden" name="productId" value={product.id} />
