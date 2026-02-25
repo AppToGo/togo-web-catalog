@@ -1,16 +1,23 @@
 /**
  * Catalog Page
  * Server Component 100% - Ultra ligero
+ * 
+ * Revalidación: ON-DEMAND via webhook
+ * - Catálogo: Cacheado permanentemente (solo se actualiza via webhook)
+ * - Carrito: Cargado en el cliente (no afecta el cache del catálogo)
  */
 
 import { notFound } from "next/navigation";
-import { getCatalog, getCart } from "@/lib/api";
+import { getCatalog } from "@/lib/api";
 import { getTheme, generateThemeCSS } from "@/lib/theme";
-import { CatalogHeader } from "@/components/catalog-header";
-import { CartSection } from "@/components/cart-section";
 import { CatalogContent } from "@/components/catalog-content";
+import { CartProvider } from "@/components/cart-provider";
+import { CatalogHeaderClient } from "@/components/catalog-header-client";
+import { CartSectionClient } from "@/components/cart-section-client";
 
-export const revalidate = 60;
+// Revalidación on-demand (no time-based)
+// El backend llama a /api/revalidate cuando hay cambios
+export const revalidate = false;
 
 interface PageProps {
   params: Promise<{ token: string }>;
@@ -26,26 +33,20 @@ export default async function CatalogPage({ params, searchParams }: PageProps) {
   }
 
   try {
-    // Cargar datos en paralelo
-    const [catalog, cart] = await Promise.all([
-      getCatalog(token),
-      getCart(token),
-    ]);
+    // Cargar SOLO el catálogo en el servidor (cacheado permanentemente)
+    const catalog = await getCatalog(token);
 
     // Tema
     const theme = getTheme("RESTAURANT");
 
     return (
-      <>
+      <CartProvider token={token}>
         {/* Tema CSS */}
         <style>{`:root { ${generateThemeCSS(theme)} }`}</style>
 
         <div className="min-h-screen bg-[var(--color-background)]">
-          {/* Header */}
-          <CatalogHeader
-            businessName="Tu Negocio"
-            cartItemCount={cart.items.reduce((s, i) => s + i.quantity, 0)}
-          />
+          {/* Header - Cliente (carga carrito) */}
+          <CatalogHeaderClient />
 
           {/* Main */}
           <main className="max-w-5xl mx-auto px-4 sm:px-6 py-6">
@@ -59,13 +60,12 @@ export default async function CatalogPage({ params, searchParams }: PageProps) {
             {/* Contenido del catálogo (con búsqueda y modal) */}
             <CatalogContent
               catalog={catalog}
-              cart={cart}
               token={token}
               selectedCategory={selectedCategory}
             />
 
-            {/* Carrito */}
-            <CartSection cart={cart} token={token} />
+            {/* Carrito - Cliente */}
+            <CartSectionClient token={token} />
           </main>
 
           {/* Footer */}
@@ -75,7 +75,7 @@ export default async function CatalogPage({ params, searchParams }: PageProps) {
             </div>
           </footer>
         </div>
-      </>
+      </CartProvider>
     );
   } catch {
     notFound();

@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import type { Catalog, Cart } from '@/lib/types';
+import type { Catalog } from '@/lib/types';
+import { useCart } from './cart-provider';
 import { ProductSearch } from './product-search';
 import { ProductCard } from './product-card';
 import { ProductModal } from './product-modal';
@@ -10,13 +11,13 @@ import { CategoryList } from './category-list';
 
 interface CatalogContentProps {
   catalog: Catalog;
-  cart: Cart;
   token: string;
   selectedCategory?: string;
 }
 
-export function CatalogContent({ catalog, cart, token, selectedCategory }: CatalogContentProps) {
+export function CatalogContent({ catalog, token, selectedCategory }: CatalogContentProps) {
   const [filteredProducts, setFilteredProducts] = useState(catalog.products);
+  const { cart } = useCart();
 
   // Mapeo de cantidades en carrito
   const cartQuantities = useMemo(() => {

@@ -27,15 +27,21 @@ async function handleResponse<T>(response: Response): Promise<T> {
 // ═══════════════════════════════════════════════════════════
 
 export async function getCatalog(token: string): Promise<Catalog> {
-  const response = await fetch(buildUrl(token), {
-    next: { revalidate: 60, tags: [`catalog-${token}`] },
+  const url = buildUrl(token);
+  
+  // NO usar cache en el fetch - el cache está en el HTML generado por Next.js
+  // Cada revalidación hará una petición fresca al backend
+  const response = await fetch(url, {
+    cache: 'no-store',
   });
+  
   return handleResponse<Catalog>(response);
 }
 
 export async function getCategories(token: string): Promise<Category[]> {
   const response = await fetch(buildUrl(token, '/categories'), {
-    next: { revalidate: 60, tags: [`categories-${token}`] },
+    // Sin revalidate time - solo se actualiza via webhook on-demand
+    next: { tags: [`categories-${token}`] },
   });
   return handleResponse<Category[]>(response);
 }
