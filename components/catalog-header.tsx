@@ -1,44 +1,84 @@
-/**
- * Catalog Header
- * Server Component - HTML plano + Tailwind
- */
+'use client';
 
-import type { CartItem } from '@/lib/types';
+import { useState } from 'react';
+import { useCart } from './cart-context';
+import { ShoppingCart, Store } from 'lucide-react';
+import type { Business } from '@/lib/types';
 
 interface CatalogHeaderProps {
-  businessName: string;
-  cartItemCount: number;
+  business: Business;
+  onCartClick: () => void;
 }
 
-export function CatalogHeader({ businessName, cartItemCount }: CatalogHeaderProps) {
-  return (
-    <header className="sticky top-0 z-50 bg-[var(--color-background)]/80 backdrop-blur-md border-b border-[var(--color-border)]">
-      <div className="max-w-5xl mx-auto px-4 sm:px-6">
-        <div className="flex items-center justify-between h-14">
-          {/* Logo */}
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-[var(--color-primary)] flex items-center justify-center text-lg">
-              🍽️
-            </div>
-            <h1 className="font-bold text-[var(--color-foreground)] truncate max-w-[150px] sm:max-w-xs">
-              {businessName}
-            </h1>
-          </div>
+export function CatalogHeader({ business, onCartClick }: CatalogHeaderProps) {
+  const { itemCount } = useCart();
+  const [imageError, setImageError] = useState(false);
+  
+  // Generar gradiente basado en el color primario
+  const gradientStyle = {
+    background: `linear-gradient(135deg, ${business.primaryColor} 0%, ${business.primaryColor}dd 100%)`,
+  };
 
-          {/* Carrito */}
-          <a
-            href="#cart"
-            className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-[var(--color-border)] hover:border-[var(--color-primary)] transition-colors"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
-            </svg>
-            <span className="text-sm font-medium text-[var(--color-foreground)]">
-              {cartItemCount > 0 ? `${cartItemCount} items` : 'Carrito'}
-            </span>
-          </a>
+  return (
+    <>
+      {/* Header Principal */}
+      <header className="sticky top-0 z-40 w-full" style={gradientStyle}>
+        <div className="max-w-5xl mx-auto px-4 py-4">
+          <div className="flex items-center justify-between">
+            {/* Logo y Nombre */}
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center overflow-hidden border-2 border-white/30">
+                {business.logo && !imageError ? (
+                  <img
+                    src={business.logo}
+                    alt={business.name}
+                    className="w-full h-full object-cover"
+                    onError={() => setImageError(true)}
+                  />
+                ) : (
+                  <Store className="w-6 h-6 text-white" />
+                )}
+              </div>
+              <div>
+                <h1 className="text-xl font-bold text-white leading-tight">
+                  {business.name}
+                </h1>
+                <p className="text-xs text-white/80">
+                  {business.description}
+                </p>
+              </div>
+            </div>
+
+            {/* Botón Carrito */}
+            <button
+              onClick={onCartClick}
+              className="relative p-3 rounded-full bg-white/20 backdrop-blur-sm hover:bg-white/30 transition-all active:scale-95"
+            >
+              <ShoppingCart className="w-6 h-6 text-white" />
+              {itemCount > 0 && (
+                <span 
+                  className="absolute -top-1 -right-1 w-6 h-6 rounded-full text-xs font-bold flex items-center justify-center text-white shadow-lg"
+                  style={{ backgroundColor: business.accentColor }}
+                >
+                  {itemCount}
+                </span>
+              )}
+            </button>
+          </div>
         </div>
-      </div>
-    </header>
+      </header>
+
+      {/* Banner de Portada */}
+      {business.banner && (
+        <div className="w-full h-48 md:h-64 relative overflow-hidden">
+          <img
+            src={business.banner}
+            alt={`${business.name} banner`}
+            className="w-full h-full object-cover"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
+        </div>
+      )}
+    </>
   );
 }

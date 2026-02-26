@@ -1,19 +1,28 @@
-/**
- * Product Card
- * Server Component con interacción de carrito via Client Component
- */
+'use client';
 
+import { useState } from 'react';
+import { Plus, Minus } from 'lucide-react';
 import type { Product } from '@/lib/types';
-import { AddToCartButton } from './add-to-cart-button';
 
 interface ProductCardProps {
   product: Product;
-  token: string;
-  quantityInCart?: number;
-  onClick?: () => void;
+  quantityInCart: number;
+  onAdd: () => void;
+  onUpdate: (delta: number) => void;
+  onClick: () => void;
+  accentColor: string;
 }
 
-export function ProductCard({ product, token, quantityInCart, onClick }: ProductCardProps) {
+export function ProductCard({ 
+  product, 
+  quantityInCart, 
+  onAdd, 
+  onUpdate, 
+  onClick,
+  accentColor 
+}: ProductCardProps) {
+  const [imageError, setImageError] = useState(false);
+
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('es-CO', {
       style: 'currency',
@@ -24,62 +33,90 @@ export function ProductCard({ product, token, quantityInCart, onClick }: Product
 
   return (
     <div 
+      className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-shadow cursor-pointer group"
       onClick={onClick}
-      className="group bg-[var(--color-card)] rounded-[var(--radius)] border border-[var(--color-border)] overflow-hidden hover:shadow-md transition-shadow cursor-pointer"
     >
-      {/* Imagen */}
-      <div className="relative aspect-square bg-[var(--color-muted)]">
-        {product.imageUrl ? (
+      {/* Imagen del producto */}
+      <div className="relative aspect-square bg-gray-100 overflow-hidden">
+        {product.imageUrl && !imageError ? (
           <img
             src={product.imageUrl}
             alt={product.name}
-            className="w-full h-full object-cover"
-            loading="lazy"
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+            onError={() => setImageError(true)}
           />
         ) : (
-          <div className="w-full h-full flex items-center justify-center text-4xl">
-            🍽️
+          <div className="w-full h-full flex items-center justify-center bg-gray-50">
+            <span className="text-4xl">🍽️</span>
           </div>
         )}
         
-        {/* Badge de cantidad */}
-        {quantityInCart ? (
-          <div className="absolute top-2 right-2 bg-[var(--color-primary)] text-[var(--color-primary-foreground)] text-xs font-bold px-2 py-1 rounded-full">
+        {/* Badge de cantidad en carrito */}
+        {quantityInCart > 0 && (
+          <div 
+            className="absolute top-2 right-2 px-2 py-1 rounded-full text-xs font-bold text-white shadow-lg"
+            style={{ backgroundColor: accentColor }}
+          >
             {quantityInCart} en carrito
           </div>
-        ) : null}
-
-        {/* Indicador de clic para ver detalle */}
-        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100 pointer-events-none">
-          <span className="bg-white/90 text-black text-xs font-medium px-3 py-1.5 rounded-full shadow-lg">
-            Click para detalle
-          </span>
-        </div>
+        )}
       </div>
 
-      {/* Contenido */}
-      <div className="p-3">
-        <h3 className="font-semibold text-[var(--color-foreground)] text-sm line-clamp-2">
+      {/* Info del producto */}
+      <div className="p-4">
+        <h3 className="font-semibold text-gray-900 line-clamp-2 mb-1 text-sm">
           {product.name}
         </h3>
         
-        {product.description ? (
-          <p className="text-xs text-[var(--color-muted-foreground)] mt-1 line-clamp-2">
+        {product.description && (
+          <p className="text-xs text-gray-500 line-clamp-2 mb-3">
             {product.description}
           </p>
-        ) : null}
+        )}
 
-        <div className="flex items-center justify-between mt-3">
-          <span className="font-bold text-[var(--color-primary)]">
+        <div className="flex items-center justify-between">
+          <span className="text-lg font-bold text-gray-900">
             {formatPrice(product.price)}
           </span>
 
-          {/* Botón de agregar - Client Component */}
-          <AddToCartButton 
-            product={product} 
-            token={token} 
-            quantityInCart={quantityInCart}
-          />
+          {/* Botones de cantidad */}
+          {quantityInCart > 0 ? (
+            <div className="flex items-center gap-2 bg-gray-100 rounded-full p-1">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onUpdate(-1);
+                }}
+                className="w-8 h-8 rounded-full bg-white shadow-sm flex items-center justify-center hover:bg-gray-50 active:scale-95 transition-all"
+              >
+                <Minus className="w-4 h-4 text-gray-600" />
+              </button>
+              <span className="w-6 text-center font-semibold text-sm">
+                {quantityInCart}
+              </span>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onUpdate(1);
+                }}
+                className="w-8 h-8 rounded-full text-white shadow-sm flex items-center justify-center hover:opacity-90 active:scale-95 transition-all"
+                style={{ backgroundColor: accentColor }}
+              >
+                <Plus className="w-4 h-4" />
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onAdd();
+              }}
+              className="w-10 h-10 rounded-full text-white shadow-md flex items-center justify-center hover:opacity-90 active:scale-95 transition-all"
+              style={{ backgroundColor: accentColor }}
+            >
+              <Plus className="w-5 h-5" />
+            </button>
+          )}
         </div>
       </div>
     </div>

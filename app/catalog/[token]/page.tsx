@@ -1,79 +1,45 @@
 /**
- * Catalog Page
- * Server Component 100% - Ultra ligero
+ * Catalog Page - ISR con revalidación on-demand
  * 
- * Revalidación: ON-DEMAND via webhook
- * - Catálogo: Cacheado permanentemente (solo se actualiza via webhook)
- * - Carrito: Persiste entre navegaciones gracias al Layout
+ * ESTRATEGIA:
+ * - HTML se genera una vez y se sirve estático (ISR)
+ * - El webhook /api/revalidate invalida la caché cuando hay cambios
+ * - revalidate: false = infinito, solo se actualiza por webhook
  */
 
 import { notFound } from "next/navigation";
 import { getCatalog } from "@/lib/api";
-import { getTheme, generateThemeCSS } from "@/lib/theme";
-import { CatalogContent } from "@/components/catalog-content";
-import { CatalogHeaderClient } from "@/components/catalog-header-client";
-import { CartSectionClient } from "@/components/cart-section-client";
+import { CatalogClient } from "./catalog-client";
 
-// Revalidación on-demand (no time-based)
+// ISR: Generar HTML estático, revalidar solo por webhook
 export const revalidate = false;
+
+// Permitir generación dinámica de paths no existentes
+export const dynamicParams = true;
 
 interface PageProps {
   params: Promise<{ token: string }>;
-  searchParams: Promise<{ category?: string; error?: string }>;
+  searchParams: Promise<{ category?: string }>;
 }
 
 export default async function CatalogPage({ params, searchParams }: PageProps) {
   const { token } = await params;
-  const { category: selectedCategory, error } = await searchParams;
+  const { category: selectedCategory } = await searchParams;
 
   if (!token || token.length < 10) {
     notFound();
   }
 
   try {
-    // Cargar SOLO el catálogo en el servidor (cacheado permanentemente)
+    // El fetch usa tags para poder ser revalidado on-demand
     const catalog = await getCatalog(token);
 
-    // Tema
-    const theme = getTheme("RESTAURANT");
-
     return (
-      <>
-        {/* Tema CSS */}
-        <style>{`:root { ${generateThemeCSS(theme)} }`}</style>
-
-        <div className="min-h-screen bg-[var(--color-background)]">
-          {/* Header - Cliente (carga carrito) */}
-          <CatalogHeaderClient />
-
-          {/* Main */}
-          <main className="max-w-5xl mx-auto px-4 sm:px-6 py-6">
-            {/* Error */}
-            {error === "order_failed" && (
-              <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
-                Hubo un error al crear tu pedido. Intenta de nuevo.
-              </div>
-            )}
-
-            {/* Contenido del catálogo (con búsqueda y modal) */}
-            <CatalogContent
-              catalog={catalog}
-              token={token}
-              selectedCategory={selectedCategory}
-            />
-
-            {/* Carrito - Cliente */}
-            <CartSectionClient token={token} />
-          </main>
-
-          {/* Footer */}
-          <footer className="border-t border-[var(--color-border)] py-6 mt-8">
-            <div className="max-w-5xl mx-auto px-4 text-center text-xs text-[var(--color-muted-foreground)]">
-              <p>Powered by ToGo</p>
-            </div>
-          </footer>
-        </div>
-      </>
+      <CatalogClient 
+        catalog={catalog} 
+        token={token}
+        selectedCategory={selectedCategory}
+      />
     );
   } catch {
     notFound();

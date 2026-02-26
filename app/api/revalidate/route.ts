@@ -2,11 +2,10 @@
  * API Route: /api/revalidate
  * 
  * Recibe webhooks del backend para revalidar el HTML del catálogo.
- * Al usar cache: 'no-store' en el fetch, cada revalidación hará
- * una petición fresca al backend.
+ * Usa revalidateTag para invalidar la caché ISR de forma precisa.
  */
 
-import { revalidatePath } from "next/cache";
+import { revalidateTag } from "next/cache";
 import { NextRequest, NextResponse } from "next/server";
 
 const REVALIDATE_SECRET = process.env.REVALIDATE_SECRET || "dev-secret-change-in-production";
@@ -14,7 +13,7 @@ const REVALIDATE_SECRET = process.env.REVALIDATE_SECRET || "dev-secret-change-in
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { token, secret } = body;
+    const { token, secret, type = "catalog" } = body;
 
     // Validar secret
     if (!secret || secret !== REVALIDATE_SECRET) {
@@ -31,18 +30,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log(`[REVALIDATE] Revalidando: ${token}`);
+    console.log(`[REVALIDATE] Revalidando ${type}: ${token}`);
 
-    // Revalidar el path - esto regenerará el HTML haciendo fetch fresco al backend
-    const path = `/catalog/${token}`;
-    revalidatePath(path);
+    // Revalidar por tag - esto regenera el HTML en la próxima visita
+    const tag = type === "categories" ? `categories-${token}` : `catalog-${token}`;
+    revalidateTag(tag);
 
-    console.log(`[REVALIDATE] ✅ Revalidado: ${path}`);
+    console.log(`[REVALIDATE] ✅ Revalidado tag: ${tag}`);
 
     return NextResponse.json({
       success: true,
-      message: "Catalog revalidated",
-      path,
+      message: "Revalidation triggered",
+      tag,
+      token,
+      type,
       timestamp: new Date().toISOString(),
     });
   } catch (error) {

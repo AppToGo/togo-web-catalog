@@ -23,16 +23,20 @@ async function handleResponse<T>(response: Response): Promise<T> {
 }
 
 // ═══════════════════════════════════════════════════════════
-// Server-side fetch (cacheable)
+// Server-side fetch (ISR cacheable)
 // ═══════════════════════════════════════════════════════════
 
+/**
+ * Obtiene el catálogo con caché ISR.
+ * El tag permite revalidación on-demand vía webhook.
+ */
 export async function getCatalog(token: string): Promise<Catalog> {
-  const url = buildUrl(token);
-  
-  // NO usar cache en el fetch - el cache está en el HTML generado por Next.js
-  // Cada revalidación hará una petición fresca al backend
-  const response = await fetch(url, {
-    cache: 'no-store',
+  const response = await fetch(buildUrl(token), {
+    next: { 
+      tags: [`catalog-${token}`],
+      // Revalidar cada hora como fallback (si el webhook falla)
+      revalidate: 3600,
+    },
   });
   
   return handleResponse<Catalog>(response);
@@ -40,7 +44,6 @@ export async function getCatalog(token: string): Promise<Catalog> {
 
 export async function getCategories(token: string): Promise<Category[]> {
   const response = await fetch(buildUrl(token, '/categories'), {
-    // Sin revalidate time - solo se actualiza via webhook on-demand
     next: { tags: [`categories-${token}`] },
   });
   return handleResponse<Category[]>(response);

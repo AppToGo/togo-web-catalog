@@ -6,8 +6,8 @@ import { useCart } from './cart-context';
 interface CartItemControlsProps {
   token: string;
   productId: string;
-  name: string;
-  price: number;
+  name?: string;
+  price?: number;
   quantity: number;
 }
 

@@ -1,86 +1,81 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { Search, X } from 'lucide-react';
+import { useState, useCallback } from 'react';
 import type { Product } from '@/lib/types';
 
-interface ProductSearchProps {
+interface ProductSearchWithFilterProps {
   products: Product[];
-  onFilter: (filteredProducts: Product[]) => void;
+  onFilter: (filtered: Product[]) => void;
+  onSearch?: never;
+  placeholder?: string;
 }
 
-export function ProductSearch({ products, onFilter }: ProductSearchProps) {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [isSearching, setIsSearching] = useState(false);
+interface ProductSearchWithCallbackProps {
+  products?: never;
+  onFilter?: never;
+  onSearch: (query: string) => void;
+  placeholder?: string;
+}
 
-  useEffect(() => {
-    if (searchTerm.length >= 3) {
-      const filtered = products.filter((product) =>
-        product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (product.description?.toLowerCase().includes(searchTerm.toLowerCase()) ?? false) ||
-        product.sku.toLowerCase().includes(searchTerm.toLowerCase())
+type ProductSearchProps = ProductSearchWithFilterProps | ProductSearchWithCallbackProps;
+
+export function ProductSearch({ products, onFilter, onSearch, placeholder = "Buscar productos..." }: ProductSearchProps) {
+  const [value, setValue] = useState('');
+
+  const filterProducts = useCallback((query: string) => {
+    // Modo con products + onFilter
+    if (products && onFilter) {
+      if (!query.trim()) {
+        onFilter(products);
+        return;
+      }
+      
+      const lowerQuery = query.toLowerCase();
+      const filtered = products.filter(product =>
+        product.name.toLowerCase().includes(lowerQuery) ||
+        (product.description && product.description.toLowerCase().includes(lowerQuery))
       );
       onFilter(filtered);
-      setIsSearching(true);
-    } else {
-      onFilter(products);
-      setIsSearching(searchTerm.length > 0);
     }
-  }, [searchTerm, products, onFilter]);
+    // Modo con onSearch
+    else if (onSearch) {
+      onSearch(query);
+    }
+  }, [products, onFilter, onSearch]);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newValue = e.target.value;
+    setValue(newValue);
+    filterProducts(newValue);
+  };
 
   const handleClear = () => {
-    setSearchTerm('');
-    onFilter(products);
-    setIsSearching(false);
+    setValue('');
+    if (products && onFilter) {
+      onFilter(products);
+    } else if (onSearch) {
+      onSearch('');
+    }
   };
 
   return (
-    <div className="relative mb-4">
-      <div className="relative">
-        <input
-          type="text"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          placeholder="Buscar productos..."
-          className="w-full px-4 py-3 pl-11 pr-10 rounded-lg border border-[var(--color-border)] bg-[var(--color-card)] text-[var(--color-foreground)] placeholder:text-[var(--color-muted-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent transition-all"
-        />
-        {/* Icono de búsqueda */}
-        <svg
-          className="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-[var(--color-muted-foreground)]"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
+    <div className="relative">
+      <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+      <input
+        type="text"
+        value={value}
+        onChange={handleChange}
+        placeholder={placeholder}
+        className="w-full pl-11 pr-10 py-3 bg-gray-100 rounded-xl border-none focus:ring-2 focus:ring-gray-200 focus:bg-white transition-all text-gray-900 placeholder:text-gray-400"
+      />
+      {value && (
+        <button
+          onClick={handleClear}
+          className="absolute right-3 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-gray-300 flex items-center justify-center hover:bg-gray-400 transition-colors"
         >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-          />
-        </svg>
-
-        {/* Botón limpiar */}
-        {searchTerm && (
-          <button
-            onClick={handleClear}
-            className="absolute right-3 top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center rounded-full bg-[var(--color-muted)] text-[var(--color-muted-foreground)] hover:bg-[var(--color-border)] transition-colors"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        )}
-      </div>
-
-      {/* Indicador de búsqueda activa */}
-      {isSearching && searchTerm.length >= 3 && (
-        <p className="mt-2 text-sm text-[var(--color-muted-foreground)]">
-          Mostrando resultados para &quot;{searchTerm}&quot;
-        </p>
-      )}
-      {isSearching && searchTerm.length > 0 && searchTerm.length < 3 && (
-        <p className="mt-2 text-sm text-[var(--color-muted-foreground)]">
-          Escribe al menos 3 caracteres para buscar
-        </p>
+          <X className="w-4 h-4 text-white" />
+        </button>
       )}
     </div>
   );

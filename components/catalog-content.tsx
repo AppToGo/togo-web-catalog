@@ -4,8 +4,7 @@ import { useState, useMemo } from 'react';
 import type { Catalog } from '@/lib/types';
 import { useCart } from './cart-context';
 import { ProductSearch } from './product-search';
-import { ProductCard } from './product-card';
-import { ProductModal } from './product-modal';
+
 import { ProductGrid } from './product-grid';
 import { CategoryList } from './category-list';
 
@@ -51,7 +50,8 @@ export function CatalogContent({ catalog, token, selectedCategory }: CatalogCont
             <ProductGrid 
               products={filteredProducts} 
               token={token} 
-              cartQuantities={cartQuantities} 
+              cartQuantities={cartQuantities}
+              accentColor={catalog.business.accentColor}
             />
           ) : (
             <div className="text-center py-12">
@@ -116,7 +116,8 @@ export function CatalogContent({ catalog, token, selectedCategory }: CatalogCont
                     <ProductGrid 
                       products={subCategoryProducts} 
                       token={token} 
-                      cartQuantities={cartQuantities} 
+                      cartQuantities={cartQuantities}
+                      accentColor={catalog.business.accentColor}
                     />
                   </div>
                 );
@@ -164,7 +165,8 @@ export function CatalogContent({ catalog, token, selectedCategory }: CatalogCont
                       <ProductGrid 
                         products={subCategoryProducts} 
                         token={token} 
-                        cartQuantities={cartQuantities} 
+                        cartQuantities={cartQuantities}
+                        accentColor={catalog.business.accentColor}
                       />
                     </div>
                   );

@@ -36,8 +36,21 @@ export interface Product {
   active: boolean;
 }
 
+export interface Business {
+  id: string;
+  name: string;
+  slug: string;
+  phone: string;
+  logo: string | null;
+  banner: string | null;
+  primaryColor: string;
+  accentColor: string;
+  description: string;
+  industry: string;
+}
+
 export interface Catalog {
-  businessId: string;
+  business: Business;
   categories: Category[]; // Industry Categories
   subCategories: SubCategory[]; // Categorías del negocio
   products: Product[];
