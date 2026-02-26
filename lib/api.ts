@@ -70,6 +70,14 @@ export async function getCart(token: string): Promise<Cart> {
   return handleResponse<Cart>(response);
 }
 
+export async function removeFromCart(token: string, productId: string): Promise<Cart> {
+  const response = await fetch(buildUrl(token, `/cart/${productId}`), {
+    method: 'DELETE',
+    cache: 'no-store',
+  });
+  return handleResponse<Cart>(response);
+}
+
 export async function createOrder(
   token: string,
   data: { address?: string; notes?: string }

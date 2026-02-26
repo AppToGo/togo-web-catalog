@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useCallback, useTransition } from 'react';
+import { useEffect, useCallback } from 'react';
 import type { Product } from '@/lib/types';
-import { addToCartAction } from '@/lib/actions';
+import { useCart } from './cart-context';
 
 interface ProductModalProps {
   product: Product | null;
@@ -13,7 +13,7 @@ interface ProductModalProps {
 }
 
 export function ProductModal({ product, isOpen, onClose, quantityInCart, token }: ProductModalProps) {
-  const [isPending, startTransition] = useTransition();
+  const { addItem, isLoading } = useCart();
 
   // Cerrar con tecla Escape
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
@@ -41,20 +41,18 @@ export function ProductModal({ product, isOpen, onClose, quantityInCart, token }
     }
   };
 
-  // Agregar al carrito usando Server Action
-  const handleAddToCart = () => {
-    if (!product || isPending) return;
+  // Agregar al carrito usando el contexto (API REST)
+  const handleAddToCart = async () => {
+    if (!product || isLoading) return;
 
-    const formData = new FormData();
-    formData.append('token', token);
-    formData.append('productId', product.id);
-    formData.append('name', product.name);
-    formData.append('price', product.price.toString());
-
-    startTransition(async () => {
-      await addToCartAction(formData);
-      onClose(); // Cerrar modal después de agregar
+    await addItem({
+      productId: product.id,
+      name: product.name,
+      price: product.price,
+      quantity: 1,
     });
+    
+    onClose(); // Cerrar modal después de agregar
   };
 
   if (!isOpen || !product) return null;
@@ -151,10 +149,10 @@ export function ProductModal({ product, isOpen, onClose, quantityInCart, token }
           {/* Botón agregar al carrito */}
           <button
             onClick={handleAddToCart}
-            disabled={isPending}
+            disabled={isLoading}
             className="w-full py-3 px-4 bg-[var(--color-primary)] text-[var(--color-primary-foreground)] font-semibold rounded-lg hover:opacity-90 active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {isPending ? (
+            {isLoading ? (
               <>
                 <svg className="animate-spin w-5 h-5" fill="none" viewBox="0 0 24 24">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />

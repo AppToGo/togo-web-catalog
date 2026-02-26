@@ -57,19 +57,6 @@ export function CheckoutForm({ token, total }: CheckoutFormProps) {
 
       <div>
         <label className="block text-sm font-medium text-[var(--color-foreground)] mb-1">
-          Dirección de entrega
-        </label>
-        <input
-          type="text"
-          name="address"
-          placeholder="Ej: Calle 123 # 45-67"
-          required
-          className="w-full px-3 py-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] text-[var(--color-foreground)] placeholder:text-[var(--color-muted-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
-        />
-      </div>
-
-      <div>
-        <label className="block text-sm font-medium text-[var(--color-foreground)] mb-1">
           Notas adicionales
         </label>
         <textarea
@@ -100,7 +87,7 @@ export function CheckoutForm({ token, total }: CheckoutFormProps) {
       </div>
 
       <p className="text-xs text-center text-[var(--color-muted-foreground)]">
-        Recibirás confirmación por WhatsApp
+        La dirección de entrega se confirmará por WhatsApp
       </p>
     </form>
   );

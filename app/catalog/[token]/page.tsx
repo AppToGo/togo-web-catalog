@@ -4,19 +4,17 @@
  * 
  * Revalidación: ON-DEMAND via webhook
  * - Catálogo: Cacheado permanentemente (solo se actualiza via webhook)
- * - Carrito: Cargado en el cliente (no afecta el cache del catálogo)
+ * - Carrito: Persiste entre navegaciones gracias al Layout
  */
 
 import { notFound } from "next/navigation";
 import { getCatalog } from "@/lib/api";
 import { getTheme, generateThemeCSS } from "@/lib/theme";
 import { CatalogContent } from "@/components/catalog-content";
-import { CartProvider } from "@/components/cart-provider";
 import { CatalogHeaderClient } from "@/components/catalog-header-client";
 import { CartSectionClient } from "@/components/cart-section-client";
 
 // Revalidación on-demand (no time-based)
-// El backend llama a /api/revalidate cuando hay cambios
 export const revalidate = false;
 
 interface PageProps {
@@ -40,7 +38,7 @@ export default async function CatalogPage({ params, searchParams }: PageProps) {
     const theme = getTheme("RESTAURANT");
 
     return (
-      <CartProvider token={token}>
+      <>
         {/* Tema CSS */}
         <style>{`:root { ${generateThemeCSS(theme)} }`}</style>
 
@@ -75,7 +73,7 @@ export default async function CatalogPage({ params, searchParams }: PageProps) {
             </div>
           </footer>
         </div>
-      </CartProvider>
+      </>
     );
   } catch {
     notFound();

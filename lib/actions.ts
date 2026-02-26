@@ -7,7 +7,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
-import { addToCart, getCart, createOrder } from './api';
+import { addToCart, getCart, createOrder, removeFromCart } from './api';
 import type { CartItem } from './types';
 
 // ═══════════════════════════════════════════════════════════
@@ -72,20 +72,12 @@ export async function removeFromCartAction(formData: FormData) {
   const token = formData.get('token') as string;
   const productId = formData.get('productId') as string;
 
-  // El API no tiene DELETE, así que implementamos workaround
-  // Obtenemos el carrito y seteamos cantidad a 0 (o eliminamos en el futuro)
-  const currentCart = await getCart(token);
-  const item = currentCart.items.find(i => i.productId === productId);
-  
-  if (item) {
-    // Agregar con cantidad negativa para "eliminar"
-    await addToCart(token, {
-      productId,
-      name: item.name,
-      quantity: -item.quantity,
-      price: item.price,
-    });
+  if (!token || !productId) {
+    throw new Error('Datos inválidos');
   }
+
+  // Usar el endpoint DELETE del backend
+  await removeFromCart(token, productId);
 
   revalidatePath(`/catalog/${token}`);
 }
@@ -96,7 +88,6 @@ export async function removeFromCartAction(formData: FormData) {
 
 export async function createOrderAction(formData: FormData) {
   const token = formData.get('token') as string;
-  const address = formData.get('address') as string;
   const notes = formData.get('notes') as string;
 
   if (!token) {
@@ -104,7 +95,8 @@ export async function createOrderAction(formData: FormData) {
   }
 
   // Crear orden - si falla, dejar que el error se propague
-  const result = await createOrder(token, { address, notes });
+  // La dirección se pedirá en la conversación de WhatsApp
+  const result = await createOrder(token, { notes })
   
   // Redirigir a página de éxito (esto lanza un NEXT_REDIRECT interno)
   redirect(`/catalog/${token}/success?order=${result.orderNumber}`);

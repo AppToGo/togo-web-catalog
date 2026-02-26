@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import type { Product } from '@/lib/types';
 
 interface ProductSearchProps {
@@ -12,7 +12,7 @@ export function ProductSearch({ products, onFilter }: ProductSearchProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [isSearching, setIsSearching] = useState(false);
 
-  useMemo(() => {
+  useEffect(() => {
     if (searchTerm.length >= 3) {
       const filtered = products.filter((product) =>
         product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||

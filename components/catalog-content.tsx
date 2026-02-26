@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import type { Catalog } from '@/lib/types';
-import { useCart } from './cart-provider';
+import { useCart } from './cart-context';
 import { ProductSearch } from './product-search';
 import { ProductCard } from './product-card';
 import { ProductModal } from './product-modal';

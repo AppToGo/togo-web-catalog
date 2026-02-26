@@ -1,18 +1,19 @@
 /**
  * Product Card
- * Server Component - Ultra ligero, solo HTML
+ * Server Component con interacción de carrito via Client Component
  */
 
 import type { Product } from '@/lib/types';
-import { addToCartAction } from '@/lib/actions';
+import { AddToCartButton } from './add-to-cart-button';
 
 interface ProductCardProps {
   product: Product;
   token: string;
   quantityInCart?: number;
+  onClick?: () => void;
 }
 
-export function ProductCard({ product, token, quantityInCart }: ProductCardProps) {
+export function ProductCard({ product, token, quantityInCart, onClick }: ProductCardProps) {
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('es-CO', {
       style: 'currency',
@@ -22,7 +23,10 @@ export function ProductCard({ product, token, quantityInCart }: ProductCardProps
   };
 
   return (
-    <div className="group bg-[var(--color-card)] rounded-[var(--radius)] border border-[var(--color-border)] overflow-hidden hover:shadow-md transition-shadow">
+    <div 
+      onClick={onClick}
+      className="group bg-[var(--color-card)] rounded-[var(--radius)] border border-[var(--color-border)] overflow-hidden hover:shadow-md transition-shadow cursor-pointer"
+    >
       {/* Imagen */}
       <div className="relative aspect-square bg-[var(--color-muted)]">
         {product.imageUrl ? (
@@ -45,7 +49,7 @@ export function ProductCard({ product, token, quantityInCart }: ProductCardProps
           </div>
         ) : null}
 
-        {/* Overlay de detalle - visible en hover */}
+        {/* Indicador de clic para ver detalle */}
         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100 pointer-events-none">
           <span className="bg-white/90 text-black text-xs font-medium px-3 py-1.5 rounded-full shadow-lg">
             Click para detalle
@@ -70,23 +74,12 @@ export function ProductCard({ product, token, quantityInCart }: ProductCardProps
             {formatPrice(product.price)}
           </span>
 
-          {/* Form con Server Action - funciona sin JS */}
-          <form action={addToCartAction}>
-            <input type="hidden" name="token" value={token} />
-            <input type="hidden" name="productId" value={product.id} />
-            <input type="hidden" name="name" value={product.name} />
-            <input type="hidden" name="price" value={product.price} />
-            
-            <button
-              type="submit"
-              className="flex items-center gap-1 px-3 py-1.5 bg-[var(--color-primary)] text-[var(--color-primary-foreground)] text-sm font-medium rounded-full hover:opacity-90 active:scale-95 transition-all"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-              <span className="hidden sm:inline">Agregar</span>
-            </button>
-          </form>
+          {/* Botón de agregar - Client Component */}
+          <AddToCartButton 
+            product={product} 
+            token={token} 
+            quantityInCart={quantityInCart}
+          />
         </div>
       </div>
     </div>
