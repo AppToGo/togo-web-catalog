@@ -90,3 +90,21 @@ export async function createOrder(
   });
   return handleResponse<OrderResponse>(response);
 }
+
+export async function getOrder(token: string): Promise<{ 
+  hasOrder: boolean; 
+  order?: { 
+    id: string; 
+    orderNumber: string; 
+    status: string; 
+    total: number; 
+    itemCount: number;
+    notes?: string;
+  };
+  orderStatus?: string;
+}> {
+  const response = await fetch(buildUrl(token, '/order'), {
+    cache: 'no-store',
+  });
+  return handleResponse(response);
+}

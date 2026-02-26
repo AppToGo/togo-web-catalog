@@ -95,9 +95,15 @@ export async function createOrderAction(formData: FormData) {
   }
 
   // Crear orden - si falla, dejar que el error se propague
-  // La dirección se pedirá en la conversación de WhatsApp
   const result = await createOrder(token, { notes })
   
+  // Construir URL de éxito con número de orden y teléfono del negocio
+  const params = new URLSearchParams();
+  params.set('order', result.orderNumber);
+  if (result.businessPhone) {
+    params.set('phone', result.businessPhone);
+  }
+  
   // Redirigir a página de éxito (esto lanza un NEXT_REDIRECT interno)
-  redirect(`/catalog/${token}/success?order=${result.orderNumber}`);
+  redirect(`/catalog/${token}/success?${params.toString()}`);
 }

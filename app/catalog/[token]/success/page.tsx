@@ -3,19 +3,23 @@
  * Server Component - página de confirmación de orden
  */
 
-import Link from 'next/link';
 import { getTheme, generateThemeCSS } from '@/lib/theme';
 
 interface SuccessPageProps {
   params: Promise<{ token: string }>;
-  searchParams: Promise<{ order?: string }>;
+  searchParams: Promise<{ order?: string; phone?: string }>;
 }
 
 export default async function SuccessPage({ params, searchParams }: SuccessPageProps) {
   const { token } = await params;
-  const { order: orderNumber } = await searchParams;
+  const { order: orderNumber, phone: businessPhone } = await searchParams;
 
   const theme = getTheme('RESTAURANT');
+
+  // Construir URL de WhatsApp si hay teléfono
+  const whatsappUrl = businessPhone 
+    ? `https://wa.me/${businessPhone.replace(/\D/g, '')}`
+    : null;
 
   return (
     <>
@@ -34,7 +38,7 @@ export default async function SuccessPage({ params, searchParams }: SuccessPageP
           </h1>
 
           <p className="text-[var(--color-muted-foreground)] mb-6">
-            Tu pedido ha sido confirmado. Te contactaremos pronto por WhatsApp.
+            Tu pedido ha sido guardado. Continúa en WhatsApp para confirmar los detalles.
           </p>
 
           {/* Número de orden */}
@@ -51,12 +55,20 @@ export default async function SuccessPage({ params, searchParams }: SuccessPageP
 
           {/* Acciones */}
           <div className="space-y-3">
-            <Link
-              href={`/catalog/${token}`}
-              className="block w-full py-3 bg-[var(--color-primary)] text-[var(--color-primary-foreground)] font-semibold rounded-[var(--radius)] hover:opacity-90 transition-opacity"
-            >
-              Volver al catálogo
-            </Link>
+            {whatsappUrl ? (
+              <a
+                href={whatsappUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block w-full py-3 bg-[#25D366] text-white font-semibold rounded-[var(--radius)] hover:opacity-90 transition-opacity"
+              >
+                Continuar en WhatsApp →
+              </a>
+            ) : (
+              <p className="text-sm text-[var(--color-muted-foreground)]">
+                Te contactaremos pronto por WhatsApp.
+              </p>
+            )}
           </div>
         </div>
       </div>

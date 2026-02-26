@@ -63,6 +63,7 @@ export interface OrderResponse {
   total: number;
   itemCount: number;
   message: string;
+  businessPhone?: string;
 }
 
 // ═══════════════════════════════════════════════════════════
