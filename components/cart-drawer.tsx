@@ -115,6 +115,25 @@ export function CartDrawer({ isOpen, onClose, token, business }: CartDrawerProps
         }
 
         const data = await response.json();
+        
+        // Notificar al backend para enviar mensaje WhatsApp
+        // Solo si viene del flujo de WhatsApp (tiene businessPhone)
+        if (data.businessPhone) {
+          try {
+            await fetch('/api/cart/notify-modified', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                token,
+                orderId: orderStatus.order.id,
+              }),
+            });
+          } catch (notifyError) {
+            console.error('Error notificando modificación:', notifyError);
+            // No fallamos si la notificación no se envía
+          }
+        }
+
         setShowAlert({
           type: 'success',
           message: `¡Orden #${data.orderNumber} actualizada exitosamente!`,
