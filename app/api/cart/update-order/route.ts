@@ -50,6 +50,7 @@ export async function POST(request: NextRequest) {
       status: data.status,
       total: data.total,
       itemCount: data.itemCount,
+      businessPhone: data.businessPhone,
       message: 'Order updated successfully',
     });
 
