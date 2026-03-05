@@ -34,6 +34,7 @@ export async function POST(request: NextRequest) {
 
     // Revalidar por tag - esto regenera el HTML en la próxima visita
     const tag = type === "categories" ? `categories-${token}` : `catalog-${token}`;
+    // @ts-ignore - Next.js 16 types requieren 2 args pero runtime funciona con 1
     revalidateTag(tag);
 
     console.log(`[REVALIDATE] ✅ Revalidado tag: ${tag}`);

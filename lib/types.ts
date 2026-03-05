@@ -4,7 +4,7 @@
  */
 
 // ═══════════════════════════════════════════════════════════
-// Domain
+// DOMAIN - Catálogo
 // ═══════════════════════════════════════════════════════════
 
 export interface Category {
@@ -56,6 +56,10 @@ export interface Catalog {
   products: Product[];
 }
 
+// ═══════════════════════════════════════════════════════════
+// DOMAIN - Carrito
+// ═══════════════════════════════════════════════════════════
+
 export interface CartItem {
   productId: string;
   name: string;
@@ -69,10 +73,23 @@ export interface Cart {
   updatedAt: string;
 }
 
+// ═══════════════════════════════════════════════════════════
+// DOMAIN - Orden
+// ═══════════════════════════════════════════════════════════
+
+export type OrderStatusType = 
+  | 'DRAFT'
+  | 'CONFIRMED'
+  | 'PAID'
+  | 'PREPARING'
+  | 'SHIPPED'
+  | 'DELIVERED'
+  | 'CANCELLED';
+
 export interface OrderResponse {
   orderId: string;
   orderNumber: string;
-  status: string;
+  status: OrderStatusType;
   total: number;
   itemCount: number;
   message: string;
@@ -80,7 +97,61 @@ export interface OrderResponse {
 }
 
 // ═══════════════════════════════════════════════════════════
-// Tema
+// DOMAIN - Contexto del Carrito
+// ═══════════════════════════════════════════════════════════
+
+export interface CartContextState {
+  cart: Cart;
+  itemCount: number;
+  isLoading: boolean;
+  isSyncing: boolean;
+  isCartOpen: boolean;
+  selectedProduct: Product | null;
+}
+
+export interface CartContextActions {
+  addItem: (item: CartItem) => void;
+  updateItem: (productId: string, delta: number) => void;
+  removeItem: (productId: string) => void;
+  clearCart: () => void;
+  syncCart: () => Promise<void>;
+  setIsCartOpen: (open: boolean) => void;
+  setSelectedProduct: (product: Product | null) => void;
+}
+
+export type CartContextType = CartContextState & CartContextActions;
+
+// ═══════════════════════════════════════════════════════════
+// SEO - Structured Data
+// ═══════════════════════════════════════════════════════════
+
+export interface StructuredDataProduct {
+  '@context': 'https://schema.org';
+  '@type': 'Product';
+  name: string;
+  description?: string;
+  sku: string;
+  image?: string;
+  offers: {
+    '@type': 'Offer';
+    price: number;
+    priceCurrency: 'COP';
+    availability: string;
+  };
+}
+
+export interface StructuredDataBusiness {
+  '@context': 'https://schema.org';
+  '@type': 'Store' | 'Restaurant' | 'LocalBusiness';
+  name: string;
+  description?: string;
+  url: string;
+  telephone?: string;
+  image?: string;
+}
+
+// ═══════════════════════════════════════════════════════════
+// THEME
 // ═══════════════════════════════════════════════════════════
 
 export interface BusinessTheme {
@@ -100,4 +171,22 @@ export interface BusinessTheme {
     cardForeground: string;
   };
   borderRadius: string;
+}
+
+// ═══════════════════════════════════════════════════════════
+// API - Request/Response
+// ═══════════════════════════════════════════════════════════
+
+export interface ApiError {
+  message: string;
+  code?: string;
+  status: number;
+}
+
+export interface PaginatedResponse<T> {
+  data: T[];
+  total: number;
+  page: number;
+  perPage: number;
+  totalPages: number;
 }

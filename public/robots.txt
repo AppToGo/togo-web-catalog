@@ -1,0 +1,18 @@
+# ToGo Web Catalog - Robots.txt
+# https://togo.shop/robots.txt
+
+User-agent: *
+Allow: /
+
+# Sitemap
+Sitemap: https://togo.shop/sitemap.xml
+
+# Crawl-delay para bots agresivos
+Crawl-delay: 1
+
+# Disallow rutas de API
+Disallow: /api/
+
+# Disallow rutas de admin (si existieran)
+Disallow: /admin/
+Disallow: /_next/

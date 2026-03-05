@@ -1,15 +1,27 @@
 /**
  * Catalog Layout
  * 
- * Este layout envuelve todas las páginas del catálogo y persiste
- * el estado del carrito entre navegaciones de categorías.
+ * Combina CartProvider (datos) y CartUIProvider (UI).
+ * Separación permite que componentes solo de UI no se re-rendericen
+ * cuando cambian los datos del carrito.
  */
 
-import { CartProvider } from "@/components/cart-context";
+import type { Metadata } from 'next';
+import { CartProvider } from '@/components/client/cart-context';
+import { CartUIProvider } from '@/components/client/cart-ui-context';
 
 interface CatalogLayoutProps {
   children: React.ReactNode;
   params: Promise<{ token: string }>;
+}
+
+export async function generateMetadata({ params }: CatalogLayoutProps): Promise<Metadata> {
+  return {
+    robots: {
+      index: true,
+      follow: true,
+    },
+  };
 }
 
 export default async function CatalogLayout({ 
@@ -20,7 +32,9 @@ export default async function CatalogLayout({
 
   return (
     <CartProvider token={token}>
-      {children}
+      <CartUIProvider>
+        {children}
+      </CartUIProvider>
     </CartProvider>
   );
 }
