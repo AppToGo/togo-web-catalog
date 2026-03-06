@@ -16,10 +16,10 @@ import { CartButton } from '@/components/client/cart-button';
 
 interface CatalogHeaderProps {
   business: Business;
-  token: string;
+  businessSlug: string;
 }
 
-export function CatalogHeader({ business, token }: CatalogHeaderProps) {
+export function CatalogHeader({ business, businessSlug }: CatalogHeaderProps) {
   const gradientStyle = {
     background: `linear-gradient(135deg, ${business.primaryColor} 0%, ${business.primaryColor}dd 100%)`,
   };
@@ -35,7 +35,7 @@ export function CatalogHeader({ business, token }: CatalogHeaderProps) {
           <div className="flex items-center justify-between">
             {/* Logo y Nombre */}
             <Link 
-              href={`/catalog/${token}`}
+              href={`/catalog/${businessSlug}`}
               className="flex items-center gap-3 group"
               prefetch={true}
             >

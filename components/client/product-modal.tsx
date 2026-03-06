@@ -1,8 +1,7 @@
 /**
  * ProductModal - Client Component
  * 
- * Modal de detalle de producto con controles de cantidad.
- * Usa CartContext (datos/operaciones) y CartUIContext (UI) separados.
+ * Modal de detalle de producto - SIEMPRE MONTADO para animaciones suaves.
  */
 
 'use client';
@@ -23,58 +22,80 @@ export function ProductModal({ accentColor }: ProductModalProps) {
   const { cart } = useCart();
   const { selectedProduct, selectProduct } = useCartUI();
   const [imageError, setImageError] = useState(false);
+  
+  // El componente SIEMPRE está montado
+  const [animationClass, setAnimationClass] = useState('translate-y-full opacity-0');
+  const [overlayOpacity, setOverlayOpacity] = useState('opacity-0');
+  const [pointerEvents, setPointerEvents] = useState('pointer-events-none');
 
   const isOpen = !!selectedProduct;
   const product = selectedProduct;
-
-  // Cantidad en carrito
-  const cartItem = product 
-    ? cart.items.find(i => i.productId === product.id)
-    : null;
+  const cartItem = product ? cart.items.find(i => i.productId === product.id) : null;
   const quantityInCart = cartItem?.quantity || 0;
+
+  // Efecto para manejar apertura/cierre
+  useEffect(() => {
+    if (isOpen) {
+      // Prevenir scroll
+      document.body.style.overflow = 'hidden';
+      // Activar pointer events
+      setPointerEvents('pointer-events-auto');
+      // Pequeño delay para asegurar que se aplique pointer-events
+      requestAnimationFrame(() => {
+        // Animar entrada
+        setAnimationClass('translate-y-0 opacity-100 sm:scale-100');
+        setOverlayOpacity('opacity-100');
+      });
+    } else {
+      // Animar salida
+      setAnimationClass('translate-y-full opacity-0 sm:translate-y-0 sm:scale-95');
+      setOverlayOpacity('opacity-0');
+      // Esperar animación para desactivar pointer events
+      const timer = setTimeout(() => {
+        setPointerEvents('pointer-events-none');
+        document.body.style.overflow = '';
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen]);
 
   // Keyboard: Escape para cerrar
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
-    if (e.key === 'Escape') {
-      selectProduct(null);
-    }
-  }, [selectProduct]);
+    if (e.key === 'Escape') handleClose();
+  }, []);
 
   useEffect(() => {
     if (isOpen) {
       document.addEventListener('keydown', handleKeyDown);
-      document.body.style.overflow = 'hidden';
     }
-    return () => {
-      document.removeEventListener('keydown', handleKeyDown);
-      document.body.style.overflow = 'unset';
-    };
+    return () => document.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, handleKeyDown]);
 
-  // Reset image error when product changes
   useEffect(() => {
-    setImageError(false);
-  }, [product?.id]);
+    if (isOpen) setImageError(false);
+  }, [product?.id, isOpen]);
 
-  if (!isOpen || !product) return null;
+  const handleClose = useCallback(() => {
+    selectProduct(null);
+  }, [selectProduct]);
 
-  const handleClose = () => selectProduct(null);
-
+  // SIEMPRE renderizamos, nunca return null
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200"
+      className={`fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm transition-opacity duration-300 ease-out ${overlayOpacity} ${pointerEvents}`}
       onClick={(e) => e.target === e.currentTarget && handleClose()}
       role="dialog"
       aria-modal="true"
-      aria-label={`Detalle de ${product.name}`}
+      aria-label={product ? `Detalle de ${product.name}` : 'Detalle de producto'}
+      aria-hidden={!isOpen}
     >
+      {/* Modal - siempre en DOM */}
       <div 
-        className="bg-white w-full max-w-lg sm:rounded-3xl rounded-t-3xl overflow-hidden shadow-2xl animate-in slide-in-from-bottom-10 duration-300"
+        className={`bg-white w-full max-w-lg overflow-hidden shadow-2xl sm:rounded-3xl rounded-t-3xl transition-all duration-300 ease-out ${animationClass}`}
       >
         {/* Imagen */}
         <div className="relative aspect-video bg-gray-100">
-          {product.imageUrl && !imageError ? (
-            // eslint-disable-next-line @next/next/no-img-element
+          {product?.imageUrl && !imageError ? (
             <img
               src={product.imageUrl}
               alt={product.name}
@@ -87,10 +108,9 @@ export function ProductModal({ accentColor }: ProductModalProps) {
             </div>
           )}
           
-          {/* Botón cerrar */}
           <button
             onClick={handleClose}
-            className="absolute top-4 right-4 w-10 h-10 rounded-full bg-black/50 text-white flex items-center justify-center hover:bg-black/70 transition-colors"
+            className="absolute top-4 right-4 w-10 h-10 rounded-full bg-black/50 text-white flex items-center justify-center hover:bg-black/70 transition-colors active:scale-95"
             aria-label="Cerrar modal"
           >
             <X className="w-5 h-5" />
@@ -99,19 +119,15 @@ export function ProductModal({ accentColor }: ProductModalProps) {
 
         {/* Contenido */}
         <div className="p-6">
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">
-            {product.name}
-          </h2>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">{product?.name}</h2>
 
-          {product.description && (
-            <p className="text-gray-600 mb-4">
-              {product.description}
-            </p>
+          {product?.description && (
+            <p className="text-gray-600 mb-4">{product.description}</p>
           )}
 
           <div className="flex items-center justify-between mb-6">
             <span className="text-3xl font-bold text-gray-900">
-              {formatPrice(product.price)}
+              {product ? formatPrice(product.price) : ''}
             </span>
 
             {quantityInCart > 0 && (
@@ -124,12 +140,13 @@ export function ProductModal({ accentColor }: ProductModalProps) {
             )}
           </div>
 
-          {/* Botones de acción */}
-          <AddToCartModalControls
-            product={product}
-            accentColor={accentColor}
-            onClose={handleClose}
-          />
+          {product && (
+            <AddToCartModalControls
+              product={product}
+              accentColor={accentColor}
+              onClose={handleClose}
+            />
+          )}
         </div>
       </div>
     </div>

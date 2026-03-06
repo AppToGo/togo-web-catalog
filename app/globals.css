@@ -71,6 +71,124 @@ body {
   outline-offset: 2px;
 }
 
+/* ═══════════════════════════════════════════════════════════
+   ANIMACIONES PERSONALIZADAS
+   ═══════════════════════════════════════════════════════════ */
+
+/* Animaciones para modales y drawers */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fadeOut {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes slideInFromRight {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideOutToRight {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes slideInFromBottom {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideOutToBottom {
+  from {
+    transform: translateY(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    transform: scale(0.95);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes scaleOut {
+  from {
+    transform: scale(1);
+    opacity: 1;
+  }
+  to {
+    transform: scale(0.95);
+    opacity: 0;
+  }
+}
+
+/* Clases de utilidad para animaciones */
+.animate-fade-in {
+  animation: fadeIn 300ms ease-out forwards;
+}
+
+.animate-fade-out {
+  animation: fadeOut 300ms ease-out forwards;
+}
+
+.animate-slide-in-right {
+  animation: slideInFromRight 300ms ease-out forwards;
+}
+
+.animate-slide-out-right {
+  animation: slideOutToRight 300ms ease-out forwards;
+}
+
+.animate-slide-in-bottom {
+  animation: slideInFromBottom 300ms ease-out forwards;
+}
+
+.animate-slide-out-bottom {
+  animation: slideOutToBottom 300ms ease-out forwards;
+}
+
+.animate-scale-in {
+  animation: scaleIn 300ms ease-out forwards;
+}
+
+.animate-scale-out {
+  animation: scaleOut 300ms ease-out forwards;
+}
+
 /* Reduced motion */
 @media (prefers-reduced-motion: reduce) {
   *,

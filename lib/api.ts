@@ -12,7 +12,7 @@
  * - Retry con backoff exponencial
  */
 
-import type { Catalog, Category, Cart, CartItem, OrderResponse } from './types';
+import type { Catalog, Category, Cart, CartItem, OrderResponse, CustomerOrigin } from './types';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/v1';
 
@@ -26,9 +26,9 @@ const DEFAULT_REVALIDATE = 3600; // 1 hora
 // UTILIDADES
 // ═══════════════════════════════════════════════════════════
 
-function buildUrl(token: string, path: string = ''): string {
+function buildPublicUrl(businessSlug: string, path: string = ''): string {
   const cleanPath = path.startsWith('/') ? path : `/${path}`;
-  return `${API_BASE_URL}/web-catalog/${token}${cleanPath}`;
+  return `${API_BASE_URL}/catalog/${businessSlug}${cleanPath}`;
 }
 
 async function handleResponse<T>(response: Response): Promise<T> {
@@ -36,62 +36,85 @@ async function handleResponse<T>(response: Response): Promise<T> {
     const error = await response.json().catch(() => ({
       message: 'Error desconocido',
     }));
+    
+    // Error específico para recurso no encontrado
+    if (response.status === 404) {
+      throw new Error(`Catálogo no encontrado: ${error.message || 'El negocio no existe'}`);
+    }
+    
     throw new Error(error.message || `Error ${response.status}`);
   }
   return response.json();
 }
 
 // ═══════════════════════════════════════════════════════════
-// SERVER-SIDE FETCH (CACHEABLE)
+// SERVER-SIDE FETCH (CACHEABLE) - CATÁLOGO PÚBLICO
 // ═══════════════════════════════════════════════════════════
 
 /**
- * Obtiene el catálogo completo con caché ISR.
+ * Obtiene el catálogo público por businessSlug.
  * 
- * CACHE STRATEGY:
- * - Tag: catalog-{token} → permite revalidación selectiva
- * - Revalidate: 1 hora → fallback si webhook falla
- * - Stale-while-revalidate → sirve caché mientras refresca
+ * Si se proporciona token, se obtienen también los datos del customer.
+ * El backend decide si requiere token o no según la configuración del negocio.
  */
-export async function getCatalog(token: string): Promise<Catalog> {
-  const response = await fetch(buildUrl(token), {
+export async function fetchCatalog(
+  businessSlug: string, 
+  options?: { token?: string; table?: string }
+): Promise<Catalog> {
+  const url = new URL(buildPublicUrl(businessSlug));
+  
+  if (options?.token) {
+    url.searchParams.set('token', options.token);
+  }
+  if (options?.table) {
+    url.searchParams.set('table', options.table);
+  }
+  
+  const response = await fetch(url.toString(), {
     next: { 
-      tags: [`catalog-${token}`, 'catalog'],
+      tags: [`catalog-${businessSlug}`, 'catalog'],
       revalidate: DEFAULT_REVALIDATE,
     },
-    headers: {
-      'Accept': 'application/json',
-    },
+    headers: { 'Accept': 'application/json' },
   });
   
   return handleResponse<Catalog>(response);
 }
 
 /**
- * Obtiene categorías (útil para páginas de categoría individuales)
+ * Legacy: Obtiene catálogo por token (para redirecciones)
+ * @deprecated Usar fetchCatalog con businessSlug
  */
-export async function getCategories(token: string): Promise<Category[]> {
-  const response = await fetch(buildUrl(token, '/categories'), {
+export async function getCatalog(token: string): Promise<Catalog> {
+  const response = await fetch(`${API_BASE_URL}/web-catalog/by-token/${token}`, {
     next: { 
-      tags: [`categories-${token}`, 'categories'],
+      tags: [`catalog-${token}`, 'catalog'],
+      revalidate: DEFAULT_REVALIDATE,
+    },
+    headers: { 'Accept': 'application/json' },
+  });
+  
+  return handleResponse<Catalog>(response);
+}
+
+export async function getCategories(businessSlug: string): Promise<Category[]> {
+  const response = await fetch(buildPublicUrl(businessSlug, '/categories'), {
+    next: { 
+      tags: [`categories-${businessSlug}`, 'categories'],
       revalidate: DEFAULT_REVALIDATE,
     },
   });
-  
   return handleResponse<Category[]>(response);
 }
 
-/**
- * Obtiene un producto específico (para páginas de producto)
- */
 export async function getProduct(
-  token: string, 
+  businessSlug: string, 
   productId: string
 ): Promise<Catalog['products'][0] | null> {
   try {
-    const response = await fetch(buildUrl(token, `/products/${productId}`), {
+    const response = await fetch(buildPublicUrl(businessSlug, `/products/${productId}`), {
       next: {
-        tags: [`product-${productId}`, `catalog-${token}`],
+        tags: [`product-${productId}`, `catalog-${businessSlug}`],
         revalidate: DEFAULT_REVALIDATE,
       },
     });
@@ -108,64 +131,77 @@ export async function getProduct(
 // ═══════════════════════════════════════════════════════════
 
 /**
- * Agrega item al carrito
+ * Agrega item al carrito (público o autenticado)
  */
 export async function addToCart(
-  token: string,
-  item: CartItem
+  businessSlug: string,
+  item: CartItem,
+  options?: { phone?: string; token?: string }
 ): Promise<Cart> {
-  const response = await fetch(buildUrl(token, '/cart'), {
+  const url = new URL(buildPublicUrl(businessSlug, '/cart'));
+  
+  const response = await fetch(url.toString(), {
     method: 'POST',
-    headers: { 
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(item),
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ 
+      ...item,
+      customerPhone: options?.phone,
+      token: options?.token,
+    }),
     cache: 'no-store',
   });
   
   return handleResponse<Cart>(response);
 }
 
-/**
- * Obtiene el carrito actual
- */
-export async function getCart(token: string): Promise<Cart> {
-  const response = await fetch(buildUrl(token, '/cart'), {
-    cache: 'no-store',
-    headers: {
-      'Accept': 'application/json',
-    },
-  });
-  
-  return handleResponse<Cart>(response);
-}
-
-/**
- * Actualiza cantidad de un item
- */
-export async function updateCartItem(
-  token: string,
-  productId: string,
-  delta: number
+export async function getCart(
+  businessSlug: string, 
+  options?: { phone?: string; token?: string }
 ): Promise<Cart> {
-  const response = await fetch(buildUrl(token, `/cart/${productId}`), {
+  const url = new URL(buildPublicUrl(businessSlug, '/cart'));
+  if (options?.phone) url.searchParams.set('phone', options.phone);
+  if (options?.token) url.searchParams.set('token', options.token);
+  
+  const response = await fetch(url.toString(), {
+    cache: 'no-store',
+    headers: { 'Accept': 'application/json' },
+  });
+  
+  return handleResponse<Cart>(response);
+}
+
+export async function updateCartItem(
+  businessSlug: string,
+  productId: string,
+  delta: number,
+  options?: { phone?: string; token?: string }
+): Promise<Cart> {
+  const url = new URL(buildPublicUrl(businessSlug, `/cart/${productId}`));
+  
+  const response = await fetch(url.toString(), {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ delta }),
+    body: JSON.stringify({ 
+      delta,
+      customerPhone: options?.phone,
+      token: options?.token,
+    }),
     cache: 'no-store',
   });
   
   return handleResponse<Cart>(response);
 }
 
-/**
- * Elimina item del carrito
- */
 export async function removeFromCart(
-  token: string, 
-  productId: string
+  businessSlug: string, 
+  productId: string,
+  options?: { phone?: string; token?: string }
 ): Promise<Cart> {
-  const response = await fetch(buildUrl(token, `/cart/${productId}`), {
+  const url = new URL(buildPublicUrl(businessSlug, `/cart/${productId}`));
+  if (options?.phone) url.searchParams.set('phone', options.phone);
+  if (options?.token) url.searchParams.set('token', options.token);
+  
+  const response = await fetch(url.toString(), {
     method: 'DELETE',
     cache: 'no-store',
   });
@@ -177,14 +213,17 @@ export async function removeFromCart(
 // ORDERS
 // ═══════════════════════════════════════════════════════════
 
-/**
- * Crea una nueva orden
- */
 export async function createOrder(
-  token: string,
-  data: { address?: string; notes?: string }
+  businessSlug: string,
+  data: { 
+    items: CartItem[];
+    phone?: string;
+    notes?: string;
+    source: CustomerOrigin;
+    token?: string;
+  }
 ): Promise<OrderResponse> {
-  const response = await fetch(buildUrl(token, '/order'), {
+  const response = await fetch(buildPublicUrl(businessSlug, '/order'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
@@ -194,15 +233,12 @@ export async function createOrder(
   return handleResponse<OrderResponse>(response);
 }
 
-/**
- * Actualiza una orden existente
- */
 export async function updateOrder(
-  token: string,
+  businessSlug: string,
   orderId: string,
-  data: { notes?: string }
+  data: { notes?: string; phone?: string; token?: string }
 ): Promise<OrderResponse> {
-  const response = await fetch(buildUrl(token, `/order/${orderId}`), {
+  const response = await fetch(buildPublicUrl(businessSlug, `/order/${orderId}`), {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
@@ -212,10 +248,10 @@ export async function updateOrder(
   return handleResponse<OrderResponse>(response);
 }
 
-/**
- * Obtiene estado de orden actual
- */
-export async function getOrderStatus(token: string): Promise<{
+export async function getOrderStatus(
+  businessSlug: string,
+  options?: { phone?: string; token?: string }
+): Promise<{
   hasOrder: boolean;
   order?: {
     id: string;
@@ -226,34 +262,13 @@ export async function getOrderStatus(token: string): Promise<{
     notes?: string;
   };
 }> {
-  const response = await fetch(buildUrl(token, '/order'), {
+  const url = new URL(buildPublicUrl(businessSlug, '/order'));
+  if (options?.phone) url.searchParams.set('phone', options.phone);
+  if (options?.token) url.searchParams.set('token', options.token);
+  
+  const response = await fetch(url.toString(), {
     cache: 'no-store',
   });
   
   return handleResponse(response);
-}
-
-// ═══════════════════════════════════════════════════════════
-// REVALIDATION (Webhook)
-// ═══════════════════════════════════════════════════════════
-
-/**
- * Revalida el caché de un catálogo específico.
- * Se usa desde el webhook /api/revalidate
- */
-export async function revalidateCatalog(token: string): Promise<boolean> {
-  try {
-    const response = await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/revalidate`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        token,
-        secret: process.env.REVALIDATE_SECRET,
-      }),
-    });
-    
-    return response.ok;
-  } catch {
-    return false;
-  }
 }

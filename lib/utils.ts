@@ -39,6 +39,14 @@ export function isValidToken(token: string): boolean {
 }
 
 /**
+ * Valida si un string es un slug de negocio válido
+ * Solo letras minúsculas, números y guiones
+ */
+export function isValidSlug(slug: string): boolean {
+  return /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug) && slug.length >= 2 && slug.length <= 50;
+}
+
+/**
  * Sanitiza un string de búsqueda
  */
 export function sanitizeSearchQuery(query: string): string {

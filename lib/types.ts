@@ -7,6 +7,8 @@
 // DOMAIN - Catálogo
 // ═══════════════════════════════════════════════════════════
 
+export type CustomerOrigin = 'whatsapp' | 'direct' | 'qr' | 'instagram' | 'facebook';
+
 export interface Category {
   id: string;
   name: string;
@@ -31,8 +33,8 @@ export interface Product {
   price: number;
   sku: string;
   imageUrl?: string;
-  categoryId: string; // Category ID del negocio
-  industryCategoryId: string; // Industry Category ID
+  categoryId: string;
+  industryCategoryId: string;
   active: boolean;
 }
 
@@ -51,9 +53,14 @@ export interface Business {
 
 export interface Catalog {
   business: Business;
-  categories: Category[]; // Industry Categories
-  subCategories: SubCategory[]; // Categorías del negocio
+  categories: Category[];
+  subCategories: SubCategory[];
   products: Product[];
+  // Datos del customer si existe
+  customerPhone?: string;
+  customerName?: string;
+  tableNumber?: string;
+  isAuthenticated?: boolean;
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -71,6 +78,18 @@ export interface CartItem {
 export interface Cart {
   items: CartItem[];
   updatedAt: string;
+}
+
+// ═══════════════════════════════════════════════════════════
+// DOMAIN - Customer (público)
+// ═══════════════════════════════════════════════════════════
+
+export interface CustomerData {
+  origin: CustomerOrigin;
+  phone?: string;
+  name?: string;
+  tableNumber?: string;
+  isIdentified: boolean;
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -94,10 +113,13 @@ export interface OrderResponse {
   itemCount: number;
   message: string;
   businessPhone?: string;
+  // Para catálogo público
+  requiresWhatsAppConfirmation?: boolean;
+  waMeUrl?: string;
 }
 
 // ═══════════════════════════════════════════════════════════
-// DOMAIN - Contexto del Carrito
+// DOMAIN - Contexto del Carrito (extendido para público)
 // ═══════════════════════════════════════════════════════════
 
 export interface CartContextState {
@@ -105,8 +127,9 @@ export interface CartContextState {
   itemCount: number;
   isLoading: boolean;
   isSyncing: boolean;
-  isCartOpen: boolean;
-  selectedProduct: Product | null;
+  isHydrated: boolean;
+  // Customer data (para catálogo público)
+  customer: CustomerData;
 }
 
 export interface CartContextActions {
@@ -115,8 +138,9 @@ export interface CartContextActions {
   removeItem: (productId: string) => void;
   clearCart: () => void;
   syncCart: () => Promise<void>;
-  setIsCartOpen: (open: boolean) => void;
-  setSelectedProduct: (product: Product | null) => void;
+  // Customer actions
+  setCustomerPhone: (phone: string) => void;
+  setCustomerName: (name: string) => void;
 }
 
 export type CartContextType = CartContextState & CartContextActions;
@@ -151,6 +175,24 @@ export interface StructuredDataBusiness {
 }
 
 // ═══════════════════════════════════════════════════════════
+// API - Request/Response
+// ═══════════════════════════════════════════════════════════
+
+export interface ApiError {
+  message: string;
+  code?: string;
+  status: number;
+}
+
+export interface PaginatedResponse<T> {
+  data: T[];
+  total: number;
+  page: number;
+  perPage: number;
+  totalPages: number;
+}
+
+// ═══════════════════════════════════════════════════════════
 // THEME
 // ═══════════════════════════════════════════════════════════
 
@@ -171,22 +213,4 @@ export interface BusinessTheme {
     cardForeground: string;
   };
   borderRadius: string;
-}
-
-// ═══════════════════════════════════════════════════════════
-// API - Request/Response
-// ═══════════════════════════════════════════════════════════
-
-export interface ApiError {
-  message: string;
-  code?: string;
-  status: number;
-}
-
-export interface PaginatedResponse<T> {
-  data: T[];
-  total: number;
-  page: number;
-  perPage: number;
-  totalPages: number;
 }

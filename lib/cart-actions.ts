@@ -2,14 +2,7 @@
  * Cart Server Actions
  * 
  * Server Actions para operaciones del carrito con rate limiting.
- * Reemplaza las rutas API /api/cart/* con Server Actions nativas.
- * 
- * VENTAJAS:
- * - Sin necesidad de endpoints HTTP
- * - Revalidación automática de cache
- * - Type safety entre cliente y servidor
- * - Rate limiting integrado
- * - Menor bundle size (no fetch)
+ * Soporta tanto catálogos públicos (por slug) como autenticados (por token).
  */
 
 'use server';
@@ -24,7 +17,7 @@ import {
   updateOrder,
   getOrderStatus 
 } from './api';
-import type { Cart, CartItem } from './types';
+import type { Cart, CartItem, CustomerOrigin } from './types';
 import { checkRateLimit, getCartRateLimitKey, RATE_LIMITS } from './rate-limit';
 
 // ═══════════════════════════════════════════════════════════
@@ -37,30 +30,41 @@ interface CartActionResult {
   error?: string;
 }
 
+interface OrderActionResult {
+  success: boolean;
+  order?: {
+    orderId: string;
+    orderNumber: string;
+    status: string;
+    total: number;
+    waMeUrl?: string;
+  };
+  error?: string;
+}
+
 // ═══════════════════════════════════════════════════════════
 // ADD ITEM
 // ═══════════════════════════════════════════════════════════
 
 export async function addToCartAction(
-  token: string,
-  item: CartItem
+  businessSlug: string,
+  item: CartItem,
+  options?: { phone?: string; token?: string }
 ): Promise<CartActionResult> {
   try {
-    // Rate limiting
-    const rateKey = await getCartRateLimitKey(token, 'add');
+    const rateKey = await getCartRateLimitKey(businessSlug, 'add');
     if (!checkRateLimit(rateKey, RATE_LIMITS.addItem)) {
       return { success: false, error: 'Demasiadas solicitudes. Intenta más tarde.' };
     }
 
-    if (!token || !item.productId) {
+    if (!businessSlug || !item.productId) {
       return { success: false, error: 'Datos inválidos' };
     }
 
-    const cart = await addToCart(token, item);
+    const cart = await addToCart(businessSlug, item, options);
     
-    // Revalidar cache del catálogo
     // @ts-ignore - Next.js 16 types requieren 2 args pero runtime funciona con 1
-    revalidateTag(`cart-${token}`);
+    revalidateTag(`catalog-${businessSlug}`, {});
     
     return { success: true, cart };
   } catch (error) {
@@ -77,25 +81,25 @@ export async function addToCartAction(
 // ═══════════════════════════════════════════════════════════
 
 export async function updateCartItemAction(
-  token: string,
+  businessSlug: string,
   productId: string,
-  delta: number
+  delta: number,
+  options?: { phone?: string; token?: string }
 ): Promise<CartActionResult> {
   try {
-    // Rate limiting
-    const rateKey = await getCartRateLimitKey(token, 'update');
+    const rateKey = await getCartRateLimitKey(businessSlug, 'update');
     if (!checkRateLimit(rateKey, RATE_LIMITS.updateItem)) {
       return { success: false, error: 'Demasiadas solicitudes. Intenta más tarde.' };
     }
 
-    if (!token || !productId) {
+    if (!businessSlug || !productId) {
       return { success: false, error: 'Datos inválidos' };
     }
 
-    const cart = await updateCartItem(token, productId, delta);
+    const cart = await updateCartItem(businessSlug, productId, delta, options);
     
     // @ts-ignore - Next.js 16 types requieren 2 args pero runtime funciona con 1
-    revalidateTag(`cart-${token}`);
+    revalidateTag(`catalog-${businessSlug}`, {});
     
     return { success: true, cart };
   } catch (error) {
@@ -112,24 +116,24 @@ export async function updateCartItemAction(
 // ═══════════════════════════════════════════════════════════
 
 export async function removeFromCartAction(
-  token: string,
-  productId: string
+  businessSlug: string,
+  productId: string,
+  options?: { phone?: string; token?: string }
 ): Promise<CartActionResult> {
   try {
-    // Rate limiting
-    const rateKey = await getCartRateLimitKey(token, 'remove');
+    const rateKey = await getCartRateLimitKey(businessSlug, 'remove');
     if (!checkRateLimit(rateKey, RATE_LIMITS.removeItem)) {
       return { success: false, error: 'Demasiadas solicitudes. Intenta más tarde.' };
     }
 
-    if (!token || !productId) {
+    if (!businessSlug || !productId) {
       return { success: false, error: 'Datos inválidos' };
     }
 
-    const cart = await removeFromCart(token, productId);
+    const cart = await removeFromCart(businessSlug, productId, options);
     
     // @ts-ignore - Next.js 16 types requieren 2 args pero runtime funciona con 1
-    revalidateTag(`cart-${token}`);
+    revalidateTag(`catalog-${businessSlug}`, {});
     
     return { success: true, cart };
   } catch (error) {
@@ -145,20 +149,22 @@ export async function removeFromCartAction(
 // CLEAR CART
 // ═══════════════════════════════════════════════════════════
 
-export async function clearCartAction(token: string): Promise<CartActionResult> {
+export async function clearCartAction(
+  businessSlug: string,
+  options?: { phone?: string; token?: string }
+): Promise<CartActionResult> {
   try {
-    // Rate limiting
-    const rateKey = await getCartRateLimitKey(token, 'clear');
+    const rateKey = await getCartRateLimitKey(businessSlug, 'clear');
     if (!checkRateLimit(rateKey, RATE_LIMITS.clearCart)) {
       return { success: false, error: 'Demasiadas solicitudes. Intenta más tarde.' };
     }
 
-    if (!token) {
-      return { success: false, error: 'Token requerido' };
+    if (!businessSlug) {
+      return { success: false, error: 'Slug requerido' };
     }
 
     // @ts-ignore - Next.js 16 types requieren 2 args pero runtime funciona con 1
-    revalidateTag(`cart-${token}`);
+    revalidateTag(`catalog-${businessSlug}`, {});
     
     return { success: true };
   } catch (error) {
@@ -174,9 +180,12 @@ export async function clearCartAction(token: string): Promise<CartActionResult> 
 // GET CART
 // ═══════════════════════════════════════════════════════════
 
-export async function getCartAction(token: string): Promise<Cart> {
+export async function getCartAction(
+  businessSlug: string,
+  options?: { phone?: string; token?: string }
+): Promise<Cart> {
   try {
-    return await getCart(token);
+    return await getCart(businessSlug, options);
   } catch (error) {
     console.error('Error en getCartAction:', error);
     return { items: [], updatedAt: new Date().toISOString() };
@@ -188,26 +197,40 @@ export async function getCartAction(token: string): Promise<Cart> {
 // ═══════════════════════════════════════════════════════════
 
 export async function createOrderAction(
-  token: string,
-  notes?: string
-) {
+  businessSlug: string,
+  data: {
+    items: CartItem[];
+    phone?: string;
+    notes?: string;
+    source: CustomerOrigin;
+    token?: string;
+  }
+): Promise<OrderActionResult> {
   try {
-    // Rate limiting
-    const rateKey = await getCartRateLimitKey(token, 'create-order');
+    const rateKey = await getCartRateLimitKey(businessSlug, 'create-order');
     if (!checkRateLimit(rateKey, RATE_LIMITS.createOrder)) {
       return { success: false, error: 'Demasiadas solicitudes. Intenta más tarde.' };
     }
 
-    if (!token) {
-      return { success: false, error: 'Token requerido' };
+    if (!businessSlug) {
+      return { success: false, error: 'Slug requerido' };
     }
 
-    const result = await createOrder(token, { notes });
+    const result = await createOrder(businessSlug, data);
     
     // @ts-ignore - Next.js 16 types requieren 2 args pero runtime funciona con 1
-    revalidateTag(`cart-${token}`);
+    revalidateTag(`catalog-${businessSlug}`, {});
     
-    return { success: true, order: result };
+    return { 
+      success: true, 
+      order: {
+        orderId: result.orderId,
+        orderNumber: result.orderNumber,
+        status: result.status,
+        total: result.total,
+        waMeUrl: result.waMeUrl,
+      }
+    };
   } catch (error) {
     console.error('Error en createOrderAction:', error);
     return { 
@@ -218,27 +241,34 @@ export async function createOrderAction(
 }
 
 export async function updateOrderAction(
-  token: string,
+  businessSlug: string,
   orderId: string,
-  notes?: string
-) {
+  data: { notes?: string; phone?: string; token?: string }
+): Promise<OrderActionResult> {
   try {
-    // Rate limiting
-    const rateKey = await getCartRateLimitKey(token, 'update-order');
+    const rateKey = await getCartRateLimitKey(businessSlug, 'update-order');
     if (!checkRateLimit(rateKey, RATE_LIMITS.updateOrder)) {
       return { success: false, error: 'Demasiadas solicitudes. Intenta más tarde.' };
     }
 
-    if (!token || !orderId) {
+    if (!businessSlug || !orderId) {
       return { success: false, error: 'Datos incompletos' };
     }
 
-    const result = await updateOrder(token, orderId, { notes });
+    const result = await updateOrder(businessSlug, orderId, data);
     
     // @ts-ignore - Next.js 16 types requieren 2 args pero runtime funciona con 1
-    revalidateTag(`cart-${token}`);
+    revalidateTag(`catalog-${businessSlug}`, {});
     
-    return { success: true, order: result };
+    return { 
+      success: true, 
+      order: {
+        orderId: result.orderId,
+        orderNumber: result.orderNumber,
+        status: result.status,
+        total: result.total,
+      }
+    };
   } catch (error) {
     console.error('Error en updateOrderAction:', error);
     return { 
@@ -248,15 +278,17 @@ export async function updateOrderAction(
   }
 }
 
-export async function checkOrderAction(token: string) {
+export async function checkOrderAction(
+  businessSlug: string,
+  options?: { phone?: string; token?: string }
+) {
   try {
-    // Rate limiting
-    const rateKey = await getCartRateLimitKey(token, 'check-order');
+    const rateKey = await getCartRateLimitKey(businessSlug, 'check-order');
     if (!checkRateLimit(rateKey, RATE_LIMITS.checkOrder)) {
       return { hasOrder: false };
     }
 
-    return await getOrderStatus(token);
+    return await getOrderStatus(businessSlug, options);
   } catch (error) {
     console.error('Error en checkOrderAction:', error);
     return { hasOrder: false };

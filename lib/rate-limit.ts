@@ -44,9 +44,9 @@ export async function getClientIP(): Promise<string> {
 /**
  * Genera una clave de rate limit para acciones de carrito
  */
-export async function getCartRateLimitKey(token: string, action: string): Promise<string> {
+export async function getCartRateLimitKey(businessSlug: string, action: string): Promise<string> {
   const ip = await getClientIP();
-  return `cart:${action}:${ip}:${token}`;
+  return `cart:${action}:${ip}:${businessSlug}`;
 }
 
 /**
