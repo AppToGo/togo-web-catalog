@@ -132,11 +132,14 @@ export async function getProduct(
 
 /**
  * Agrega item al carrito (público o autenticado)
+ * 
+ * Body esperado por backend:
+ * { sessionId: string, productId: string, quantity: number }
  */
 export async function addToCart(
   businessSlug: string,
   item: CartItem,
-  options?: { phone?: string; token?: string }
+  options?: { sessionId: string }
 ): Promise<Cart> {
   const url = new URL(buildPublicUrl(businessSlug, '/cart'));
   
@@ -144,9 +147,9 @@ export async function addToCart(
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ 
-      ...item,
-      customerPhone: options?.phone,
-      token: options?.token,
+      sessionId: options?.sessionId,
+      productId: item.productId,
+      quantity: item.quantity,
     }),
     cache: 'no-store',
   });
@@ -156,11 +159,10 @@ export async function addToCart(
 
 export async function getCart(
   businessSlug: string, 
-  options?: { phone?: string; token?: string }
+  options?: { sessionId: string }
 ): Promise<Cart> {
   const url = new URL(buildPublicUrl(businessSlug, '/cart'));
-  if (options?.phone) url.searchParams.set('phone', options.phone);
-  if (options?.token) url.searchParams.set('token', options.token);
+  if (options?.sessionId) url.searchParams.set('sessionId', options.sessionId);
   
   const response = await fetch(url.toString(), {
     cache: 'no-store',
@@ -170,21 +172,27 @@ export async function getCart(
   return handleResponse<Cart>(response);
 }
 
+/**
+ * Actualiza cantidad de un item
+ * 
+ * Body esperado por backend:
+ * { sessionId: string, productId: string, quantity: number }
+ */
 export async function updateCartItem(
   businessSlug: string,
   productId: string,
-  delta: number,
-  options?: { phone?: string; token?: string }
+  quantity: number,
+  options?: { sessionId: string }
 ): Promise<Cart> {
-  const url = new URL(buildPublicUrl(businessSlug, `/cart/${productId}`));
+  const url = new URL(buildPublicUrl(businessSlug, '/cart/update'));
   
   const response = await fetch(url.toString(), {
-    method: 'PATCH',
+    method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ 
-      delta,
-      customerPhone: options?.phone,
-      token: options?.token,
+      sessionId: options?.sessionId,
+      productId,
+      quantity,
     }),
     cache: 'no-store',
   });
@@ -192,17 +200,26 @@ export async function updateCartItem(
   return handleResponse<Cart>(response);
 }
 
+/**
+ * Elimina item del carrito
+ * 
+ * Body esperado por backend:
+ * { sessionId: string, productId: string }
+ */
 export async function removeFromCart(
   businessSlug: string, 
   productId: string,
-  options?: { phone?: string; token?: string }
+  options?: { sessionId: string }
 ): Promise<Cart> {
-  const url = new URL(buildPublicUrl(businessSlug, `/cart/${productId}`));
-  if (options?.phone) url.searchParams.set('phone', options.phone);
-  if (options?.token) url.searchParams.set('token', options.token);
+  const url = new URL(buildPublicUrl(businessSlug, '/cart/remove'));
   
   const response = await fetch(url.toString(), {
-    method: 'DELETE',
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      sessionId: options?.sessionId,
+      productId,
+    }),
     cache: 'no-store',
   });
   
@@ -213,14 +230,19 @@ export async function removeFromCart(
 // ORDERS
 // ═══════════════════════════════════════════════════════════
 
+/**
+ * Crea una orden
+ * 
+ * Body esperado por backend:
+ * { sessionId: string, items: CartItem[], notes?: string, source: CustomerOrigin }
+ */
 export async function createOrder(
   businessSlug: string,
   data: { 
     items: CartItem[];
-    phone?: string;
     notes?: string;
     source: CustomerOrigin;
-    token?: string;
+    sessionId: string;
   }
 ): Promise<OrderResponse> {
   const response = await fetch(buildPublicUrl(businessSlug, '/order'), {
@@ -236,7 +258,7 @@ export async function createOrder(
 export async function updateOrder(
   businessSlug: string,
   orderId: string,
-  data: { notes?: string; phone?: string; token?: string }
+  data: { notes?: string; sessionId: string }
 ): Promise<OrderResponse> {
   const response = await fetch(buildPublicUrl(businessSlug, `/order/${orderId}`), {
     method: 'PATCH',
@@ -250,7 +272,7 @@ export async function updateOrder(
 
 export async function getOrderStatus(
   businessSlug: string,
-  options?: { phone?: string; token?: string }
+  options?: { sessionId: string }
 ): Promise<{
   hasOrder: boolean;
   order?: {
@@ -263,8 +285,7 @@ export async function getOrderStatus(
   };
 }> {
   const url = new URL(buildPublicUrl(businessSlug, '/order'));
-  if (options?.phone) url.searchParams.set('phone', options.phone);
-  if (options?.token) url.searchParams.set('token', options.token);
+  if (options?.sessionId) url.searchParams.set('sessionId', options.sessionId);
   
   const response = await fetch(url.toString(), {
     cache: 'no-store',

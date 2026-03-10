@@ -2,7 +2,7 @@
  * Cart Server Actions
  * 
  * Server Actions para operaciones del carrito con rate limiting.
- * Soporta tanto catálogos públicos (por slug) como autenticados (por token).
+ * Usa sessionId para identificar el carrito del usuario.
  */
 
 'use server';
@@ -49,7 +49,7 @@ interface OrderActionResult {
 export async function addToCartAction(
   businessSlug: string,
   item: CartItem,
-  options?: { phone?: string; token?: string }
+  options: { sessionId: string }
 ): Promise<CartActionResult> {
   try {
     const rateKey = await getCartRateLimitKey(businessSlug, 'add');
@@ -83,8 +83,8 @@ export async function addToCartAction(
 export async function updateCartItemAction(
   businessSlug: string,
   productId: string,
-  delta: number,
-  options?: { phone?: string; token?: string }
+  quantity: number,
+  options: { sessionId: string }
 ): Promise<CartActionResult> {
   try {
     const rateKey = await getCartRateLimitKey(businessSlug, 'update');
@@ -96,7 +96,7 @@ export async function updateCartItemAction(
       return { success: false, error: 'Datos inválidos' };
     }
 
-    const cart = await updateCartItem(businessSlug, productId, delta, options);
+    const cart = await updateCartItem(businessSlug, productId, quantity, options);
     
     // @ts-ignore - Next.js 16 types requieren 2 args pero runtime funciona con 1
     revalidateTag(`catalog-${businessSlug}`, {});
@@ -118,7 +118,7 @@ export async function updateCartItemAction(
 export async function removeFromCartAction(
   businessSlug: string,
   productId: string,
-  options?: { phone?: string; token?: string }
+  options: { sessionId: string }
 ): Promise<CartActionResult> {
   try {
     const rateKey = await getCartRateLimitKey(businessSlug, 'remove');
@@ -151,7 +151,7 @@ export async function removeFromCartAction(
 
 export async function clearCartAction(
   businessSlug: string,
-  options?: { phone?: string; token?: string }
+  options: { sessionId: string }
 ): Promise<CartActionResult> {
   try {
     const rateKey = await getCartRateLimitKey(businessSlug, 'clear');
@@ -182,7 +182,7 @@ export async function clearCartAction(
 
 export async function getCartAction(
   businessSlug: string,
-  options?: { phone?: string; token?: string }
+  options: { sessionId: string }
 ): Promise<Cart> {
   try {
     return await getCart(businessSlug, options);
@@ -200,10 +200,9 @@ export async function createOrderAction(
   businessSlug: string,
   data: {
     items: CartItem[];
-    phone?: string;
     notes?: string;
     source: CustomerOrigin;
-    token?: string;
+    sessionId: string;
   }
 ): Promise<OrderActionResult> {
   try {
@@ -243,7 +242,7 @@ export async function createOrderAction(
 export async function updateOrderAction(
   businessSlug: string,
   orderId: string,
-  data: { notes?: string; phone?: string; token?: string }
+  data: { notes?: string; sessionId: string }
 ): Promise<OrderActionResult> {
   try {
     const rateKey = await getCartRateLimitKey(businessSlug, 'update-order');
@@ -280,7 +279,7 @@ export async function updateOrderAction(
 
 export async function checkOrderAction(
   businessSlug: string,
-  options?: { phone?: string; token?: string }
+  options: { sessionId: string }
 ) {
   try {
     const rateKey = await getCartRateLimitKey(businessSlug, 'check-order');

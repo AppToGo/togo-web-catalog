@@ -1,8 +1,8 @@
 /**
  * CartContext - Client Component
  * 
- * Gestiona estado del carrito + datos del customer (para catálogo público).
- * Consolidado en un solo contexto para evitar complejidad.
+ * Gestiona estado del carrito usando sessionId para el backend.
+ * El sessionId se genera una vez y se almacena en localStorage.
  */
 
 'use client';
@@ -31,6 +31,7 @@ interface CartContextType {
   // Customer state
   customer: CustomerData;
   isIdentified: boolean;
+  sessionId: string;
   // Actions
   addItem: (item: CartItem) => void;
   updateItem: (productId: string, delta: number) => void;
@@ -54,6 +55,11 @@ const defaultCustomer: CustomerData = {
   origin: 'direct',
   isIdentified: false,
 };
+
+// Genera un sessionId único
+function generateSessionId(): string {
+  return `${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
+}
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
@@ -85,6 +91,7 @@ export function CartProvider({
   const [isLoading, setIsLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
   const [isHydrated, setIsHydrated] = useState(false);
+  const [sessionId, setSessionId] = useState<string>('');
   
   // Customer state
   const [customer, setCustomer] = useState<CustomerData>({
@@ -102,6 +109,15 @@ export function CartProvider({
   // HIDRATACIÓN: Cargar desde localStorage
   // ═══════════════════════════════════════════════════════
   useEffect(() => {
+    // Generar o recuperar sessionId
+    const storageKey = `session-${businessSlug}`;
+    let savedSessionId = localStorage.getItem(storageKey);
+    if (!savedSessionId) {
+      savedSessionId = generateSessionId();
+      localStorage.setItem(storageKey, savedSessionId);
+    }
+    setSessionId(savedSessionId);
+
     // Cargar carrito
     const savedCart = localStorage.getItem(`cart-${businessSlug}`);
     if (savedCart) {
@@ -129,8 +145,14 @@ export function CartProvider({
     
     setIsHydrated(true);
     setIsLoading(false);
-    syncCart();
   }, [businessSlug, isAuthenticated]);
+
+  // Sincronizar carrito con backend cuando tengamos sessionId
+  useEffect(() => {
+    if (isHydrated && sessionId) {
+      syncCart();
+    }
+  }, [isHydrated, sessionId]);
 
   // Persistir carrito
   useEffect(() => {
@@ -153,12 +175,11 @@ export function CartProvider({
   // SINCRONIZACIÓN
   // ═══════════════════════════════════════════════════════
   const syncCart = useCallback(async () => {
+    if (!sessionId) return;
+    
     setIsSyncing(true);
     try {
-      const serverCart = await getCartAction(businessSlug, {
-        phone: customer.phone,
-        token: isAuthenticated ? undefined : undefined, // TODO: manejar token si existe
-      });
+      const serverCart = await getCartAction(businessSlug, { sessionId });
       
       setCart(prev => {
         const sortByProductId = (items: CartItem[]) => 
@@ -173,12 +194,14 @@ export function CartProvider({
     } finally {
       if (pendingOps.current === 0) setIsSyncing(false);
     }
-  }, [businessSlug, customer.phone, isAuthenticated]);
+  }, [businessSlug, sessionId]);
 
   // ═══════════════════════════════════════════════════════
   // AGREGAR ITEM
   // ═══════════════════════════════════════════════════════
   const addItem = useCallback(async (item: CartItem) => {
+    if (!sessionId) return;
+    
     const previousCart = cart;
     pendingOps.current += 1;
     setIsSyncing(true);
@@ -198,9 +221,7 @@ export function CartProvider({
     });
 
     try {
-      const result = await addToCartAction(businessSlug, item, {
-        phone: customer.phone,
-      });
+      const result = await addToCartAction(businessSlug, item, { sessionId });
       if (!result.success) throw new Error(result.error);
     } catch (error) {
       setCart(previousCart);
@@ -209,12 +230,14 @@ export function CartProvider({
       pendingOps.current -= 1;
       if (pendingOps.current === 0) setIsSyncing(false);
     }
-  }, [businessSlug, cart, customer.phone]);
+  }, [businessSlug, cart, sessionId]);
 
   // ═══════════════════════════════════════════════════════
   // ACTUALIZAR CANTIDAD
   // ═══════════════════════════════════════════════════════
   const updateItem = useCallback(async (productId: string, delta: number) => {
+    if (!sessionId) return;
+    
     const currentItem = cart.items.find(i => i.productId === productId);
     if (!currentItem) return;
 
@@ -222,11 +245,12 @@ export function CartProvider({
     pendingOps.current += 1;
     setIsSyncing(true);
 
+    const newQuantity = currentItem.quantity + delta;
+
     setCart(prev => ({
       items: prev.items
         .map(item => {
           if (item.productId === productId) {
-            const newQuantity = item.quantity + delta;
             return newQuantity > 0 ? { ...item, quantity: newQuantity } : null;
           }
           return item;
@@ -236,10 +260,15 @@ export function CartProvider({
     }));
 
     try {
-      const result = await updateCartItemAction(businessSlug, productId, delta, {
-        phone: customer.phone,
-      });
-      if (!result.success) throw new Error(result.error);
+      if (newQuantity <= 0) {
+        // Eliminar si la cantidad es 0 o menos
+        const result = await removeFromCartAction(businessSlug, productId, { sessionId });
+        if (!result.success) throw new Error(result.error);
+      } else {
+        // Actualizar cantidad
+        const result = await updateCartItemAction(businessSlug, productId, newQuantity, { sessionId });
+        if (!result.success) throw new Error(result.error);
+      }
     } catch (error) {
       setCart(previousCart);
       console.error('Error updating item:', error);
@@ -247,12 +276,14 @@ export function CartProvider({
       pendingOps.current -= 1;
       if (pendingOps.current === 0) setIsSyncing(false);
     }
-  }, [businessSlug, cart, customer.phone]);
+  }, [businessSlug, cart, sessionId]);
 
   // ═══════════════════════════════════════════════════════
   // ELIMINAR ITEM
   // ═══════════════════════════════════════════════════════
   const removeItem = useCallback(async (productId: string) => {
+    if (!sessionId) return;
+    
     const previousCart = cart;
     pendingOps.current += 1;
     setIsSyncing(true);
@@ -263,9 +294,7 @@ export function CartProvider({
     }));
 
     try {
-      const result = await removeFromCartAction(businessSlug, productId, {
-        phone: customer.phone,
-      });
+      const result = await removeFromCartAction(businessSlug, productId, { sessionId });
       if (!result.success) throw new Error(result.error);
     } catch (error) {
       setCart(previousCart);
@@ -274,12 +303,14 @@ export function CartProvider({
       pendingOps.current -= 1;
       if (pendingOps.current === 0) setIsSyncing(false);
     }
-  }, [businessSlug, cart, customer.phone]);
+  }, [businessSlug, cart, sessionId]);
 
   // ═══════════════════════════════════════════════════════
   // LIMPIAR CARRITO
   // ═══════════════════════════════════════════════════════
   const clearCart = useCallback(async () => {
+    if (!sessionId) return;
+    
     const previousCart = cart;
     pendingOps.current += 1;
     setIsSyncing(true);
@@ -287,9 +318,7 @@ export function CartProvider({
     setCart(emptyCart);
 
     try {
-      const result = await clearCartAction(businessSlug, {
-        phone: customer.phone,
-      });
+      const result = await clearCartAction(businessSlug, { sessionId });
       if (!result.success) throw new Error(result.error);
     } catch (error) {
       setCart(previousCart);
@@ -298,7 +327,7 @@ export function CartProvider({
       pendingOps.current -= 1;
       if (pendingOps.current === 0) setIsSyncing(false);
     }
-  }, [businessSlug, cart, customer.phone]);
+  }, [businessSlug, cart, sessionId]);
 
   // ═══════════════════════════════════════════════════════
   // CUSTOMER ACTIONS
@@ -327,6 +356,7 @@ export function CartProvider({
       isHydrated,
       customer,
       isIdentified,
+      sessionId,
       addItem,
       updateItem,
       removeItem,

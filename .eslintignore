@@ -1,0 +1,5 @@
+../api-togo/
+../togo-web-admin/
+.next/
+node_modules/
+out/

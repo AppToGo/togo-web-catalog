@@ -36,7 +36,7 @@ interface OrderStatus {
 }
 
 export function CartDrawer({ business }: CartDrawerProps) {
-  const { cart, updateItem, itemCount, isSyncing, syncCart, customer, isIdentified } = useCart();
+  const { cart, updateItem, itemCount, isSyncing, syncCart, customer, isIdentified, sessionId } = useCart();
   const { isCartOpen, closeCart } = useCartUI();
   
   const [notes, setNotes] = useState('');
@@ -74,10 +74,9 @@ export function CartDrawer({ business }: CartDrawerProps) {
   }, [isCartOpen]);
 
   const checkExistingOrder = async () => {
+    if (!sessionId) return;
     try {
-      const data = await checkOrderAction(business.slug, {
-        phone: customer.phone,
-      });
+      const data = await checkOrderAction(business.slug, { sessionId });
       setOrderStatus(data);
       if (data.order?.notes) setNotes(data.order.notes);
     } catch (error) {
@@ -121,7 +120,7 @@ export function CartDrawer({ business }: CartDrawerProps) {
         const result = await updateOrderAction(
           business.slug,
           orderStatus.order.id,
-          { notes: notes.trim(), phone: customer.phone }
+          { notes: notes.trim(), sessionId }
         );
 
         if (!result.success) throw new Error(result.error || 'Error al actualizar');
@@ -138,9 +137,9 @@ export function CartDrawer({ business }: CartDrawerProps) {
       // Crear nueva orden
       const result = await createOrderAction(business.slug, {
         items: cart.items,
-        phone: customer.phone,
         notes: notes.trim(),
         source: customer.origin,
+        sessionId,
       });
 
       if (!result.success) throw new Error(result.error || 'Error al crear orden');
