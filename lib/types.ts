@@ -111,7 +111,7 @@ export interface PaginatedResponse<T> {
 
 /**
  * Helper to convert CatalogProduct to legacy Product format
- * Use during migration period
+ * @deprecated Use CatalogProduct type directly. This helper will be removed in Phase 3 (Q1 2027).
  */
 export function toLegacyProduct(product: CatalogProduct): Product {
   return {
@@ -129,7 +129,7 @@ export function toLegacyProduct(product: CatalogProduct): Product {
 
 /**
  * Helper to convert legacy Product to CatalogProduct format
- * Use during migration period
+ * @deprecated Use CatalogProduct type directly. This helper will be removed in Phase 3 (Q1 2027).
  */
 export function toCatalogProduct(product: Product): CatalogProduct {
   return {
