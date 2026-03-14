@@ -1,31 +1,55 @@
 /**
  * Tipos del Web Catalog
  * Ultra ligero - solo interfaces esenciales
+ * 
+ * MIGRATION NOTE:
+ * This file now re-exports from the new normalized catalog types.
+ * Legacy types are kept for backward compatibility during migration.
  */
 
+// Re-export all new catalog types with aliases for backward compatibility
+export type {
+  CatalogProduct,
+  Category,
+  SubCategory,
+  BusinessInfo,
+  BusinessInfo as Business, // Alias for backward compatibility
+  CatalogResponse,
+  CatalogResponse as Catalog, // Alias for backward compatibility
+  CartItem,
+  Cart,
+  OrderResponse,
+  CustomerOrigin,
+  CustomerData,
+  OrderStatusType,
+  OpeningHours,
+  StructuredDataProduct,
+  StructuredDataBusiness,
+  BusinessTheme,
+  CatalogFilters,
+  PaginationParams,
+  PaginatedProducts,
+  CatalogApiError,
+  CatalogErrorCode,
+} from '@/src/types/catalog.types';
+
+// Import for extending
+import type { 
+  Cart, 
+  CartItem, 
+  CustomerOrigin, 
+  CustomerData,
+  CatalogProduct,
+} from '@/src/types/catalog.types';
+
 // ═══════════════════════════════════════════════════════════
-// DOMAIN - Catálogo
+// DOMAIN - LEGACY (Backward Compatibility)
 // ═══════════════════════════════════════════════════════════
 
-export type CustomerOrigin = 'whatsapp' | 'direct' | 'qr' | 'instagram' | 'facebook';
-
-export interface Category {
-  id: string;
-  name: string;
-  description?: string;
-  sortOrder: number;
-  icon?: string;
-  color?: string;
-}
-
-export interface SubCategory {
-  id: string;
-  name: string;
-  description?: string;
-  sortOrder: number;
-  industryCategoryId: string;
-}
-
+/**
+ * @deprecated Use CatalogProduct from @/src/types/catalog.types
+ * Kept for backward compatibility during migration
+ */
 export interface Product {
   id: string;
   name: string;
@@ -38,88 +62,8 @@ export interface Product {
   active: boolean;
 }
 
-export interface Business {
-  id: string;
-  name: string;
-  slug: string;
-  phone: string;
-  logo: string | null;
-  banner: string | null;
-  primaryColor: string;
-  accentColor: string;
-  description: string;
-  industry: string;
-}
-
-export interface Catalog {
-  business: Business;
-  categories: Category[];
-  subCategories: SubCategory[];
-  products: Product[];
-  // Datos del customer si existe
-  customerPhone?: string;
-  customerName?: string;
-  tableNumber?: string;
-  isAuthenticated?: boolean;
-}
-
 // ═══════════════════════════════════════════════════════════
-// DOMAIN - Carrito
-// ═══════════════════════════════════════════════════════════
-
-export interface CartItem {
-  productId: string;
-  name: string;
-  quantity: number;
-  price: number;
-  notes?: string;
-}
-
-export interface Cart {
-  items: CartItem[];
-  updatedAt: string;
-}
-
-// ═══════════════════════════════════════════════════════════
-// DOMAIN - Customer (público)
-// ═══════════════════════════════════════════════════════════
-
-export interface CustomerData {
-  origin: CustomerOrigin;
-  phone?: string;
-  name?: string;
-  tableNumber?: string;
-  isIdentified: boolean;
-}
-
-// ═══════════════════════════════════════════════════════════
-// DOMAIN - Orden
-// ═══════════════════════════════════════════════════════════
-
-export type OrderStatusType = 
-  | 'DRAFT'
-  | 'CONFIRMED'
-  | 'PAID'
-  | 'PREPARING'
-  | 'SHIPPED'
-  | 'DELIVERED'
-  | 'CANCELLED';
-
-export interface OrderResponse {
-  orderId: string;
-  orderNumber: string;
-  status: OrderStatusType;
-  total: number;
-  itemCount: number;
-  message: string;
-  businessPhone?: string;
-  // Para catálogo público
-  requiresWhatsAppConfirmation?: boolean;
-  waMeUrl?: string;
-}
-
-// ═══════════════════════════════════════════════════════════
-// DOMAIN - Contexto del Carrito (extendido para público)
+// DOMAIN - Carrito (Extended)
 // ═══════════════════════════════════════════════════════════
 
 export interface CartContextState {
@@ -128,7 +72,6 @@ export interface CartContextState {
   isLoading: boolean;
   isSyncing: boolean;
   isHydrated: boolean;
-  // Customer data (para catálogo público)
   customer: CustomerData;
 }
 
@@ -138,7 +81,6 @@ export interface CartContextActions {
   removeItem: (productId: string) => void;
   clearCart: () => void;
   syncCart: () => Promise<void>;
-  // Customer actions
   setCustomerPhone: (phone: string) => void;
   setCustomerName: (name: string) => void;
 }
@@ -146,36 +88,7 @@ export interface CartContextActions {
 export type CartContextType = CartContextState & CartContextActions;
 
 // ═══════════════════════════════════════════════════════════
-// SEO - Structured Data
-// ═══════════════════════════════════════════════════════════
-
-export interface StructuredDataProduct {
-  '@context': 'https://schema.org';
-  '@type': 'Product';
-  name: string;
-  description?: string;
-  sku: string;
-  image?: string;
-  offers: {
-    '@type': 'Offer';
-    price: number;
-    priceCurrency: 'COP';
-    availability: string;
-  };
-}
-
-export interface StructuredDataBusiness {
-  '@context': 'https://schema.org';
-  '@type': 'Store' | 'Restaurant' | 'LocalBusiness';
-  name: string;
-  description?: string;
-  url: string;
-  telephone?: string;
-  image?: string;
-}
-
-// ═══════════════════════════════════════════════════════════
-// API - Request/Response
+// API - Request/Response (Extended)
 // ═══════════════════════════════════════════════════════════
 
 export interface ApiError {
@@ -193,24 +106,45 @@ export interface PaginatedResponse<T> {
 }
 
 // ═══════════════════════════════════════════════════════════
-// THEME
+// UTILITY TYPES
 // ═══════════════════════════════════════════════════════════
 
-export interface BusinessTheme {
-  id: string;
-  name: string;
-  colors: {
-    primary: string;
-    primaryForeground: string;
-    secondary: string;
-    secondaryForeground: string;
-    background: string;
-    foreground: string;
-    muted: string;
-    mutedForeground: string;
-    border: string;
-    card: string;
-    cardForeground: string;
+/**
+ * Helper to convert CatalogProduct to legacy Product format
+ * Use during migration period
+ */
+export function toLegacyProduct(product: CatalogProduct): Product {
+  return {
+    id: product.id,
+    name: product.name,
+    description: product.description,
+    price: product.price,
+    sku: product.sku,
+    imageUrl: product.image,
+    categoryId: product.categoryId || '',
+    industryCategoryId: product.industryCategoryId || '',
+    active: product.active,
   };
-  borderRadius: string;
+}
+
+/**
+ * Helper to convert legacy Product to CatalogProduct format
+ * Use during migration period
+ */
+export function toCatalogProduct(product: Product): CatalogProduct {
+  return {
+    id: product.id,
+    name: product.name,
+    description: product.description,
+    price: product.price,
+    sku: product.sku,
+    image: product.imageUrl,
+    categoryId: product.categoryId,
+    industryCategoryId: product.industryCategoryId,
+    isAvailable: product.active,
+    active: product.active,
+    stock: undefined,
+    brand: undefined,
+    isFromTemplate: false,
+  };
 }

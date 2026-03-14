@@ -3,12 +3,16 @@
  * 
  * Gestiona estado del carrito usando sessionId para el backend.
  * El sessionId se genera una vez y se almacena en localStorage.
+ * 
+ * Updated for normalized catalog:
+ * - Uses BusinessProduct IDs (productId field)
+ * - Handles stock validation
  */
 
 'use client';
 
 import { createContext, useContext, useState, useCallback, useEffect, useRef, ReactNode } from 'react';
-import type { Cart, CartItem, CustomerOrigin, CustomerData } from '@/lib/types';
+import type { Cart, CartItem, CustomerOrigin, CustomerData, CatalogProduct } from '@/src/types/catalog.types';
 import {
   addToCartAction,
   updateCartItemAction,
@@ -40,6 +44,8 @@ interface CartContextType {
   syncCart: () => Promise<void>;
   setCustomerPhone: (phone: string) => void;
   setCustomerName: (name: string) => void;
+  // Stock validation
+  getStockForProduct: (productId: string, availableStock?: number) => number;
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -195,6 +201,17 @@ export function CartProvider({
       if (pendingOps.current === 0) setIsSyncing(false);
     }
   }, [businessSlug, sessionId]);
+
+  // ═══════════════════════════════════════════════════════
+  // STOCK VALIDATION HELPER
+  // ═══════════════════════════════════════════════════════
+  const getStockForProduct = useCallback((productId: string, availableStock?: number): number => {
+    const cartItem = cart.items.find(i => i.productId === productId);
+    const inCart = cartItem?.quantity || 0;
+    
+    if (availableStock === undefined) return Infinity;
+    return Math.max(0, availableStock - inCart);
+  }, [cart.items]);
 
   // ═══════════════════════════════════════════════════════
   // AGREGAR ITEM
@@ -364,6 +381,7 @@ export function CartProvider({
       syncCart,
       setCustomerPhone,
       setCustomerName,
+      getStockForProduct,
     }}>
       {children}
     </CartContext.Provider>

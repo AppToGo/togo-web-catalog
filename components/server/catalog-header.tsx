@@ -6,16 +6,18 @@
  * - CSS variables para colores dinámicos
  * - Link prefetch para navegación instantánea
  * - Server-side rendering (zero JS)
+ * 
+ * Updated for normalized catalog (BusinessProduct + GlobalProduct)
  */
 
 import Image from 'next/image';
 import Link from 'next/link';
-import type { Business } from '@/lib/types';
+import type { BusinessInfo } from '@/src/types/catalog.types';
 import { Store } from 'lucide-react';
 import { CartButton } from '@/components/client/cart-button';
 
 interface CatalogHeaderProps {
-  business: Business;
+  business: BusinessInfo;
   businessSlug: string;
 }
 

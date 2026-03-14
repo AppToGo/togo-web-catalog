@@ -2,6 +2,8 @@
  * ProductModal - Client Component
  * 
  * Modal de detalle de producto - SIEMPRE MONTADO para animaciones suaves.
+ * 
+ * Updated for normalized catalog (BusinessProduct + GlobalProduct)
  */
 
 'use client';
@@ -11,7 +13,7 @@ import { X } from 'lucide-react';
 import { useCart } from './cart-context';
 import { useCartUI } from './cart-ui-context';
 import { formatPrice } from '@/lib/utils';
-import { AddToCartModalControls } from './add-to-cart-button';
+import { AddToCartModalControls, StockIndicator } from './add-to-cart-button';
 
 interface ProductModalProps {
   token: string;
@@ -19,7 +21,7 @@ interface ProductModalProps {
 }
 
 export function ProductModal({ accentColor }: ProductModalProps) {
-  const { cart } = useCart();
+  const { cart, getStockForProduct } = useCart();
   const { selectedProduct, selectProduct } = useCartUI();
   const [imageError, setImageError] = useState(false);
   
@@ -32,6 +34,7 @@ export function ProductModal({ accentColor }: ProductModalProps) {
   const product = selectedProduct;
   const cartItem = product ? cart.items.find(i => i.productId === product.id) : null;
   const quantityInCart = cartItem?.quantity || 0;
+  const remainingStock = product ? getStockForProduct(product.id, product.stock) : Infinity;
 
   // Efecto para manejar apertura/cierre
   useEffect(() => {
@@ -95,9 +98,9 @@ export function ProductModal({ accentColor }: ProductModalProps) {
       >
         {/* Imagen */}
         <div className="relative aspect-video bg-gray-100">
-          {product?.imageUrl && !imageError ? (
+          {product?.image && !imageError ? (
             <img
-              src={product.imageUrl}
+              src={product.image}
               alt={product.name}
               className="w-full h-full object-cover"
               onError={() => setImageError(true)}
@@ -105,6 +108,20 @@ export function ProductModal({ accentColor }: ProductModalProps) {
           ) : (
             <div className="w-full h-full flex items-center justify-center">
               <span className="text-6xl" role="img" aria-label="Producto">🍽️</span>
+            </div>
+          )}
+          
+          {/* Badge: Template */}
+          {product?.isFromTemplate && (
+            <div className="absolute top-4 left-4 px-3 py-1 bg-blue-500 text-white text-sm font-medium rounded-full">
+              Plantilla
+            </div>
+          )}
+          
+          {/* Badge: Brand */}
+          {product?.brand && !product.isFromTemplate && (
+            <div className="absolute top-4 left-4 px-3 py-1 bg-black/50 text-white text-sm font-medium rounded-full">
+              {product.brand}
             </div>
           )}
           
@@ -119,13 +136,20 @@ export function ProductModal({ accentColor }: ProductModalProps) {
 
         {/* Contenido */}
         <div className="p-6">
+          {/* Brand */}
+          {product?.brand && (
+            <span className="text-sm text-gray-500 uppercase tracking-wide">
+              {product.brand}
+            </span>
+          )}
+          
           <h2 className="text-2xl font-bold text-gray-900 mb-2">{product?.name}</h2>
 
           {product?.description && (
             <p className="text-gray-600 mb-4">{product.description}</p>
           )}
 
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center justify-between mb-4">
             <span className="text-3xl font-bold text-gray-900">
               {product ? formatPrice(product.price) : ''}
             </span>
@@ -138,6 +162,14 @@ export function ProductModal({ accentColor }: ProductModalProps) {
                 {quantityInCart} en carrito
               </span>
             )}
+          </div>
+          
+          {/* Stock indicator */}
+          <div className="mb-6">
+            <StockIndicator 
+              stock={product?.stock} 
+              quantityInCart={quantityInCart}
+            />
           </div>
 
           {product && (
