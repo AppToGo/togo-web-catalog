@@ -3,12 +3,14 @@
  * 
  * Nueva ruta: /catalog/[businessSlug]
  * Soporta catálogo público y autenticado (con token en query param)
+ * 
+ * Uses normalized catalog (BusinessProduct + GlobalProduct)
  */
 
 import { Suspense } from 'react';
-import { notFound, redirect } from 'next/navigation';
+import { notFound } from 'next/navigation';
 import { Metadata } from 'next';
-import { fetchCatalog, getCatalog } from '@/lib/api';
+import { fetchCatalog } from '@/lib/api';
 import { generateCatalogMetadata, generateStructuredData } from '@/lib/seo';
 import { isValidSlug } from '@/lib/utils';
 import { CatalogContent } from '@/components/server/catalog-content';
@@ -55,13 +57,82 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 // STRUCTURED DATA
 // ═══════════════════════════════════════════════════════════
 
-function StructuredData({ catalog, businessSlug }: { catalog: Awaited<ReturnType<typeof fetchCatalog>>; businessSlug: string }) {
+function StructuredData({ catalog, businessSlug }: { 
+  catalog: Awaited<ReturnType<typeof fetchCatalog>>; 
+  businessSlug: string 
+}) {
   const structuredData = generateStructuredData(catalog, businessSlug);
   return (
     <script
       type="application/ld+json"
       dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
     />
+  );
+}
+
+// ═══════════════════════════════════════════════════════════
+// ERROR COMPONENTS
+// ═══════════════════════════════════════════════════════════
+
+function BusinessNotFound() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
+      <div className="text-center max-w-md">
+        <div className="text-6xl mb-4">🏪</div>
+        <h1 className="text-2xl font-bold text-gray-900 mb-2">
+          Negocio no encontrado
+        </h1>
+        <p className="text-gray-600 mb-6">
+          El catálogo que buscas no existe o ya no está disponible.
+        </p>
+        <a 
+          href="/" 
+          className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-full font-medium hover:bg-blue-700 transition-colors"
+        >
+          Volver al inicio
+        </a>
+      </div>
+    </div>
+  );
+}
+
+function CatalogError({ retry }: { retry: () => void }) {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
+      <div className="text-center max-w-md">
+        <div className="text-6xl mb-4">⚠️</div>
+        <h1 className="text-2xl font-bold text-gray-900 mb-2">
+          Error al cargar el catálogo
+        </h1>
+        <p className="text-gray-600 mb-6">
+          Hubo un problema al cargar el catálogo. Por favor, intenta nuevamente.
+        </p>
+        <button 
+          onClick={retry}
+          className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-full font-medium hover:bg-blue-700 transition-colors"
+        >
+          Intentar de nuevo
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function EmptyCatalog({ businessName }: { businessName?: string }) {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
+      <div className="text-center max-w-md">
+        <div className="text-6xl mb-4">📦</div>
+        <h1 className="text-2xl font-bold text-gray-900 mb-2">
+          {businessName || 'Catálogo vacío'}
+        </h1>
+        <p className="text-gray-600">
+          Este negocio aún no tiene productos disponibles.
+          <br />
+          Vuelve a consultar más tarde.
+        </p>
+      </div>
+    </div>
   );
 }
 
@@ -75,7 +146,7 @@ export default async function CatalogPage({ params, searchParams }: PageProps) {
 
   // Validar slug
   if (!businessSlug || !isValidSlug(businessSlug)) {
-    notFound();
+    return <BusinessNotFound />;
   }
 
   try {
@@ -86,8 +157,13 @@ export default async function CatalogPage({ params, searchParams }: PageProps) {
     
     const isAuthenticated = !!token;
 
-    // Fetch del catálogo
+    // Fetch del catálogo (normalized catalog)
     const catalog = await fetchCatalog(businessSlug, { token, table });
+
+    // Validar que el catálogo tenga productos
+    if (!catalog.products || catalog.products.length === 0) {
+      return <EmptyCatalog businessName={catalog.business.name} />;
+    }
 
     return (
       <>
@@ -119,6 +195,15 @@ export default async function CatalogPage({ params, searchParams }: PageProps) {
     );
   } catch (error) {
     console.error('Error loading catalog:', error);
-    notFound();
+    
+    // Handle specific error types
+    if (error instanceof Error) {
+      if (error.message.includes('404') || error.message.includes('no encontrado')) {
+        return <BusinessNotFound />;
+      }
+    }
+    
+    // Generic error with retry option
+    return <CatalogError retry={() => window?.location?.reload()} />;
   }
 }

@@ -3,6 +3,10 @@
  * 
  * Server Actions para operaciones del carrito con rate limiting.
  * Usa sessionId para identificar el carrito del usuario.
+ * 
+ * Updated for normalized catalog:
+ * - Uses BusinessProduct IDs for cart operations
+ * - Endpoints at /api/v1/web-catalog/:businessSlug/cart/*
  */
 
 'use server';
@@ -17,7 +21,7 @@ import {
   updateOrder,
   getOrderStatus 
 } from './api';
-import type { Cart, CartItem, CustomerOrigin } from './types';
+import type { Cart, CartItem, CustomerOrigin } from '@/src/types/catalog.types';
 import { checkRateLimit, getCartRateLimitKey, RATE_LIMITS } from './rate-limit';
 
 // ═══════════════════════════════════════════════════════════
@@ -61,6 +65,7 @@ export async function addToCartAction(
       return { success: false, error: 'Datos inválidos' };
     }
 
+    // Note: productId should be the BusinessProduct ID from normalized catalog
     const cart = await addToCart(businessSlug, item, options);
     
     // @ts-ignore - Next.js 16 types requieren 2 args pero runtime funciona con 1
