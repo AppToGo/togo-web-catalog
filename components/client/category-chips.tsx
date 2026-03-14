@@ -7,8 +7,6 @@
  * - Navegación via URL (server-side)
  * - Scroll snap en mobile
  * - Prefetching de categorías
- * 
- * Updated for normalized catalog (BusinessProduct + GlobalProduct)
  */
 
 'use client';
@@ -16,7 +14,7 @@
 import { useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import type { Category } from '@/src/types/catalog.types';
+import type { Category } from '@/lib/types';
 
 interface CategoryChipsProps {
   categories: Category[];
@@ -56,38 +54,29 @@ export function CategoryChips({
     router.push(newUrl, { scroll: false });
   };
 
-  // Don't show if no categories
-  if (categories.length === 0) {
-    return null;
-  }
-
   return (
     <div className="relative py-4 bg-white border-b border-gray-100">
-      {/* Botones de scroll (only show if categories exceed viewport) */}
-      {categories.length > 4 && (
-        <>
-          <button
-            onClick={() => scroll('left')}
-            className="absolute left-2 top-1/2 -translate-y-1/2 z-10 w-8 h-8 rounded-full bg-white shadow-md flex items-center justify-center hover:bg-gray-50 transition-colors"
-            aria-label="Scroll izquierda"
-          >
-            <ChevronLeft className="w-5 h-5 text-gray-600" />
-          </button>
+      {/* Botones de scroll */}
+      <button
+        onClick={() => scroll('left')}
+        className="absolute left-2 top-1/2 -translate-y-1/2 z-10 w-8 h-8 rounded-full bg-white shadow-md flex items-center justify-center hover:bg-gray-50 transition-colors"
+        aria-label="Scroll izquierda"
+      >
+        <ChevronLeft className="w-5 h-5 text-gray-600" />
+      </button>
 
-          <button
-            onClick={() => scroll('right')}
-            className="absolute right-2 top-1/2 -translate-y-1/2 z-10 w-8 h-8 rounded-full bg-white shadow-md flex items-center justify-center hover:bg-gray-50 transition-colors"
-            aria-label="Scroll derecha"
-          >
-            <ChevronRight className="w-5 h-5 text-gray-600" />
-          </button>
-        </>
-      )}
+      <button
+        onClick={() => scroll('right')}
+        className="absolute right-2 top-1/2 -translate-y-1/2 z-10 w-8 h-8 rounded-full bg-white shadow-md flex items-center justify-center hover:bg-gray-50 transition-colors"
+        aria-label="Scroll derecha"
+      >
+        <ChevronRight className="w-5 h-5 text-gray-600" />
+      </button>
 
       {/* Chips container */}
       <div
         ref={scrollRef}
-        className="flex gap-3 overflow-x-auto scrollbar-hide px-4 py-2 scroll-smooth snap-x"
+        className="flex gap-3 overflow-x-auto scrollbar-hide px-12 py-2 scroll-smooth snap-x"
         style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
       >
         {/* Chip "Todos" */}
@@ -101,9 +90,6 @@ export function CategoryChips({
           style={!selectedId ? { backgroundColor: primaryColor } : undefined}
         >
           Todos
-          <span className="ml-1.5 opacity-75">
-            ({categories.reduce((sum, c) => sum + (c.productCount || 0), 0)})
-          </span>
         </button>
 
         {/* Chips de categorías */}
@@ -123,11 +109,6 @@ export function CategoryChips({
             }
           >
             {category.name}
-            {category.productCount !== undefined && (
-              <span className="ml-1.5 opacity-75">
-                ({category.productCount})
-              </span>
-            )}
           </button>
         ))}
       </div>

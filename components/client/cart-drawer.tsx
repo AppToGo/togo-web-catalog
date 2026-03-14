@@ -16,11 +16,11 @@ import { useCart } from './cart-context';
 import { useCartUI } from './cart-ui-context';
 import { createOrderAction, updateOrderAction, checkOrderAction } from '@/lib/cart-actions';
 import { PhoneCaptureModal } from './phone-capture-modal';
-import type { BusinessInfo } from '@/src/types/catalog.types';
+import type { Business } from '@/lib/types';
 import { formatPrice } from '@/lib/utils';
 
 interface CartDrawerProps {
-  business: BusinessInfo;
+  business: Business;
 }
 
 interface OrderStatus {

@@ -6,12 +6,10 @@
  * - Twitter Cards
  * - JSON-LD (Schema.org)
  * - Sitemap
- * 
- * Updated for normalized catalog (BusinessProduct + GlobalProduct)
  */
 
 import { Metadata } from 'next';
-import type { CatalogResponse, CatalogProduct, BusinessInfo } from '@/src/types/catalog.types';
+import type { Catalog, Product, Business } from './types';
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://togo.shop';
 
@@ -20,8 +18,8 @@ const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://togo.shop';
 // ═══════════════════════════════════════════════════════════
 
 export function generateCatalogMetadata(
-  catalog: CatalogResponse,
-  businessSlug: string
+  catalog: Catalog,
+  token: string
 ): Metadata {
   const { business, products } = catalog;
   const productCount = products.length;
@@ -31,8 +29,8 @@ export function generateCatalogMetadata(
     `Explora nuestro catálogo de ${productCount} productos. ` +
     `Haz tu pedido online fácilmente en ${business.name}.`;
 
-  const canonicalUrl = `${APP_URL}/catalog/${businessSlug}`;
-  const ogImageUrl = `${APP_URL}/catalog/${businessSlug}/opengraph-image`;
+  const canonicalUrl = `${APP_URL}/catalog/${token}`;
+  const ogImageUrl = `${APP_URL}/catalog/${token}/opengraph-image`;
 
   return {
     title,
@@ -107,16 +105,16 @@ export function generateCatalogMetadata(
 }
 
 export function generateProductMetadata(
-  product: CatalogProduct,
-  business: BusinessInfo,
-  businessSlug: string
+  product: Product,
+  business: Business,
+  token: string
 ): Metadata {
   const title = `${product.name} | ${business.name}`;
   const description = product.description || 
     `Compra ${product.name} en ${business.name}. ` +
     `Precio: ${formatPrice(product.price)}. SKU: ${product.sku}`;
 
-  const canonicalUrl = `${APP_URL}/catalog/${businessSlug}/product/${product.id}`;
+  const canonicalUrl = `${APP_URL}/catalog/${token}/product/${product.id}`;
 
   return {
     title,
@@ -124,11 +122,10 @@ export function generateProductMetadata(
     keywords: [
       product.name,
       product.sku,
-      product.brand,
       business.name,
       'comprar',
       'precio',
-    ].filter((k): k is string => typeof k === 'string'),
+    ],
     alternates: {
       canonical: canonicalUrl,
     },
@@ -139,9 +136,9 @@ export function generateProductMetadata(
       siteName: business.name,
       title,
       description,
-      images: product.image ? [
+      images: product.imageUrl ? [
         {
-          url: product.image,
+          url: product.imageUrl,
           alt: product.name,
           width: 800,
           height: 600,
@@ -166,11 +163,11 @@ interface StructuredData {
 }
 
 export function generateStructuredData(
-  catalog: CatalogResponse,
-  businessSlug: string
+  catalog: Catalog,
+  token: string
 ): StructuredData {
   const { business, products } = catalog;
-  const catalogUrl = `${APP_URL}/catalog/${businessSlug}`;
+  const catalogUrl = `${APP_URL}/catalog/${token}`;
 
   // LocalBusiness o Store
   const businessData: StructuredData = {
@@ -187,14 +184,6 @@ export function generateStructuredData(
     ...(business.banner && { 
       photos: [business.banner] 
     }),
-    ...(business.openingHours && {
-      openingHoursSpecification: Object.entries(business.openingHours).map(([day, hours]) => ({
-        '@type': 'OpeningHoursSpecification',
-        dayOfWeek: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][parseInt(day)],
-        opens: hours.open,
-        closes: hours.close,
-      })),
-    }),
   };
 
   // ItemList para productos
@@ -205,7 +194,7 @@ export function generateStructuredData(
     itemListElement: products.slice(0, 20).map((product, index) => ({
       '@type': 'ListItem',
       position: index + 1,
-      item: generateProductStructuredData(product, business, businessSlug),
+      item: generateProductStructuredData(product, business, token),
     })),
   };
 
@@ -231,11 +220,11 @@ export function generateStructuredData(
 }
 
 export function generateProductStructuredData(
-  product: CatalogProduct,
-  business: BusinessInfo,
-  businessSlug: string
+  product: Product,
+  business: Business,
+  token: string
 ): StructuredData {
-  const productUrl = `${APP_URL}/catalog/${businessSlug}/product/${product.id}`;
+  const productUrl = `${APP_URL}/catalog/${token}/product/${product.id}`;
 
   return {
     '@context': 'https://schema.org',
@@ -244,25 +233,20 @@ export function generateProductStructuredData(
     name: product.name,
     description: product.description,
     sku: product.sku,
-    image: product.image,
-    brand: product.brand ? {
-      '@type': 'Brand',
-      name: product.brand,
-    } : {
-      '@type': 'Brand',
-      name: business.name,
-    },
+    image: product.imageUrl,
     offers: {
       '@type': 'Offer',
       price: product.price,
       priceCurrency: 'COP',
-      availability: product.isAvailable && product.active 
-        ? 'https://schema.org/InStock' 
-        : 'https://schema.org/OutOfStock',
+      availability: product.active ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
       seller: {
         '@type': 'Organization',
         name: business.name,
       },
+    },
+    brand: {
+      '@type': 'Brand',
+      name: business.name,
     },
   };
 }
@@ -272,11 +256,11 @@ export function generateProductStructuredData(
 // ═══════════════════════════════════════════════════════════
 
 export function generateCatalogSitemapEntry(
-  businessSlug: string,
-  catalog: CatalogResponse,
+  token: string,
+  catalog: Catalog,
   lastModified: Date
 ) {
-  const baseUrl = `${APP_URL}/catalog/${businessSlug}`;
+  const baseUrl = `${APP_URL}/catalog/${token}`;
   
   const entries = [
     {
@@ -287,7 +271,7 @@ export function generateCatalogSitemapEntry(
     },
     // Categorías
     ...catalog.categories.map((category) => ({
-      url: `${baseUrl}?category=${category.id}`,
+      url: `${baseUrl}/${category.id}`,
       lastModified,
       changeFrequency: 'weekly' as const,
       priority: 0.8,

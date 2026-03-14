@@ -11,15 +11,13 @@
  * - Actualizaciones optimistas (sin esperar servidor)
  * - Event delegation para mejorar performance
  * - Mínimo re-renderizado
- * 
- * Updated for normalized catalog (BusinessProduct + GlobalProduct)
  */
 
 'use client';
 
 import { useCallback } from 'react';
 import { Plus, Minus } from 'lucide-react';
-import type { CatalogProduct } from '@/src/types/catalog.types';
+import type { Product } from '@/lib/types';
 import { useCart } from './cart-context';
 
 // ═══════════════════════════════════════════════════════════
@@ -27,7 +25,7 @@ import { useCart } from './cart-context';
 // ═══════════════════════════════════════════════════════════
 
 interface AddToCartButtonProps {
-  product: CatalogProduct;
+  product: Product;
   accentColor: string;
   size?: 'sm' | 'md' | 'lg';
 }
@@ -51,29 +49,20 @@ export function AddToCartButton({
   // Buscar cantidad actual en el carrito
   const cartItem = cart.items.find(item => item.productId === product.id);
   const quantity = cartItem?.quantity || 0;
-  
-  // Check stock availability
-  const isOutOfStock = product.stock === 0;
-  const isMaxStockReached = product.stock !== undefined && quantity >= product.stock;
 
   // Handlers
   const handleAdd = useCallback(() => {
-    if (isOutOfStock || isMaxStockReached) return;
-    
     addItem({
       productId: product.id,
       name: product.name,
       price: product.price,
       quantity: 1,
-      image: product.image,
     });
-  }, [addItem, product, isOutOfStock, isMaxStockReached]);
+  }, [addItem, product]);
 
   const handleUpdate = useCallback((delta: number) => {
-    // Prevent going above stock limit
-    if (delta > 0 && isMaxStockReached) return;
     updateItem(product.id, delta);
-  }, [updateItem, product.id, isMaxStockReached]);
+  }, [updateItem, product.id]);
 
   // Tamaños
   const sizes = {
@@ -105,11 +94,9 @@ export function AddToCartButton({
         
         <button
           onClick={() => handleUpdate(1)}
-          disabled={isMaxStockReached}
-          className={`${s.button} rounded-full text-white shadow-sm flex items-center justify-center hover:opacity-90 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed`}
+          className={`${s.button} rounded-full text-white shadow-sm flex items-center justify-center hover:opacity-90 active:scale-95 transition-all`}
           style={{ backgroundColor: accentColor }}
           aria-label="Aumentar cantidad"
-          title={isMaxStockReached ? 'Stock máximo alcanzado' : 'Aumentar cantidad'}
         >
           <Plus className={s.icon} />
         </button>
@@ -124,11 +111,9 @@ export function AddToCartButton({
         e.stopPropagation();
         handleAdd();
       }}
-      disabled={isOutOfStock}
-      className={`${s.button} rounded-full text-white shadow-md flex items-center justify-center hover:opacity-90 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-gray-400`}
-      style={{ backgroundColor: isOutOfStock ? undefined : accentColor }}
+      className={`${s.button} rounded-full text-white shadow-md flex items-center justify-center hover:opacity-90 active:scale-95 transition-all`}
+      style={{ backgroundColor: accentColor }}
       aria-label={`Agregar ${product.name} al carrito`}
-      title={isOutOfStock ? 'Producto agotado' : `Agregar ${product.name} al carrito`}
     >
       <Plus className={s.icon} />
     </button>
@@ -159,55 +144,32 @@ export function QuantityBadge({ productId, accentColor }: QuantityBadgeProps) {
 // VARIANTE PARA MODAL (más grande)
 // ═══════════════════════════════════════════════════════════
 
-interface AddToCartModalControlsProps extends AddToCartButtonProps {
-  onClose?: () => void;
-}
-
 export function AddToCartModalControls({ 
   product, 
   accentColor,
   onClose 
-}: AddToCartModalControlsProps) {
+}: AddToCartButtonProps & { onClose?: () => void }) {
   const { addItem, updateItem, cart } = useCart();
   
   const cartItem = cart.items.find(item => item.productId === product.id);
   const quantity = cartItem?.quantity || 0;
-  
-  // Check stock
-  const isOutOfStock = product.stock === 0;
-  const isMaxStockReached = product.stock !== undefined && quantity >= product.stock;
 
   const handleAdd = useCallback(() => {
-    if (isOutOfStock || isMaxStockReached) return;
-    
     addItem({
       productId: product.id,
       name: product.name,
       price: product.price,
       quantity: 1,
-      image: product.image,
     });
     onClose?.();
-  }, [addItem, product, onClose, isOutOfStock, isMaxStockReached]);
+  }, [addItem, product, onClose]);
 
   const handleUpdate = useCallback((delta: number) => {
-    if (delta > 0 && isMaxStockReached) return;
     updateItem(product.id, delta);
     if (quantity + delta <= 0) {
       onClose?.();
     }
-  }, [updateItem, product.id, quantity, onClose, isMaxStockReached]);
-
-  if (isOutOfStock) {
-    return (
-      <button
-        disabled
-        className="w-full py-4 rounded-full font-bold text-white text-lg bg-gray-400 cursor-not-allowed"
-      >
-        Producto agotado
-      </button>
-    );
-  }
+  }, [updateItem, product.id, quantity, onClose]);
 
   if (quantity > 0) {
     return (
@@ -227,11 +189,9 @@ export function AddToCartModalControls({
           
           <button
             onClick={() => handleUpdate(1)}
-            disabled={isMaxStockReached}
-            className="w-12 h-12 rounded-full text-white shadow-sm flex items-center justify-center hover:opacity-90 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-12 h-12 rounded-full text-white shadow-sm flex items-center justify-center hover:opacity-90 active:scale-95 transition-all"
             style={{ backgroundColor: accentColor }}
             aria-label="Aumentar cantidad"
-            title={isMaxStockReached ? 'Stock máximo alcanzado' : 'Aumentar cantidad'}
           >
             <Plus className="w-5 h-5" />
           </button>
@@ -256,50 +216,5 @@ export function AddToCartModalControls({
     >
       Agregar al carrito
     </button>
-  );
-}
-
-// ═══════════════════════════════════════════════════════════
-// STOCK INDICATOR (Additional helper component)
-// ═══════════════════════════════════════════════════════════
-
-interface StockIndicatorProps {
-  stock?: number;
-  quantityInCart: number;
-}
-
-export function StockIndicator({ stock, quantityInCart }: StockIndicatorProps) {
-  if (stock === undefined) return null;
-  
-  const remaining = stock - quantityInCart;
-  
-  if (stock === 0) {
-    return (
-      <span className="text-xs text-red-600 font-medium">
-        Agotado
-      </span>
-    );
-  }
-  
-  if (remaining <= 3 && remaining > 0) {
-    return (
-      <span className="text-xs text-orange-600 font-medium">
-        ¡Solo quedan {remaining}!
-      </span>
-    );
-  }
-  
-  if (remaining === 0) {
-    return (
-      <span className="text-xs text-orange-600 font-medium">
-        Máximo en carrito
-      </span>
-    );
-  }
-  
-  return (
-    <span className="text-xs text-gray-500">
-      {stock} disponibles
-    </span>
   );
 }
