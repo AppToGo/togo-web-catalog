@@ -197,6 +197,9 @@ export interface CatalogResponse {
   
   /** Whether customer is authenticated */
   isAuthenticated?: boolean;
+
+  /** Branch ID when catalog is scoped to a specific sede */
+  branchId?: string | null;
 }
 
 /**

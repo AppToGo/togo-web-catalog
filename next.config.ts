@@ -1,76 +1,75 @@
-import type { NextConfig } from 'next';
+import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   // ═══════════════════════════════════════════════════════
   // RENDERING
   // ═══════════════════════════════════════════════════════
-  
+
   // Output standalone para Docker/despliegue optimizado
-  output: 'standalone',
-  
+  output: "standalone",
+
   // Compression gzip/brotli
   compress: true,
-  
+
   // ═══════════════════════════════════════════════════════
   // IMÁGENES
   // ═══════════════════════════════════════════════════════
-  
+
   images: {
     // Formatos modernos para mejor compresión
-    formats: ['image/avif', 'image/webp'],
-    
+    formats: ["image/avif", "image/webp"],
+
     // Remote patterns permitidos
     remotePatterns: [
       {
-        protocol: 'https',
-        hostname: '**',
+        protocol: "https",
+        hostname: "**",
       },
     ],
-    
+
     // Tamaños de imagen para srcset
     deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840],
     imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
-    
-    
+
     // Límite de tamaño (evita imágenes enormes)
     minimumCacheTTL: 60 * 60 * 24, // 1 día
   },
-  
+
   // ═══════════════════════════════════════════════════════
   // HEADERS DE SEGURIDAD Y PERFORMANCE
   // ═══════════════════════════════════════════════════════
-  
+
   async headers() {
     return [
       {
-        source: '/:path*',
+        source: "/:path*",
         headers: [
           // DNS Prefetch
           {
-            key: 'X-DNS-Prefetch-Control',
-            value: 'on',
+            key: "X-DNS-Prefetch-Control",
+            value: "on",
           },
           // Security
           {
-            key: 'X-Content-Type-Options',
-            value: 'nosniff',
+            key: "X-Content-Type-Options",
+            value: "nosniff",
           },
           {
-            key: 'X-Frame-Options',
-            value: 'DENY',
+            key: "X-Frame-Options",
+            value: "DENY",
           },
           {
-            key: 'X-XSS-Protection',
-            value: '1; mode=block',
+            key: "X-XSS-Protection",
+            value: "1; mode=block",
           },
           // Referrer Policy
           {
-            key: 'Referrer-Policy',
-            value: 'origin-when-cross-origin',
+            key: "Referrer-Policy",
+            value: "origin-when-cross-origin",
           },
           // Content Security Policy
           {
-            key: 'Content-Security-Policy',
+            key: "Content-Security-Policy",
             value: [
               "default-src 'self'",
               "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
@@ -81,58 +80,64 @@ const nextConfig: NextConfig = {
               "frame-ancestors 'none'",
               "base-uri 'self'",
               "form-action 'self'",
-            ].join('; '),
+            ].join("; "),
           },
           // Cache para assets estáticos
           {
-            key: 'Cache-Control',
-            value: 'public, max-age=31536000, immutable',
+            key: "Cache-Control",
+            value: "public, max-age=31536000, immutable",
           },
         ],
       },
       {
         // HTML pages - cache corto para ISR
-        source: '/catalog/:token*',
+        source: "/catalog/:token*",
         headers: [
           {
-            key: 'Cache-Control',
-            value: 'public, max-age=0, must-revalidate',
+            key: "Cache-Control",
+            value: "public, max-age=0, must-revalidate",
           },
         ],
       },
     ];
   },
-  
+
   // ═══════════════════════════════════════════════════════
   // REDIRECTS
   // ═══════════════════════════════════════════════════════
-  
+
   async redirects() {
     return [
       // Redirect legacy URLs
       {
-        source: '/catalogo/:token*',
-        destination: '/catalog/:token*',
+        source: "/catalogo/:token*",
+        destination: "/catalog/:token*",
         permanent: true,
       },
     ];
   },
-  
+
   // ═══════════════════════════════════════════════════════
   // EXPERIMENTAL FEATURES
   // ═══════════════════════════════════════════════════════
-  
+
   experimental: {
     // Optimizar imports de paquetes grandes
-    optimizePackageImports: [
-      'lucide-react',
-    ],
+    optimizePackageImports: ["lucide-react"],
+    // Allow Server Actions from dev tunnel (x-forwarded-host mismatch with origin)
+    serverActions: {
+      allowedOrigins: [
+        "localhost:3001",
+        "*.use2.devtunnels.ms",
+        "*.devtunnels.ms",
+      ],
+    },
   },
-  
+
   // ═══════════════════════════════════════════════════════
   // TYPESCRIPT
   // ═══════════════════════════════════════════════════════
-  
+
   typescript: {
     // Ignorar errores en build (CI debería verificar)
     ignoreBuildErrors: false,

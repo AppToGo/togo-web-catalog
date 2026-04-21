@@ -23,8 +23,8 @@ interface ProductGridProps {
 export function ProductGrid({ products, accentColor }: ProductGridProps) {
   const { selectProduct } = useCartUI();
 
-  // Filter only available products for display
-  const availableProducts = products.filter(p => p.isAvailable && p.active);
+  // Show all active products; stock=0 renders "Agotado" badge
+  const availableProducts = products.filter(p => p.active !== false);
 
   if (availableProducts.length === 0) {
     return (
@@ -161,7 +161,7 @@ export function CategoryProductGrid({
 }: CategoryProductGridProps) {
   const { selectProduct } = useCartUI();
 
-  const availableProducts = products.filter(p => p.isAvailable && p.active);
+  const availableProducts = products.filter(p => p.active !== false);
 
   if (availableProducts.length === 0) return null;
 

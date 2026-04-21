@@ -12,14 +12,19 @@
 'use server';
 
 import { revalidateTag } from 'next/cache';
-import { 
-  addToCart, 
-  getCart, 
-  removeFromCart, 
-  updateCartItem, 
-  createOrder, 
+import {
+  addToCart,
+  getCart,
+  removeFromCart,
+  updateCartItem,
+  createOrder,
   updateOrder,
-  getOrderStatus 
+  getOrderStatus,
+  addToCartPublic,
+  getCartPublic,
+  removeFromCartPublic,
+  updateCartItemPublic,
+  createOrderPublic,
 } from './api';
 import type { Cart, CartItem, CustomerOrigin } from '@/src/types/catalog.types';
 import { checkRateLimit, getCartRateLimitKey, RATE_LIMITS } from './rate-limit';
@@ -296,5 +301,116 @@ export async function checkOrderAction(
   } catch (error) {
     console.error('Error en checkOrderAction:', error);
     return { hasOrder: false };
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// PUBLIC CATALOG ACTIONS — Sede explícita en URL
+// ═══════════════════════════════════════════════════════════
+
+export async function getCartPublicAction(
+  businessSlug: string,
+  options: { sessionId: string; branchId?: string },
+): Promise<Cart> {
+  try {
+    return await getCartPublic(businessSlug, options);
+  } catch {
+    return { items: [], updatedAt: new Date().toISOString() };
+  }
+}
+
+export async function addToCartPublicAction(
+  businessSlug: string,
+  item: CartItem & { branchId?: string },
+  options: { sessionId: string },
+): Promise<CartActionResult> {
+  try {
+    const rateKey = await getCartRateLimitKey(businessSlug, 'add');
+    if (!checkRateLimit(rateKey, RATE_LIMITS.addItem)) {
+      return { success: false, error: 'Demasiadas solicitudes. Intenta más tarde.' };
+    }
+    if (!businessSlug || !item.productId) {
+      return { success: false, error: 'Datos inválidos' };
+    }
+    const cart = await addToCartPublic(businessSlug, item, options);
+    // @ts-ignore
+    revalidateTag(`catalog-${businessSlug}`, {});
+    return { success: true, cart };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : 'Error al agregar item' };
+  }
+}
+
+export async function removeFromCartPublicAction(
+  businessSlug: string,
+  productId: string,
+  options: { sessionId: string; branchId?: string },
+): Promise<CartActionResult> {
+  try {
+    const rateKey = await getCartRateLimitKey(businessSlug, 'remove');
+    if (!checkRateLimit(rateKey, RATE_LIMITS.removeItem)) {
+      return { success: false, error: 'Demasiadas solicitudes. Intenta más tarde.' };
+    }
+    const cart = await removeFromCartPublic(businessSlug, productId, options);
+    // @ts-ignore
+    revalidateTag(`catalog-${businessSlug}`, {});
+    return { success: true, cart };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : 'Error al eliminar item' };
+  }
+}
+
+export async function updateCartItemPublicAction(
+  businessSlug: string,
+  productId: string,
+  quantity: number,
+  options: { sessionId: string; branchId?: string },
+): Promise<CartActionResult> {
+  try {
+    const rateKey = await getCartRateLimitKey(businessSlug, 'update');
+    if (!checkRateLimit(rateKey, RATE_LIMITS.updateItem)) {
+      return { success: false, error: 'Demasiadas solicitudes. Intenta más tarde.' };
+    }
+    const cart = await updateCartItemPublic(businessSlug, productId, quantity, options);
+    // @ts-ignore
+    revalidateTag(`catalog-${businessSlug}`, {});
+    return { success: true, cart };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : 'Error al actualizar item' };
+  }
+}
+
+export async function createOrderPublicAction(
+  businessSlug: string,
+  data: {
+    items: CartItem[];
+    branchId: string;
+    notes?: string;
+    source: CustomerOrigin;
+    sessionId: string;
+    customerPhone?: string;
+    customerName?: string;
+  },
+): Promise<OrderActionResult> {
+  try {
+    const rateKey = await getCartRateLimitKey(businessSlug, 'create-order');
+    if (!checkRateLimit(rateKey, RATE_LIMITS.createOrder)) {
+      return { success: false, error: 'Demasiadas solicitudes. Intenta más tarde.' };
+    }
+    const result = await createOrderPublic(businessSlug, data);
+    // @ts-ignore
+    revalidateTag(`catalog-${businessSlug}`, {});
+    return {
+      success: true,
+      order: {
+        orderId: result.orderId,
+        orderNumber: result.orderNumber,
+        status: result.status,
+        total: result.total,
+        waMeUrl: result.waMeUrl,
+      },
+    };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : 'Error al crear orden' };
   }
 }

@@ -19,6 +19,10 @@ import {
   removeFromCartAction,
   clearCartAction,
   getCartAction,
+  addToCartPublicAction,
+  removeFromCartPublicAction,
+  updateCartItemPublicAction,
+  getCartPublicAction,
 } from '@/lib/cart-actions';
 
 // ═══════════════════════════════════════════════════════════
@@ -81,16 +85,18 @@ interface CartProviderProps {
   initialPhone?: string;
   initialName?: string;
   isAuthenticated?: boolean;
+  branchId?: string;
 }
 
-export function CartProvider({ 
-  children, 
+export function CartProvider({
+  children,
   businessSlug,
   origin = 'direct',
   tableNumber,
   initialPhone,
   initialName,
   isAuthenticated = false,
+  branchId,
 }: CartProviderProps) {
   // Cart state
   const [cart, setCart] = useState<Cart>(emptyCart);
@@ -182,10 +188,12 @@ export function CartProvider({
   // ═══════════════════════════════════════════════════════
   const syncCart = useCallback(async () => {
     if (!sessionId) return;
-    
+
     setIsSyncing(true);
     try {
-      const serverCart = await getCartAction(businessSlug, { sessionId });
+      const serverCart = branchId
+        ? await getCartPublicAction(businessSlug, { sessionId, branchId })
+        : await getCartAction(businessSlug, { sessionId });
       
       setCart(prev => {
         const sortByProductId = (items: CartItem[]) => 
@@ -200,7 +208,7 @@ export function CartProvider({
     } finally {
       if (pendingOps.current === 0) setIsSyncing(false);
     }
-  }, [businessSlug, sessionId]);
+  }, [businessSlug, branchId, sessionId]);
 
   // ═══════════════════════════════════════════════════════
   // STOCK VALIDATION HELPER
@@ -238,7 +246,9 @@ export function CartProvider({
     });
 
     try {
-      const result = await addToCartAction(businessSlug, item, { sessionId });
+      const result = branchId
+        ? await addToCartPublicAction(businessSlug, { ...item, branchId }, { sessionId })
+        : await addToCartAction(businessSlug, item, { sessionId });
       if (!result.success) throw new Error(result.error);
     } catch (error) {
       setCart(previousCart);
@@ -247,7 +257,7 @@ export function CartProvider({
       pendingOps.current -= 1;
       if (pendingOps.current === 0) setIsSyncing(false);
     }
-  }, [businessSlug, cart, sessionId]);
+  }, [businessSlug, branchId, cart, sessionId]);
 
   // ═══════════════════════════════════════════════════════
   // ACTUALIZAR CANTIDAD
@@ -278,12 +288,14 @@ export function CartProvider({
 
     try {
       if (newQuantity <= 0) {
-        // Eliminar si la cantidad es 0 o menos
-        const result = await removeFromCartAction(businessSlug, productId, { sessionId });
+        const result = branchId
+          ? await removeFromCartPublicAction(businessSlug, productId, { sessionId, branchId })
+          : await removeFromCartAction(businessSlug, productId, { sessionId });
         if (!result.success) throw new Error(result.error);
       } else {
-        // Actualizar cantidad
-        const result = await updateCartItemAction(businessSlug, productId, newQuantity, { sessionId });
+        const result = branchId
+          ? await updateCartItemPublicAction(businessSlug, productId, newQuantity, { sessionId, branchId })
+          : await updateCartItemAction(businessSlug, productId, newQuantity, { sessionId });
         if (!result.success) throw new Error(result.error);
       }
     } catch (error) {
@@ -293,7 +305,7 @@ export function CartProvider({
       pendingOps.current -= 1;
       if (pendingOps.current === 0) setIsSyncing(false);
     }
-  }, [businessSlug, cart, sessionId]);
+  }, [businessSlug, branchId, cart, sessionId]);
 
   // ═══════════════════════════════════════════════════════
   // ELIMINAR ITEM
@@ -311,7 +323,9 @@ export function CartProvider({
     }));
 
     try {
-      const result = await removeFromCartAction(businessSlug, productId, { sessionId });
+      const result = branchId
+        ? await removeFromCartPublicAction(businessSlug, productId, { sessionId, branchId })
+        : await removeFromCartAction(businessSlug, productId, { sessionId });
       if (!result.success) throw new Error(result.error);
     } catch (error) {
       setCart(previousCart);
@@ -320,7 +334,7 @@ export function CartProvider({
       pendingOps.current -= 1;
       if (pendingOps.current === 0) setIsSyncing(false);
     }
-  }, [businessSlug, cart, sessionId]);
+  }, [businessSlug, branchId, cart, sessionId]);
 
   // ═══════════════════════════════════════════════════════
   // LIMPIAR CARRITO

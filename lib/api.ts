@@ -343,6 +343,129 @@ export async function getOrderStatus(
 }
 
 // ═══════════════════════════════════════════════════════════
+// PUBLIC CATALOG — Slug-based endpoints (/catalog/:slug/...)
+// Usados cuando la URL lleva sede explícita: /{businessSlug}/{branchSlug}
+// ═══════════════════════════════════════════════════════════
+
+function buildPublicCatalogUrl(businessSlug: string, path: string = ''): string {
+  const cleanPath = path.startsWith('/') ? path : path ? `/${path}` : '';
+  return `${API_BASE_URL}/catalog/${businessSlug}${cleanPath}`;
+}
+
+export async function fetchCatalogByBranch(
+  businessSlug: string,
+  branchSlug: string,
+): Promise<CatalogResponse> {
+  const url = `${API_BASE_URL}/catalog/${businessSlug}/branch/${branchSlug}`;
+  const response = await fetch(url, {
+    next: {
+      tags: [`catalog-${businessSlug}-${branchSlug}`, `catalog-${businessSlug}`, 'catalog'],
+      revalidate: DEFAULT_REVALIDATE,
+    },
+    headers: { 'Accept': 'application/json' },
+  });
+  return handleResponse<CatalogResponse>(response);
+}
+
+export async function getCartPublic(
+  businessSlug: string,
+  options: { sessionId: string; branchId?: string },
+): Promise<Cart> {
+  const url = new URL(buildPublicCatalogUrl(businessSlug, '/cart'));
+  url.searchParams.set('sessionId', options.sessionId);
+  if (options.branchId) url.searchParams.set('branch', options.branchId);
+
+  const response = await fetch(url.toString(), {
+    cache: 'no-store',
+    headers: { 'Accept': 'application/json' },
+  });
+  return handleResponse<Cart>(response);
+}
+
+export async function addToCartPublic(
+  businessSlug: string,
+  item: CartItem & { branchId?: string },
+  options: { sessionId: string },
+): Promise<Cart> {
+  const response = await fetch(buildPublicCatalogUrl(businessSlug, '/cart'), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      sessionId: options.sessionId,
+      item: {
+        productId: item.productId,
+        name: item.name,
+        quantity: item.quantity,
+        price: item.price,
+        notes: item.notes,
+        branchId: item.branchId,
+      },
+    }),
+    cache: 'no-store',
+  });
+  return handleResponse<Cart>(response);
+}
+
+export async function removeFromCartPublic(
+  businessSlug: string,
+  productId: string,
+  options: { sessionId: string; branchId?: string },
+): Promise<Cart> {
+  const response = await fetch(buildPublicCatalogUrl(businessSlug, '/cart/remove'), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      sessionId: options.sessionId,
+      productId,
+      branchId: options.branchId,
+    }),
+    cache: 'no-store',
+  });
+  return handleResponse<Cart>(response);
+}
+
+export async function updateCartItemPublic(
+  businessSlug: string,
+  productId: string,
+  quantity: number,
+  options: { sessionId: string; branchId?: string },
+): Promise<Cart> {
+  const response = await fetch(buildPublicCatalogUrl(businessSlug, '/cart/update'), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      sessionId: options.sessionId,
+      productId,
+      quantity,
+      branchId: options.branchId,
+    }),
+    cache: 'no-store',
+  });
+  return handleResponse<Cart>(response);
+}
+
+export async function createOrderPublic(
+  businessSlug: string,
+  data: {
+    items: CartItem[];
+    branchId: string;
+    notes?: string;
+    source: CustomerOrigin;
+    sessionId: string;
+    customerPhone?: string;
+    customerName?: string;
+  },
+): Promise<OrderResponse> {
+  const response = await fetch(buildPublicCatalogUrl(businessSlug, '/order'), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+    cache: 'no-store',
+  });
+  return handleResponse<OrderResponse>(response);
+}
+
+// ═══════════════════════════════════════════════════════════
 // STATIC GENERATION (Next.js)
 // ═══════════════════════════════════════════════════════════
 

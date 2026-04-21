@@ -1,16 +1,17 @@
 /**
- * Catalog Page - Pública
+ * Branch Catalog Page
  *
- * Nueva ruta: /catalog/[businessSlug]
- * Soporta catálogo público y autenticado (con token en query param)
+ * Route: /{businessSlug}/{branchSlug}
+ * Generated from WhatsApp greeting: /{businessSlug}/{branchSlug}?t={token}
  *
- * Uses normalized catalog (BusinessProduct + GlobalProduct)
+ * Fetches branch-scoped catalog via public endpoint.
+ * Token (?t=) is optional — used only for customer identity (phone/name from WhatsApp).
  */
 
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { Metadata } from "next";
-import { fetchCatalog } from "@/lib/api";
+import { fetchCatalogByBranch } from "@/lib/api";
 import { generateCatalogMetadata, generateStructuredData } from "@/lib/seo";
 import { isValidSlug } from "@/lib/utils";
 import { CatalogContent } from "@/components/server/catalog-content";
@@ -22,18 +23,13 @@ import { ProductModal } from "@/components/client/product-modal";
 import { FloatingCart } from "@/components/client/floating-cart";
 import type { CustomerOrigin } from "@/lib/types";
 
-// ISR: HTML estático, revalidar por webhook o cada 1 hora
 export const revalidate = 3600;
 export const dynamicParams = true;
 
-// ═══════════════════════════════════════════════════════════
-// METADATA DINÁMICA
-// ═══════════════════════════════════════════════════════════
-
 interface PageProps {
-  params: Promise<{ businessSlug: string }>;
+  params: Promise<{ businessSlug: string; branchSlug: string }>;
   searchParams: Promise<{
-    token?: string;
+    t?: string; // token from WhatsApp (optional, for customer identity)
     source?: string;
     table?: string;
   }>;
@@ -42,10 +38,9 @@ interface PageProps {
 export async function generateMetadata({
   params,
 }: PageProps): Promise<Metadata> {
-  const { businessSlug } = await params;
-
+  const { businessSlug, branchSlug } = await params;
   try {
-    const catalog = await fetchCatalog(businessSlug);
+    const catalog = await fetchCatalogByBranch(businessSlug, branchSlug);
     return generateCatalogMetadata(catalog, businessSlug);
   } catch {
     return {
@@ -55,15 +50,11 @@ export async function generateMetadata({
   }
 }
 
-// ═══════════════════════════════════════════════════════════
-// STRUCTURED DATA
-// ═══════════════════════════════════════════════════════════
-
 function StructuredData({
   catalog,
   businessSlug,
 }: {
-  catalog: Awaited<ReturnType<typeof fetchCatalog>>;
+  catalog: Awaited<ReturnType<typeof fetchCatalogByBranch>>;
   businessSlug: string;
 }) {
   const structuredData = generateStructuredData(catalog, businessSlug);
@@ -75,17 +66,13 @@ function StructuredData({
   );
 }
 
-// ═══════════════════════════════════════════════════════════
-// ERROR COMPONENTS
-// ═══════════════════════════════════════════════════════════
-
 function BusinessNotFound() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
       <div className="text-center max-w-md">
         <div className="text-6xl mb-4">🏪</div>
         <h1 className="text-2xl font-bold text-gray-900 mb-2">
-          Negocio no encontrado
+          Catálogo no encontrado
         </h1>
         <p className="text-gray-600 mb-6">
           El catálogo que buscas no existe o ya no está disponible.
@@ -101,28 +88,6 @@ function BusinessNotFound() {
   );
 }
 
-function CatalogError({ retry }: { retry: () => void }) {
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
-      <div className="text-center max-w-md">
-        <div className="text-6xl mb-4">⚠️</div>
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">
-          Error al cargar el catálogo
-        </h1>
-        <p className="text-gray-600 mb-6">
-          Hubo un problema al cargar el catálogo. Por favor, intenta nuevamente.
-        </p>
-        <button
-          onClick={retry}
-          className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-full font-medium hover:bg-blue-700 transition-colors"
-        >
-          Intentar de nuevo
-        </button>
-      </div>
-    </div>
-  );
-}
-
 function EmptyCatalog({ businessName }: { businessName?: string }) {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
@@ -132,7 +97,7 @@ function EmptyCatalog({ businessName }: { businessName?: string }) {
           {businessName || "Catálogo vacío"}
         </h1>
         <p className="text-gray-600">
-          Este negocio aún no tiene productos disponibles.
+          Esta sede aún no tiene productos disponibles.
           <br />
           Vuelve a consultar más tarde.
         </p>
@@ -141,53 +106,53 @@ function EmptyCatalog({ businessName }: { businessName?: string }) {
   );
 }
 
-// ═══════════════════════════════════════════════════════════
-// PAGE COMPONENT
-// ═══════════════════════════════════════════════════════════
+export default async function BranchCatalogPage({
+  params,
+  searchParams,
+}: PageProps) {
+  const { businessSlug, branchSlug } = await params;
+  const { t: token, source, table } = await searchParams;
 
-export default async function CatalogPage({ params, searchParams }: PageProps) {
-  const { businessSlug } = await params;
-  const { token, source, table } = await searchParams;
-
-  // Validar slug
-  if (!businessSlug || !isValidSlug(businessSlug)) {
+  if (
+    !businessSlug ||
+    !isValidSlug(businessSlug) ||
+    !branchSlug ||
+    !isValidSlug(branchSlug)
+  ) {
     return <BusinessNotFound />;
   }
 
   try {
-    // Determinar origen del customer
     const origin: CustomerOrigin = token
       ? "whatsapp"
       : (source as CustomerOrigin) || "direct";
 
-    const isAuthenticated = !!token;
+    const catalog = await fetchCatalogByBranch(businessSlug, branchSlug);
 
-    // Fetch del catálogo (normalized catalog)
-    const catalog = await fetchCatalog(businessSlug, { token, table });
-
-    // Validar que el catálogo tenga productos
     if (!catalog.products || catalog.products.length === 0) {
       return <EmptyCatalog businessName={catalog.business.name} />;
     }
 
+    // branchId viene del response del backend — necesario para operaciones del carrito
+    const branchId = catalog.branchId ?? undefined;
+
     return (
       <>
         <StructuredData catalog={catalog} businessSlug={businessSlug} />
-
         <CartProvider
           businessSlug={businessSlug}
           origin={origin}
           tableNumber={table}
           initialPhone={catalog.customerPhone}
           initialName={catalog.customerName}
-          isAuthenticated={isAuthenticated}
+          isAuthenticated={!!token}
+          branchId={branchId}
         >
           <CartUIProvider>
             <Suspense fallback={<CatalogSkeleton />}>
               <CatalogContent catalog={catalog} businessSlug={businessSlug} />
             </Suspense>
 
-            {/* Client Components */}
             <FloatingCart accentColor={catalog.business.accentColor} />
             <ProductModal
               token={token || ""}
@@ -199,9 +164,6 @@ export default async function CatalogPage({ params, searchParams }: PageProps) {
       </>
     );
   } catch (error) {
-    console.error("Error loading catalog:", error);
-
-    // Handle specific error types
     if (error instanceof Error) {
       if (
         error.message.includes("404") ||
@@ -210,8 +172,6 @@ export default async function CatalogPage({ params, searchParams }: PageProps) {
         return <BusinessNotFound />;
       }
     }
-
-    // Generic error with retry option
-    return <CatalogError retry={() => window?.location?.reload()} />;
+    throw error;
   }
 }
