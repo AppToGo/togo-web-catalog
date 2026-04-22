@@ -136,6 +136,7 @@ export function CatalogContent({ catalog, businessSlug }: CatalogContentProps) {
   const { business, categories, products, subCategories } = catalog;
 
   const catalogGroups = buildCatalogGroups(products, categories, subCategories);
+  const useProductImages = catalog.business.useProductImages ?? false;
 
   // Only show tabs for IndustryCategorys that have at least one product
   const activeCatIds = new Set(catalogGroups.map(g => g.id));
@@ -148,7 +149,6 @@ export function CatalogContent({ catalog, businessSlug }: CatalogContentProps) {
   return (
     <div
       style={{
-        '--accent': business.accentColor,
         minHeight: '100dvh',
         background: 'var(--bg)',
         paddingBottom: 96,
@@ -175,6 +175,7 @@ export function CatalogContent({ catalog, businessSlug }: CatalogContentProps) {
                     title={name}
                     count={groupProducts.length}
                     products={groupProducts}
+                    useProductImages={useProductImages}
                   />
                 ))}
               </section>

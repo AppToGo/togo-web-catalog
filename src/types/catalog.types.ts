@@ -152,6 +152,9 @@ export interface BusinessInfo {
   
   /** Whether business is currently open */
   isOpen?: boolean;
+
+  /** Whether to show product images in the catalog */
+  useProductImages?: boolean;
 }
 
 /**

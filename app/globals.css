@@ -9,6 +9,9 @@
   --accent-ink: #ffffff;
   --accent-soft: color-mix(in oklch, var(--accent) 10%, #fff);
   --accent-softer: color-mix(in oklch, var(--accent) 5%, #fff);
+  --accent-2: #FF6B35;
+  --accent-2-soft: color-mix(in oklch, var(--accent-2) 12%, #fff);
+  --accent-2-softer: color-mix(in oklch, var(--accent-2) 6%, #fff);
   --bg: #fbfaf7;
   --surface: #ffffff;
   --ink: #15140f;

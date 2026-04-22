@@ -128,25 +128,27 @@ export default async function BranchCatalogPage({ params, searchParams }: PagePr
       <>
         <StructuredData catalog={catalog} businessSlug={businessSlug} />
 
-        <CartProvider
-          businessSlug={businessSlug}
-          origin={origin}
-          tableNumber={table}
-          initialPhone={catalog.customerPhone}
-          initialName={catalog.customerName}
-          isAuthenticated={!!token}
-          branchId={branchId}
-        >
-          <CartUIProvider>
-            <Suspense fallback={<CatalogSkeleton />}>
-              <CatalogContent catalog={catalog} businessSlug={businessSlug} />
-            </Suspense>
+        <div style={{ '--accent': catalog.business.primaryColor, '--accent-2': catalog.business.accentColor } as React.CSSProperties}>
+          <CartProvider
+            businessSlug={businessSlug}
+            origin={origin}
+            tableNumber={table}
+            initialPhone={catalog.customerPhone}
+            initialName={catalog.customerName}
+            isAuthenticated={!!token}
+            branchId={branchId}
+          >
+            <CartUIProvider>
+              <Suspense fallback={<CatalogSkeleton />}>
+                <CatalogContent catalog={catalog} businessSlug={businessSlug} />
+              </Suspense>
 
-            <FloatingCart accentColor={catalog.business.accentColor} />
-            <ProductModal token={token || ''} accentColor={catalog.business.accentColor} />
-            <CartDrawer business={catalog.business} />
-          </CartUIProvider>
-        </CartProvider>
+              <FloatingCart accentColor={catalog.business.primaryColor} />
+              <ProductModal token={token || ''} accentColor={catalog.business.primaryColor} />
+              <CartDrawer business={catalog.business} />
+            </CartUIProvider>
+          </CartProvider>
+        </div>
       </>
     );
   } catch (error) {

@@ -6,9 +6,10 @@ interface CategorySectionProps {
   title?: string;
   count: number;
   products: CatalogProduct[];
+  useProductImages: boolean;
 }
 
-export function CategorySection({ id, title, count, products }: CategorySectionProps) {
+export function CategorySection({ id, title, count, products, useProductImages }: CategorySectionProps) {
   return (
     <div className="pb-2">
       {title && (
@@ -22,7 +23,7 @@ export function CategorySection({ id, title, count, products }: CategorySectionP
           <span className="text-xs text-[var(--ink-3)] font-medium">{count} items</span>
         </div>
       )}
-      <ProductListClient products={products} categoryId={id} />
+      <ProductListClient products={products} categoryId={id} useProductImages={useProductImages} />
     </div>
   );
 }

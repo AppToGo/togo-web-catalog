@@ -7,9 +7,10 @@ import type { CatalogProduct } from '@/src/types/catalog.types';
 interface ProductListClientProps {
   products: CatalogProduct[];
   categoryId: string;
+  useProductImages: boolean;
 }
 
-export function ProductListClient({ products, categoryId }: ProductListClientProps) {
+export function ProductListClient({ products, categoryId, useProductImages }: ProductListClientProps) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const handleToggle = (productId: string) => {
@@ -25,6 +26,7 @@ export function ProductListClient({ products, categoryId }: ProductListClientPro
           subcatId={categoryId}
           isExpanded={expandedId === product.id}
           onToggle={() => handleToggle(product.id)}
+          useProductImages={useProductImages}
         />
       ))}
     </div>
