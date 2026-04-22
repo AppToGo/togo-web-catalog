@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { X, Minus, Plus, Loader2, AlertCircle, CheckCircle, Phone } from 'lucide-react';
 import { useCart } from './cart-context';
 import { useCartUI } from './cart-ui-context';
+import { CartItemNotes } from './cart-item-notes';
 import { createOrderAction, updateOrderAction, checkOrderAction } from '@/lib/cart-actions';
 import { PhoneCaptureModal } from './phone-capture-modal';
 import type { BusinessInfo } from '@/src/types/catalog.types';
@@ -26,7 +27,7 @@ interface OrderStatus {
 }
 
 export function CartDrawer({ business }: CartDrawerProps) {
-  const { cart, updateItem, itemCount, isSyncing, syncCart, customer, isIdentified, sessionId } = useCart();
+  const { cart, updateItem, updateItemNotes, itemCount, isSyncing, syncCart, customer, isIdentified, sessionId } = useCart();
   const { isCartOpen, closeCart } = useCartUI();
 
   const [notes, setNotes] = useState('');
@@ -239,6 +240,12 @@ export function CartDrawer({ business }: CartDrawerProps) {
                     >
                       {item.name}
                     </div>
+                    <CartItemNotes
+                      productId={item.productId}
+                      notes={item.notes}
+                      disabled={isLocked}
+                      onSave={updateItemNotes}
+                    />
                     <div className="flex items-center gap-[6px] mt-0.5">
                       <span className="text-xs text-[var(--ink-3)]">{formatPrice(item.price)} c/u</span>
                     </div>

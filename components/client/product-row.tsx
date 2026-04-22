@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { InitialsAvatar } from '@/components/ui/initials-avatar';
 import { useCart } from './cart-context';
 import { formatPrice } from '@/lib/utils';
@@ -30,15 +30,21 @@ interface ProductRowProps {
 }
 
 export function ProductRow({ product, subcatId, isExpanded, onToggle }: ProductRowProps) {
-  const { cart, addItem, updateItem } = useCart();
+  const { cart, addItem, updateItem, updateItemNotes } = useCart();
   const [notes, setNotes] = useState('');
-  const notesRef = useRef<HTMLTextAreaElement>(null);
   const [clientQty, setClientQty] = useState(0);
 
   useEffect(() => {
     const item = cart.items.find((i) => i.productId === product.id);
     setClientQty(item?.quantity ?? 0);
   }, [cart.items, product.id]);
+
+  useEffect(() => {
+    if (isExpanded) {
+      const item = cart.items.find(i => i.productId === product.id);
+      setNotes(item?.notes ?? '');
+    }
+  }, [isExpanded]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const qty = clientQty;
 
@@ -58,7 +64,20 @@ export function ProductRow({ product, subcatId, isExpanded, onToggle }: ProductR
   };
 
   const handleExpandedAdd = () => {
-    addItem({ productId: product.id, name: product.name, price: product.price, quantity: 1, image: product.image });
+    if (clientQty > 0) {
+      // Item already in cart — only update notes, preserve quantity
+      updateItemNotes(product.id, notes.trim());
+    } else {
+      addItem({
+        productId: product.id,
+        name: product.name,
+        price: product.price,
+        quantity: 1,
+        image: product.image,
+        notes: notes.trim() || undefined,
+      });
+    }
+    setNotes('');
     onToggle();
   };
 
@@ -142,7 +161,6 @@ export function ProductRow({ product, subcatId, isExpanded, onToggle }: ProductR
       {isExpanded && (
         <div className="col-span-3 pt-3 pb-1 animate-[slide-down_0.18s_ease-out]">
           <textarea
-            ref={notesRef}
             className="w-full px-3 py-[9px] bg-[var(--surface)] border-[1.5px] border-[var(--line)] rounded-lg text-[13px] text-[var(--ink)] resize-none outline-none transition-[border-color] leading-[1.5] placeholder:text-[var(--ink-3)] focus:border-[var(--accent)]"
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
@@ -155,7 +173,7 @@ export function ProductRow({ product, subcatId, isExpanded, onToggle }: ProductR
             style={{ fontFamily: 'var(--font-display)' }}
             onClick={(e) => { e.stopPropagation(); handleExpandedAdd(); }}
           >
-            Agregar al pedido
+            {qty > 0 ? 'Actualizar pedido' : 'Agregar al pedido'}
           </button>
         </div>
       )}

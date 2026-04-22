@@ -94,7 +94,8 @@ export async function updateCartItemAction(
   businessSlug: string,
   productId: string,
   quantity: number,
-  options: { sessionId: string }
+  options: { sessionId: string },
+  notes?: string,
 ): Promise<CartActionResult> {
   try {
     const rateKey = await getCartRateLimitKey(businessSlug, 'update');
@@ -106,17 +107,17 @@ export async function updateCartItemAction(
       return { success: false, error: 'Datos inválidos' };
     }
 
-    const cart = await updateCartItem(businessSlug, productId, quantity, options);
-    
+    const cart = await updateCartItem(businessSlug, productId, quantity, options, notes);
+
     // @ts-ignore - Next.js 16 types requieren 2 args pero runtime funciona con 1
     revalidateTag(`catalog-${businessSlug}`, {});
-    
+
     return { success: true, cart };
   } catch (error) {
     console.error('Error en updateCartItemAction:', error);
-    return { 
-      success: false, 
-      error: error instanceof Error ? error.message : 'Error al actualizar item' 
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Error al actualizar item',
     };
   }
 }
@@ -365,13 +366,14 @@ export async function updateCartItemPublicAction(
   productId: string,
   quantity: number,
   options: { sessionId: string; branchId?: string },
+  notes?: string,
 ): Promise<CartActionResult> {
   try {
     const rateKey = await getCartRateLimitKey(businessSlug, 'update');
     if (!checkRateLimit(rateKey, RATE_LIMITS.updateItem)) {
       return { success: false, error: 'Demasiadas solicitudes. Intenta más tarde.' };
     }
-    const cart = await updateCartItemPublic(businessSlug, productId, quantity, options);
+    const cart = await updateCartItemPublic(businessSlug, productId, quantity, options, notes);
     // @ts-ignore
     revalidateTag(`catalog-${businessSlug}`, {});
     return { success: true, cart };
