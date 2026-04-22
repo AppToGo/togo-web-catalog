@@ -1,20 +1,60 @@
 'use client';
 
-import { useRef, useState, useEffect, useCallback } from 'react';
+import { useRef, useState, useEffect, useCallback, useMemo } from 'react';
 import { HighlightsRail, type HighlightItem } from './highlights-rail';
-import type { Category } from '@/src/types/catalog.types';
+import { useSearchContext } from './search-context';
+import type { Category, CatalogProduct } from '@/src/types/catalog.types';
+
+interface CategoryProductGroup {
+  categoryId: string;
+  products: CatalogProduct[];
+}
 
 interface CatalogShellProps {
   categories: Category[];
+  categoryProductGroups: CategoryProductGroup[];
   highlights?: HighlightItem[];
   children: React.ReactNode;
 }
 
-export function CatalogShell({ categories, highlights, children }: CatalogShellProps) {
+function SearchEmptyState() {
+  return (
+    <div className="text-center py-16 px-4 text-[var(--ink-3)]">
+      <div className="text-[48px] mb-3">🔍</div>
+      <div
+        className="text-[17px] font-bold text-[var(--ink)] mb-[6px] tracking-[-0.02em]"
+        style={{ fontFamily: 'var(--font-display)' }}
+      >
+        No se encontraron productos
+      </div>
+      <div className="text-[14px]">Intenta con otros términos de búsqueda o categorías</div>
+    </div>
+  );
+}
+
+export function CatalogShell({ categories, categoryProductGroups, highlights, children }: CatalogShellProps) {
   const [activeId, setActiveId] = useState<string>(categories[0]?.id ?? '');
   const tabsRef = useRef<HTMLDivElement>(null);
   const observerRef = useRef<IntersectionObserver | null>(null);
   const isScrollingToRef = useRef(false);
+  const { matches, isSearching } = useSearchContext();
+
+  const visibleCategories = useMemo(() => {
+    if (!isSearching) return categories;
+    const matchingIds = new Set(
+      categoryProductGroups
+        .filter(({ products }) => products.some(matches))
+        .map(({ categoryId }) => categoryId),
+    );
+    return categories.filter(cat => matchingIds.has(cat.id));
+  }, [categories, categoryProductGroups, matches, isSearching]);
+
+  // Reset activeId when the current active category is no longer visible
+  useEffect(() => {
+    if (isSearching && visibleCategories.length > 0 && !visibleCategories.find(c => c.id === activeId)) {
+      setActiveId(visibleCategories[0].id);
+    }
+  }, [visibleCategories, isSearching, activeId]);
 
   useEffect(() => {
     if (categories.length === 0) return;
@@ -60,14 +100,14 @@ export function CatalogShell({ categories, highlights, children }: CatalogShellP
 
   return (
     <>
-      {categories.length > 0 && (
+      {visibleCategories.length > 0 && (
         <div className="sticky top-[77px] z-30 bg-[var(--surface)] border-b border-[var(--line)]">
           <div
             ref={tabsRef}
             className="flex gap-1 overflow-x-auto px-3 py-2 scrollbar-hide"
             style={{ scrollbarWidth: 'none' } as React.CSSProperties}
           >
-            {categories.map((cat) => (
+            {visibleCategories.map((cat) => (
               <button
                 key={cat.id}
                 data-tab-id={cat.id}
@@ -85,7 +125,7 @@ export function CatalogShell({ categories, highlights, children }: CatalogShellP
         </div>
       )}
       <HighlightsRail highlights={highlights} />
-      {children}
+      {isSearching && visibleCategories.length === 0 ? <SearchEmptyState /> : children}
     </>
   );
 }

@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Search, ArrowLeft, X } from 'lucide-react';
 import { SearchInput } from '@/components/client/search-input';
+import { useSearchContext } from '@/components/client/search-context';
 import type { BusinessInfo } from '@/src/types/catalog.types';
 
 interface CatalogHeaderProps {
@@ -12,6 +13,7 @@ interface CatalogHeaderProps {
 
 export function CatalogHeader({ business }: CatalogHeaderProps) {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const { setQuery } = useSearchContext();
 
   const words = business.name.split(/\s+/).filter(Boolean);
   const initials = words.slice(0, 2).map((w) => w[0]).join('').toUpperCase();
@@ -21,7 +23,7 @@ export function CatalogHeader({ business }: CatalogHeaderProps) {
       {isSearchOpen ? (
         <div className="flex items-center gap-3 h-12">
           <button
-            onClick={() => setIsSearchOpen(false)}
+            onClick={() => { setIsSearchOpen(false); setQuery(''); }}
             className="shrink-0 w-9 h-9 rounded-full bg-[var(--bg)] border border-[var(--line)] flex items-center justify-center text-[var(--ink-2)] hover:bg-[var(--line)] transition-colors"
             aria-label="Cerrar búsqueda"
           >

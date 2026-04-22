@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ProductRow } from './product-row';
 import type { CatalogProduct } from '@/src/types/catalog.types';
 
@@ -12,6 +12,8 @@ interface ProductListClientProps {
 
 export function ProductListClient({ products, categoryId, useProductImages }: ProductListClientProps) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  useEffect(() => { setExpandedId(null); }, [products]);
 
   const handleToggle = (productId: string) => {
     setExpandedId((prev) => (prev === productId ? null : productId));
