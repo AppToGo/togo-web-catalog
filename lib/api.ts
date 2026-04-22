@@ -194,10 +194,11 @@ export async function addToCart(
   const response = await fetch(url.toString(), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ 
+    body: JSON.stringify({
       sessionId: options?.sessionId,
       productId: item.productId,
       quantity: item.quantity,
+      notes: item.notes,
     }),
     cache: 'no-store',
   });
@@ -230,21 +231,23 @@ export async function updateCartItem(
   businessSlug: string,
   productId: string,
   quantity: number,
-  options?: { sessionId: string }
+  options?: { sessionId: string },
+  notes?: string,
 ): Promise<Cart> {
   const url = new URL(buildWebCatalogUrl(businessSlug, '/cart/update'));
-  
+
   const response = await fetch(url.toString(), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ 
+    body: JSON.stringify({
       sessionId: options?.sessionId,
       productId,
       quantity,
+      ...(notes !== undefined ? { notes } : {}),
     }),
     cache: 'no-store',
   });
-  
+
   return handleResponse<Cart>(response);
 }
 
@@ -429,6 +432,7 @@ export async function updateCartItemPublic(
   productId: string,
   quantity: number,
   options: { sessionId: string; branchId?: string },
+  notes?: string,
 ): Promise<Cart> {
   const response = await fetch(buildPublicCatalogUrl(businessSlug, '/cart/update'), {
     method: 'POST',
@@ -438,6 +442,7 @@ export async function updateCartItemPublic(
       productId,
       quantity,
       branchId: options.branchId,
+      ...(notes !== undefined ? { notes } : {}),
     }),
     cache: 'no-store',
   });
