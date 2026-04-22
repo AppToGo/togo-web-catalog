@@ -44,6 +44,7 @@ interface CartContextType {
   addItem: (item: CartItem) => void;
   updateItem: (productId: string, delta: number) => void;
   removeItem: (productId: string) => void;
+  updateItemNotes: (productId: string, notes: string) => Promise<void>;
   clearCart: () => void;
   syncCart: () => Promise<void>;
   setCustomerPhone: (phone: string) => void;
@@ -196,11 +197,17 @@ export function CartProvider({
         : await getCartAction(businessSlug, { sessionId });
       
       setCart(prev => {
-        const sortByProductId = (items: CartItem[]) => 
-          [...items].sort((a: CartItem, b: CartItem) => a.productId.localeCompare(b.productId));
+        const mergedItems = serverCart.items.map(si => ({
+          ...si,
+          // Preserve local notes if server doesn't have them
+          notes: si.notes ?? prev.items.find(p => p.productId === si.productId)?.notes,
+        }));
+        const mergedCart = { ...serverCart, items: mergedItems };
+        const sortByProductId = (items: CartItem[]) =>
+          [...items].sort((a, b) => a.productId.localeCompare(b.productId));
         const prevJson = JSON.stringify(sortByProductId(prev.items));
-        const newJson = JSON.stringify(sortByProductId(serverCart.items));
-        if (prevJson !== newJson) return serverCart;
+        const newJson = JSON.stringify(sortByProductId(mergedCart.items));
+        if (prevJson !== newJson) return mergedCart;
         return prev;
       });
     } catch (error) {
@@ -238,7 +245,9 @@ export function CartProvider({
         const newItems = [...prev.items];
         newItems[existingIndex] = {
           ...newItems[existingIndex],
-          quantity: newItems[existingIndex].quantity + item.quantity
+          quantity: newItems[existingIndex].quantity + item.quantity,
+          // notes===undefined (quick-add) preserva las previas; notes definido las actualiza
+          ...(item.notes !== undefined ? { notes: item.notes || undefined } : {}),
         };
         return { items: newItems, updatedAt: new Date().toISOString() };
       }
@@ -337,6 +346,43 @@ export function CartProvider({
   }, [businessSlug, branchId, cart, sessionId]);
 
   // ═══════════════════════════════════════════════════════
+  // ACTUALIZAR NOTAS DE ITEM
+  // ═══════════════════════════════════════════════════════
+  const updateItemNotes = useCallback(async (productId: string, notes: string) => {
+    if (!sessionId) return;
+
+    const currentItem = cart.items.find(i => i.productId === productId);
+    if (!currentItem) return;
+
+    const trimmed = notes.trim() || undefined;
+    const previousCart = cart;
+    pendingOps.current += 1;
+    setIsSyncing(true);
+
+    // Optimistic update
+    setCart(prev => ({
+      ...prev,
+      items: prev.items.map(item =>
+        item.productId === productId ? { ...item, notes: trimmed } : item
+      ),
+      updatedAt: new Date().toISOString(),
+    }));
+
+    try {
+      const result = branchId
+        ? await updateCartItemPublicAction(businessSlug, productId, currentItem.quantity, { sessionId, branchId }, trimmed)
+        : await updateCartItemAction(businessSlug, productId, currentItem.quantity, { sessionId }, trimmed);
+      if (!result.success) throw new Error(result.error);
+    } catch (error) {
+      setCart(previousCart);
+      console.error('Error updating item notes:', error);
+    } finally {
+      pendingOps.current -= 1;
+      if (pendingOps.current === 0) setIsSyncing(false);
+    }
+  }, [businessSlug, branchId, cart, sessionId]);
+
+  // ═══════════════════════════════════════════════════════
   // LIMPIAR CARRITO
   // ═══════════════════════════════════════════════════════
   const clearCart = useCallback(async () => {
@@ -391,6 +437,7 @@ export function CartProvider({
       addItem,
       updateItem,
       removeItem,
+      updateItemNotes,
       clearCart,
       syncCart,
       setCustomerPhone,
