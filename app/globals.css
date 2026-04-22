@@ -1,199 +1,124 @@
 @import "tailwindcss";
 
-/**
- * ToGo Web Catalog - Ultra Ligero
- * Solo Tailwind + CSS Variables
- */
+/* ═══════════════════════════════════════════════════════════
+   TOGO CATALOG — Design Tokens
+   ═══════════════════════════════════════════════════════════ */
 
 :root {
-  /* Default: Modern theme */
+  --accent: #14804a;
+  --accent-ink: #ffffff;
+  --accent-soft: color-mix(in oklch, var(--accent) 10%, #fff);
+  --accent-softer: color-mix(in oklch, var(--accent) 5%, #fff);
+  --bg: #fbfaf7;
+  --surface: #ffffff;
+  --ink: #15140f;
+  --ink-2: #4a4842;
+  --ink-3: #8a887e;
+  --line: #eceae2;
+  --line-2: #dcd9cc;
+  --radius-sm: 8px;
+  --radius: 12px;
+  --radius-lg: 18px;
+  --shadow-sm: 0 1px 2px rgba(20,20,15,0.04);
+  --shadow-md: 0 4px 14px rgba(20,20,15,0.08);
+  --shadow-lg: 0 14px 40px rgba(20,20,15,0.14);
+  --font-display: var(--font-inter-tight), "Inter Tight", ui-sans-serif, system-ui, sans-serif;
+  --font-ui: ui-sans-serif, system-ui, sans-serif;
+
+  /* Legacy compat */
   --color-primary: #ea580c;
   --color-primary-foreground: #ffffff;
   --color-secondary: #fef3c7;
   --color-secondary-foreground: #92400e;
-  --color-background: #fafaf9;
-  --color-foreground: #1c1917;
+  --color-background: var(--bg);
+  --color-foreground: var(--ink);
   --color-muted: #f5f5f4;
   --color-muted-foreground: #78716c;
-  --color-border: #e7e5e4;
-  --color-card: #ffffff;
-  --color-card-foreground: #1c1917;
+  --color-border: var(--line);
+  --color-card: var(--surface);
+  --color-card-foreground: var(--ink);
   --radius: 0.75rem;
 }
 
-html {
-  scroll-behavior: smooth;
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  font-family: var(--font-ui);
+  color: var(--ink);
 }
 
+html { scroll-behavior: smooth; }
+
 body {
-  background-color: var(--color-background);
-  color: var(--color-foreground);
+  overscroll-behavior: none;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Scrollbar minimal */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+@layer base {
+  button { font-family: inherit; font-size: inherit; color: inherit; background: none; border: none; padding: 0; cursor: pointer; }
+  input, textarea { font-family: inherit; }
 }
 
-::-webkit-scrollbar-track {
-  background: transparent;
-}
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--ink-3); border-radius: 3px; }
 
-::-webkit-scrollbar-thumb {
-  background: var(--color-muted-foreground);
-  border-radius: 3px;
-}
+.scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+.scrollbar-hide::-webkit-scrollbar { display: none; }
 
-/* Hide scrollbar utility */
-.scrollbar-hide {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
-}
-
-.scrollbar-hide::-webkit-scrollbar {
-  display: none;
-}
-
-/* Line clamp */
-.line-clamp-2 {
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-/* Focus styles */
-*:focus-visible {
-  outline: 2px solid var(--color-primary);
-  outline-offset: 2px;
-}
+/* Focus */
+*:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 /* ═══════════════════════════════════════════════════════════
-   ANIMACIONES PERSONALIZADAS
+   KEYFRAMES
    ═══════════════════════════════════════════════════════════ */
 
-/* Animaciones para modales y drawers */
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
 }
 
-@keyframes fadeOut {
-  from {
-    opacity: 1;
-  }
-  to {
-    opacity: 0;
-  }
+@keyframes slide-down {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
-@keyframes slideInFromRight {
-  from {
-    transform: translateX(100%);
-  }
-  to {
-    transform: translateX(0);
-  }
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
-@keyframes slideOutToRight {
-  from {
-    transform: translateX(0);
-  }
-  to {
-    transform: translateX(100%);
-  }
+@keyframes drawer-up {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
 }
 
-@keyframes slideInFromBottom {
-  from {
-    transform: translateY(100%);
-    opacity: 0;
-  }
-  to {
-    transform: translateY(0);
-    opacity: 1;
-  }
-}
+/* Legacy animation helpers used by other parts of the app */
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes fadeOut { from { opacity: 1; } to { opacity: 0; } }
+@keyframes slideInFromRight { from { transform: translateX(100%); } to { transform: translateX(0); } }
+@keyframes slideOutToRight { from { transform: translateX(0); } to { transform: translateX(100%); } }
+@keyframes slideInFromBottom { from { transform: translateY(100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+@keyframes slideOutToBottom { from { transform: translateY(0); opacity: 1; } to { transform: translateY(100%); opacity: 0; } }
+@keyframes scaleIn { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+@keyframes scaleOut { from { transform: scale(1); opacity: 1; } to { transform: scale(0.95); opacity: 0; } }
 
-@keyframes slideOutToBottom {
-  from {
-    transform: translateY(0);
-    opacity: 1;
-  }
-  to {
-    transform: translateY(100%);
-    opacity: 0;
-  }
-}
+.animate-fade-in { animation: fadeIn 300ms ease-out forwards; }
+.animate-fade-out { animation: fadeOut 300ms ease-out forwards; }
+.animate-slide-in-right { animation: slideInFromRight 300ms ease-out forwards; }
+.animate-slide-out-right { animation: slideOutToRight 300ms ease-out forwards; }
+.animate-slide-in-bottom { animation: slideInFromBottom 300ms ease-out forwards; }
+.animate-slide-out-bottom { animation: slideOutToBottom 300ms ease-out forwards; }
+.animate-scale-in { animation: scaleIn 300ms ease-out forwards; }
+.animate-scale-out { animation: scaleOut 300ms ease-out forwards; }
 
-@keyframes scaleIn {
-  from {
-    transform: scale(0.95);
-    opacity: 0;
-  }
-  to {
-    transform: scale(1);
-    opacity: 1;
-  }
-}
-
-@keyframes scaleOut {
-  from {
-    transform: scale(1);
-    opacity: 1;
-  }
-  to {
-    transform: scale(0.95);
-    opacity: 0;
-  }
-}
-
-/* Clases de utilidad para animaciones */
-.animate-fade-in {
-  animation: fadeIn 300ms ease-out forwards;
-}
-
-.animate-fade-out {
-  animation: fadeOut 300ms ease-out forwards;
-}
-
-.animate-slide-in-right {
-  animation: slideInFromRight 300ms ease-out forwards;
-}
-
-.animate-slide-out-right {
-  animation: slideOutToRight 300ms ease-out forwards;
-}
-
-.animate-slide-in-bottom {
-  animation: slideInFromBottom 300ms ease-out forwards;
-}
-
-.animate-slide-out-bottom {
-  animation: slideOutToBottom 300ms ease-out forwards;
-}
-
-.animate-scale-in {
-  animation: scaleIn 300ms ease-out forwards;
-}
-
-.animate-scale-out {
-  animation: scaleOut 300ms ease-out forwards;
-}
-
-/* Reduced motion */
 @media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
+  *, *::before, *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;

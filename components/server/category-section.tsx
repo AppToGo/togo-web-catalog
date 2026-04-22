@@ -1,50 +1,28 @@
-/**
- * CategorySection - Server Component
- * 
- * Renderiza una sección de productos agrupados por categoría.
- * Todo el HTML es estático, enviado desde el servidor.
- * 
- * Updated for normalized catalog (BusinessProduct + GlobalProduct)
- */
-
 import type { CatalogProduct } from '@/src/types/catalog.types';
-import { ProductGrid } from '@/components/client/product-grid';
+import { ProductListClient } from '@/components/client/product-list-client';
 
 interface CategorySectionProps {
+  id: string;
   title?: string;
   count: number;
   products: CatalogProduct[];
-  accentColor: string;
 }
 
-export function CategorySection({ 
-  title, 
-  count, 
-  products,
-  accentColor 
-}: CategorySectionProps) {
-  // Si no hay título, es la sección "sin categoría"
-  if (!title) {
-    return (
-      <section className="mb-8">
-        <ProductGrid products={products} accentColor={accentColor} />
-      </section>
-    );
-  }
-
+export function CategorySection({ id, title, count, products }: CategorySectionProps) {
   return (
-    <section 
-      id={`section-${title.toLowerCase().replace(/\s+/g, '-')}`}
-      className="mb-8"
-    >
-      <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-        {title}
-        <span className="text-sm font-normal text-gray-500">
-          ({count})
-        </span>
-      </h2>
-      
-      <ProductGrid products={products} accentColor={accentColor} />
-    </section>
+    <div className="pb-2">
+      {title && (
+        <div className="sticky top-[124px] z-20 bg-[var(--surface)] flex items-baseline gap-2 px-4 pt-3 pb-2 border-b border-[var(--line)]">
+          <div
+            className="text-[17px] font-bold text-[var(--ink)] tracking-[-0.03em] leading-[1.2]"
+            style={{ fontFamily: 'var(--font-display)' }}
+          >
+            {title}
+          </div>
+          <span className="text-xs text-[var(--ink-3)] font-medium">{count} items</span>
+        </div>
+      )}
+      <ProductListClient products={products} categoryId={id} />
+    </div>
   );
 }

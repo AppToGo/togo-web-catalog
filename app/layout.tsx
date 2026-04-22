@@ -11,7 +11,15 @@
  */
 
 import type { Metadata, Viewport } from 'next';
+import { Inter_Tight } from 'next/font/google';
 import './globals.css';
+
+const interTight = Inter_Tight({
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700', '800'],
+  variable: '--font-inter-tight',
+  display: 'swap',
+});
 
 // ═══════════════════════════════════════════════════════════
 // METADATA BASE
@@ -96,7 +104,7 @@ export default function RootLayout({
         <link rel="preconnect" href="https://images.unsplash.com" crossOrigin="anonymous" />
         <link rel="dns-prefetch" href="https://images.unsplash.com" />
       </head>
-      <body className="antialiased min-h-screen">
+      <body className={`${interTight.variable} antialiased min-h-screen`}>
         {children}
       </body>
     </html>

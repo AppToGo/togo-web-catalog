@@ -1,236 +1,220 @@
-/**
- * CatalogContent - Server Component
- * 
- * Renderiza todo el contenido estático del catálogo.
- * Versión pública: recibe el catálogo completo del Server Component padre.
- * 
- * Updated for normalized catalog (BusinessProduct + GlobalProduct)
- */
-
-import { Suspense } from 'react';
-import type { CatalogResponse, CatalogProduct, Category } from '@/src/types/catalog.types';
-import { CatalogHeader } from '@/components/server/catalog-header';
+import type { CatalogResponse, CatalogProduct, Category, SubCategory } from '@/src/types/catalog.types';
+import { CatalogHeader } from '@/components/client/catalog-header';
 import { CategorySection } from '@/components/server/category-section';
-import { ProductGrid, CategoryProductGrid } from '@/components/client/product-grid';
-import { SearchInput } from '@/components/client/search-input';
-import { CategoryChips } from '@/components/client/category-chips';
-
-// ═══════════════════════════════════════════════════════════
-// TYPES
-// ═══════════════════════════════════════════════════════════
+import { CatalogShell } from '@/components/client/catalog-shell';
+import type { HighlightItem } from '@/components/client/highlights-rail';
 
 interface CatalogContentProps {
   catalog: CatalogResponse;
   businessSlug: string;
 }
 
-// ═══════════════════════════════════════════════════════════
-// UTILIDADES DE FILTRADO (SERVER-SIDE)
-// ═══════════════════════════════════════════════════════════
+// ─── Two-level catalog grouping ───────────────────────────────────────────────
+//
+// Level 1 (tabs + scroll-spy anchor): IndustryCategory  → catalog.categories
+// Level 2 (sticky section headers):   SubCategory       → catalog.subCategories
+//
+// Fallback (no subCategories): single level using IndustryCategory as header.
 
-function sanitizeSearchQuery(query: string): string {
-  const trimmed = query.trim().slice(0, 100);
-  return trimmed.replace(/[^a-zA-Z0-9áéíóúÁÉÍÓÚñÑüÜ\s]/g, '');
+interface SubGroup {
+  id: string;
+  name?: string;
+  products: CatalogProduct[];
 }
 
-function filterProducts(
-  products: CatalogProduct[],
-  categoryId?: string,
-  searchQuery?: string
-): CatalogProduct[] {
-  let result = products;
+interface CatalogGroup {
+  id: string;
+  subGroups: SubGroup[];
+}
 
-  // Filter by category
-  if (categoryId) {
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    if (uuidRegex.test(categoryId)) {
-      result = result.filter((p) => 
-        p.industryCategoryId === categoryId || p.categoryId === categoryId
-      );
+function buildCatalogGroups(
+  products: CatalogProduct[],
+  categories: Category[],
+  subCategories?: SubCategory[],
+): CatalogGroup[] {
+  const hasSubCats = subCategories && subCategories.length > 0;
+
+  if (hasSubCats) {
+    // Index known SubCategory IDs for O(1) lookup
+    const knownSubCatIds = new Set(subCategories.map(sc => sc.id));
+
+    // Group products: those with a known categoryId → bySubCat, rest → otros
+    const bySubCat = new Map<string, CatalogProduct[]>();
+    const otrosProducts: CatalogProduct[] = [];
+
+    for (const p of products) {
+      if (p.categoryId && knownSubCatIds.has(p.categoryId)) {
+        const arr = bySubCat.get(p.categoryId) ?? [];
+        arr.push(p);
+        bySubCat.set(p.categoryId, arr);
+      } else {
+        // No categoryId, or categoryId doesn't match any SubCategory → Otros
+        otrosProducts.push(p);
+      }
     }
-  }
 
-  // Filter by search query
-  if (searchQuery) {
-    const query = sanitizeSearchQuery(searchQuery);
-    if (query.length >= 2) {
-      const escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const regex = new RegExp(escapedQuery, 'i');
-      result = result.filter(
-        (p) => regex.test(p.name) || 
-               regex.test(p.sku) || 
-               (p.description && regex.test(p.description)) ||
-               (p.brand && regex.test(p.brand))
-      );
+    // Map: industryCatId → sorted SubCategories
+    const subCatsByParent = new Map<string, SubCategory[]>();
+    for (const sc of subCategories) {
+      const arr = subCatsByParent.get(sc.industryCategoryId) ?? [];
+      arr.push(sc);
+      subCatsByParent.set(sc.industryCategoryId, arr);
     }
+
+    const groups: CatalogGroup[] = [];
+
+    for (const cat of categories) {
+      const subCats = (subCatsByParent.get(cat.id) ?? []).sort(
+        (a, b) => a.sortOrder - b.sortOrder,
+      );
+
+      const subGroups: SubGroup[] = subCats
+        .map(sc => ({ id: sc.id, name: sc.name, products: bySubCat.get(sc.id) ?? [] }))
+        .filter(g => g.products.length > 0);
+
+      if (subGroups.length > 0) groups.push({ id: cat.id, subGroups });
+    }
+
+    // "Otros productos" — all products without a valid subcategory assignment
+    if (otrosProducts.length > 0) {
+      groups.push({
+        id: 'uncategorized',
+        subGroups: [{ id: 'otros', name: 'Otros productos', products: otrosProducts }],
+      });
+    }
+
+    return groups;
   }
 
-  return result;
-}
-
-function paginateProducts(
-  products: CatalogProduct[],
-  page: number,
-  perPage: number
-): { paginated: CatalogProduct[]; totalPages: number; total: number } {
-  const total = products.length;
-  const totalPages = Math.ceil(total / perPage);
-  const start = (page - 1) * perPage;
-  const paginated = products.slice(start, start + perPage);
-  return { paginated, totalPages, total };
-}
-
-function groupProductsByCategory(
-  products: CatalogProduct[],
-  categories: Category[]
-): Map<string, CatalogProduct[]> {
-  const groups = new Map<string, CatalogProduct[]>();
-  
-  // Group by categoryId
-  for (const product of products) {
-    const categoryId = product.industryCategoryId || product.categoryId || 'uncategorized';
-    const existing = groups.get(categoryId) || [];
-    existing.push(product);
-    groups.set(categoryId, existing);
+  // ── Fallback: no SubCategories — group by IndustryCategory ──────────────────
+  const byIndustryCat = new Map<string, CatalogProduct[]>();
+  for (const p of products) {
+    const key = p.industryCategoryId ?? p.categoryId ?? 'uncategorized';
+    const arr = byIndustryCat.get(key) ?? [];
+    arr.push(p);
+    byIndustryCat.set(key, arr);
   }
-  
+
+  const groups: CatalogGroup[] = categories
+    .map(cat => ({
+      id: cat.id,
+      subGroups: [{ id: cat.id, name: cat.name, products: byIndustryCat.get(cat.id) ?? [] }],
+    }))
+    .filter(g => g.subGroups[0].products.length > 0);
+
+  const uncategorized = byIndustryCat.get('uncategorized') ?? [];
+  if (uncategorized.length > 0) {
+    groups.push({
+      id: 'uncategorized',
+      subGroups: [{ id: 'uncategorized', name: 'Otros productos', products: uncategorized }],
+    });
+  }
+
   return groups;
 }
 
-// ═══════════════════════════════════════════════════════════
-// EMPTY STATES
-// ═══════════════════════════════════════════════════════════
+// ─── Empty state ──────────────────────────────────────────────────────────────
 
 function NoProductsFound() {
   return (
-    <div className="text-center py-16">
-      <div className="text-6xl mb-4">🔍</div>
-      <h3 className="text-lg font-semibold text-gray-900 mb-2">
+    <div className="text-center py-16 px-4 text-[var(--ink-3)]">
+      <div className="text-[48px] mb-3">🔍</div>
+      <div
+        className="text-[17px] font-bold text-[var(--ink)] mb-[6px] tracking-[-0.02em]"
+        style={{ fontFamily: 'var(--font-display)' }}
+      >
         No se encontraron productos
-      </h3>
-      <p className="text-gray-500">
-        Intenta con otros términos de búsqueda o categorías
-      </p>
+      </div>
+      <div className="text-[14px]">Intenta con otros términos de búsqueda o categorías</div>
     </div>
   );
 }
 
-// ═══════════════════════════════════════════════════════════
-// COMPONENTE PRINCIPAL
-// ═══════════════════════════════════════════════════════════
+// ─── Main component ───────────────────────────────────────────────────────────
 
 export function CatalogContent({ catalog, businessSlug }: CatalogContentProps) {
-  const { business, categories, subCategories, products } = catalog;
+  const { business, categories, products, subCategories } = catalog;
 
-  // Group products by category for organized display
-  const productsByCategory = groupProductsByCategory(products, categories);
+  const catalogGroups = buildCatalogGroups(products, categories, subCategories);
+
+  // Only show tabs for IndustryCategorys that have at least one product
+  const activeCatIds = new Set(catalogGroups.map(g => g.id));
+  const tabCategories = categories.filter(cat => activeCatIds.has(cat.id));
+
+  const highlights = (
+    catalog as CatalogResponse & { highlights?: HighlightItem[] }
+  ).highlights;
 
   return (
-    <div 
-      className="min-h-screen bg-gray-50 pb-32"
+    <div
       style={{
-        '--business-primary': business.primaryColor,
-        '--business-accent': business.accentColor,
+        '--accent': business.accentColor,
+        minHeight: '100dvh',
+        background: 'var(--bg)',
+        paddingBottom: 96,
       } as React.CSSProperties}
     >
-      {/* Header */}
       <CatalogHeader business={business} businessSlug={businessSlug} />
 
-      {/* Search */}
-      <div className="sticky top-[72px] z-30 bg-white border-b border-gray-100 px-4 py-3">
-        <SearchInput placeholder="¿Qué estás buscando?" />
-      </div>
-
-      {/* Categories */}
-      <CategoryChips
-        categories={categories}
-        primaryColor={business.primaryColor}
-      />
-
-      {/* Products */}
-      <main className="max-w-5xl mx-auto px-4 py-6">
+      <CatalogShell categories={tabCategories} highlights={highlights}>
         {products.length === 0 ? (
           <NoProductsFound />
         ) : (
           <>
-            {/* Display all products grouped by category */}
-            {categories.map((category) => {
-              const categoryProducts = productsByCategory.get(category.id) || [];
-              if (categoryProducts.length === 0) return null;
-              
-              return (
-                <CategorySection
-                  key={category.id}
-                  title={category.name}
-                  count={categoryProducts.length}
-                  products={categoryProducts}
-                  accentColor={business.accentColor}
-                />
-              );
-            })}
-            
-            {/* Uncategorized products */}
-            {productsByCategory.has('uncategorized') && (
-              <CategorySection
-                title="Otros productos"
-                count={productsByCategory.get('uncategorized')?.length || 0}
-                products={productsByCategory.get('uncategorized') || []}
-                accentColor={business.accentColor}
-              />
-            )}
+            {catalogGroups.map(({ id: industryCatId, subGroups }) => (
+              <section
+                key={industryCatId}
+                data-cat-id={industryCatId}
+                id={`cat-${industryCatId}`}
+                className="scroll-mt-[77px]"
+              >
+                {subGroups.map(({ id: subGroupId, name, products: groupProducts }) => (
+                  <CategorySection
+                    key={subGroupId}
+                    id={subGroupId}
+                    title={name}
+                    count={groupProducts.length}
+                    products={groupProducts}
+                  />
+                ))}
+              </section>
+            ))}
           </>
         )}
-      </main>
+      </CatalogShell>
     </div>
   );
 }
 
-// ═══════════════════════════════════════════════════════════
-// LOADING SKELETON (Server Component)
-// ═══════════════════════════════════════════════════════════
+// ─── Loading skeleton ─────────────────────────────────────────────────────────
 
 export function CatalogContentSkeleton() {
   return (
-    <div className="min-h-screen bg-gray-50 pb-32">
-      {/* Header Skeleton */}
-      <div className="bg-white border-b border-gray-100 px-4 py-4">
-        <div className="h-12 bg-gray-200 rounded-lg animate-pulse" />
-      </div>
-
-      {/* Search Skeleton */}
-      <div className="bg-white border-b border-gray-100 px-4 py-3">
-        <div className="h-12 bg-gray-200 rounded-xl animate-pulse" />
-      </div>
-
-      {/* Categories Skeleton */}
-      <div className="bg-white border-b border-gray-100 px-4 py-4">
-        <div className="flex gap-3 overflow-hidden">
-          {[1, 2, 3, 4, 5].map((i) => (
-            <div 
-              key={i}
-              className="h-10 w-24 bg-gray-200 rounded-full animate-pulse shrink-0"
-            />
-          ))}
+    <div style={{ minHeight: '100dvh', background: 'var(--bg)', paddingBottom: 96 }}>
+      <div className="bg-[var(--surface)] border-b border-[var(--line)] px-4 pt-4 pb-3">
+        <div className="flex items-center gap-3">
+          <div className="w-12 h-12 rounded-[14px] bg-[var(--line)] animate-pulse" />
+          <div className="flex-1">
+            <div className="h-[18px] w-[140px] bg-[var(--line)] rounded-[6px] mb-[6px] animate-pulse" />
+            <div className="h-3 w-[100px] bg-[var(--line)] rounded-[4px] animate-pulse" />
+          </div>
         </div>
       </div>
 
-      {/* Products Skeleton */}
-      <main className="max-w-5xl mx-auto px-4 py-6">
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-          {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
-            <div 
-              key={i}
-              className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden"
-            >
-              <div className="aspect-square bg-gray-200 animate-pulse" />
-              <div className="p-4 space-y-2">
-                <div className="h-4 bg-gray-200 rounded animate-pulse" />
-                <div className="h-4 bg-gray-200 rounded w-2/3 animate-pulse" />
-              </div>
+      <div>
+        {[1, 2, 3, 4, 5, 6].map((i) => (
+          <div
+            key={i}
+            className="grid grid-cols-[56px_1fr] gap-3 px-4 py-3 border-b border-[var(--line)]"
+          >
+            <div className="w-[52px] h-[52px] rounded-lg bg-[var(--line)] animate-pulse" />
+            <div>
+              <div className="h-[14px] w-[60%] bg-[var(--line)] rounded-[4px] mb-[6px] animate-pulse" />
+              <div className="h-3 w-[80%] bg-[var(--line)] rounded-[4px] animate-pulse" />
             </div>
-          ))}
-        </div>
-      </main>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
