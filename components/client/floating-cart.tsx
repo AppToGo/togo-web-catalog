@@ -1,60 +1,57 @@
-/**
- * FloatingCart - Client Component
- * 
- * Barra flotante que muestra el total del carrito.
- * Usa CartContext (datos) y CartUIContext (UI) separados.
- */
-
 'use client';
 
-import { ShoppingBag, ChevronRight } from 'lucide-react';
+function ChevronRight({ size = 14 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="m9 18 6-6-6-6" />
+    </svg>
+  );
+}
+
 import { useCart } from './cart-context';
 import { useCartUI } from './cart-ui-context';
 import { formatPrice } from '@/lib/utils';
 
 interface FloatingCartProps {
-  accentColor: string;
+  accentColor?: string;
 }
 
 export function FloatingCart({ accentColor }: FloatingCartProps) {
-  const { cart, itemCount } = useCart();
+  const { cart, itemCount, isHydrated } = useCart();
   const { openCart } = useCartUI();
 
-  if (itemCount === 0) return null;
+  if (!isHydrated || itemCount === 0) return null;
 
-  const total = cart.items.reduce(
-    (sum, item) => sum + item.price * item.quantity,
-    0
-  );
+  const total = cart.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 p-4 bg-gradient-to-t from-white via-white to-transparent pointer-events-none">
-      <button
+    <div className="fixed bottom-0 left-0 right-0 z-50 px-3 pb-3 bg-[linear-gradient(to_top,var(--bg)_70%,transparent)] pointer-events-none">
+      <div
+        className="flex items-center gap-[10px] rounded-[18px] px-4 py-3 shadow-[0_14px_40px_rgba(20,20,15,0.14)] cursor-pointer pointer-events-auto transition-[opacity,transform] animate-[drawer-up_0.22s_ease-out] hover:opacity-[0.93] active:scale-[0.98]"
+        style={{ background: accentColor || 'var(--accent)', color: 'var(--accent-ink)' }}
         onClick={openCart}
-        className="w-full max-w-lg mx-auto flex items-center justify-between px-6 py-4 rounded-2xl text-white shadow-2xl hover:opacity-95 active:scale-[0.98] transition-all pointer-events-auto"
-        style={{ backgroundColor: accentColor }}
+        role="button"
+        tabIndex={0}
+        aria-label="Ver carrito"
+        onKeyDown={(e) => e.key === 'Enter' && openCart()}
       >
-        <div className="flex items-center gap-3">
-          <div className="relative">
-            <ShoppingBag className="w-6 h-6" />
-            <span 
-              className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-white text-xs font-bold flex items-center justify-center"
-              style={{ color: accentColor }}
-            >
-              {itemCount}
-            </span>
-          </div>
-          <div className="text-left">
-            <span className="text-sm opacity-90">Ver carrito</span>
-            <p className="font-bold text-lg">{formatPrice(total)}</p>
-          </div>
+        <div
+          className="w-7 h-7 rounded-full bg-white/20 flex items-center justify-center text-[13px] font-bold shrink-0"
+          style={{ fontFamily: 'var(--font-display)' }}
+        >
+          {itemCount}
         </div>
-        
-        <div className="flex items-center gap-2 bg-white/20 px-4 py-2 rounded-full">
-          <span className="font-semibold">Ir a pagar</span>
-          <ChevronRight className="w-5 h-5" />
+        <span className="flex-1 text-[14px] font-medium opacity-90">Ver pedido</span>
+        <span
+          className="text-[16px] font-bold tracking-[-0.03em]"
+          style={{ fontFamily: 'var(--font-display)' }}
+        >
+          {formatPrice(total)}
+        </span>
+        <div className="flex items-center gap-1 bg-white/15 px-3 py-[6px] rounded-full text-[13px] font-semibold whitespace-nowrap">
+          Continuar <ChevronRight size={14} />
         </div>
-      </button>
+      </div>
     </div>
   );
 }

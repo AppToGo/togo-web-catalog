@@ -1,17 +1,7 @@
-/**
- * CartDrawer - Client Component
- * 
- * Drawer lateral del carrito con checkout y transiciones suaves.
- * Soporta catálogo público (requiere teléfono) y autenticado.
- */
-
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { 
-  X, Minus, Plus, ShoppingBag, Loader2, 
-  AlertCircle, CheckCircle, Phone
-} from 'lucide-react';
+import { X, Minus, Plus, Loader2, AlertCircle, CheckCircle, Phone } from 'lucide-react';
 import { useCart } from './cart-context';
 import { useCartUI } from './cart-ui-context';
 import { createOrderAction, updateOrderAction, checkOrderAction } from '@/lib/cart-actions';
@@ -38,20 +28,14 @@ interface OrderStatus {
 export function CartDrawer({ business }: CartDrawerProps) {
   const { cart, updateItem, itemCount, isSyncing, syncCart, customer, isIdentified, sessionId } = useCart();
   const { isCartOpen, closeCart } = useCartUI();
-  
+
   const [notes, setNotes] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [orderStatus, setOrderStatus] = useState<OrderStatus | null>(null);
-  const [showAlert, setShowAlert] = useState<{
-    type: 'error' | 'success' | 'warning';
-    message: string;
-  } | null>(null);
+  const [showAlert, setShowAlert] = useState<{ type: 'error' | 'success' | 'warning'; message: string } | null>(null);
   const [showPhoneModal, setShowPhoneModal] = useState(false);
-  
-  // Estados para animación
   const [animationState, setAnimationState] = useState<'closed' | 'opening' | 'open' | 'closing'>('closed');
 
-  // Manejar apertura/cierre con animación
   useEffect(() => {
     if (isCartOpen) {
       document.body.style.overflow = 'hidden';
@@ -71,6 +55,7 @@ export function CartDrawer({ business }: CartDrawerProps) {
         return () => clearTimeout(timer);
       }
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isCartOpen]);
 
   const checkExistingOrder = async () => {
@@ -87,90 +72,49 @@ export function CartDrawer({ business }: CartDrawerProps) {
   const handleClose = useCallback(() => {
     setAnimationState('closing');
     setTimeout(() => {
+      setAnimationState('closed');
+      document.body.style.overflow = '';
       closeCart();
     }, 300);
   }, [closeCart]);
 
   const handleSubmitOrder = async () => {
     if (cart.items.length === 0) return;
-
-    // Si no está identificado, mostrar modal de teléfono
-    if (!isIdentified) {
-      setShowPhoneModal(true);
-      return;
-    }
+    if (!isIdentified) { setShowPhoneModal(true); return; }
 
     setIsProcessing(true);
     setShowAlert(null);
     await syncCart();
 
     try {
-      // Orden no modificable
       if (orderStatus?.hasOrder && orderStatus.order?.status !== 'DRAFT') {
-        setShowAlert({
-          type: 'error',
-          message: `Esta orden ya fue ${getOrderStatusText(orderStatus.order!.status)}.`,
-        });
+        setShowAlert({ type: 'error', message: `Esta orden ya fue ${getOrderStatusText(orderStatus.order!.status)}.` });
         setIsProcessing(false);
         return;
       }
-
-      // Actualizar orden existente
       if (orderStatus?.hasOrder && orderStatus.order?.status === 'DRAFT') {
-        const result = await updateOrderAction(
-          business.slug,
-          orderStatus.order.id,
-          { notes: notes.trim(), sessionId }
-        );
-
+        const result = await updateOrderAction(business.slug, orderStatus.order.id, { notes: notes.trim(), sessionId });
         if (!result.success) throw new Error(result.error || 'Error al actualizar');
-
-        setShowAlert({
-          type: 'success',
-          message: `¡Orden #${result.order?.orderNumber} actualizada!`,
-        });
+        setShowAlert({ type: 'success', message: `¡Orden #${result.order?.orderNumber} actualizada!` });
         await checkExistingOrder();
         setIsProcessing(false);
         return;
       }
-
-      // Crear nueva orden
       const result = await createOrderAction(business.slug, {
-        items: cart.items,
-        notes: notes.trim(),
-        source: customer.origin,
-        sessionId,
+        items: cart.items, notes: notes.trim(), source: customer.origin, sessionId,
       });
-
       if (!result.success) throw new Error(result.error || 'Error al crear orden');
-
-      // Si requiere WhatsApp, redirigir
-      if (result.order?.waMeUrl) {
-        window.location.href = result.order.waMeUrl;
-        return;
-      }
-
-      // Éxito normal
-      setShowAlert({
-        type: 'success',
-        message: `¡Orden #${result.order?.orderNumber} creada exitosamente!`,
-      });
+      if (result.order?.waMeUrl) { window.location.href = result.order.waMeUrl; return; }
+      setShowAlert({ type: 'success', message: `¡Orden #${result.order?.orderNumber} creada exitosamente!` });
       await checkExistingOrder();
     } catch (error) {
-      setShowAlert({
-        type: 'error',
-        message: error instanceof Error ? error.message : 'Error al procesar',
-      });
+      setShowAlert({ type: 'error', message: error instanceof Error ? error.message : 'Error al procesar' });
     } finally {
       setIsProcessing(false);
     }
   };
 
-  const handlePhoneSubmit = () => {
-    setShowPhoneModal(false);
-    // Reintentar submit ahora con teléfono
-    setTimeout(() => handleSubmitOrder(), 100);
-  };
+  const handlePhoneSubmit = () => { setShowPhoneModal(false); setTimeout(() => handleSubmitOrder(), 100); };
 
   const getOrderStatusText = (status: string): string => {
     const map: Record<string, string> = {
@@ -195,182 +139,208 @@ export function CartDrawer({ business }: CartDrawerProps) {
   );
 
   const total = cart.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
-
-  // Solo no renderizar si nunca se ha abierto
-  if (animationState === 'closed' && !isCartOpen) return null;
-
   const isClosing = animationState === 'closing';
+  const isLocked = !!(orderStatus?.hasOrder && orderStatus.order?.status !== 'DRAFT');
+
+  if (animationState === 'closed' && !isCartOpen) return null;
 
   return (
     <>
-      {/* Overlay */}
+      {/* Backdrop */}
       <div
-        className={`fixed inset-0 bg-black/50 z-50 backdrop-blur-sm transition-opacity duration-300 ease-out ${
-          isClosing ? 'opacity-0' : 'opacity-100'
-        }`}
+        className={`fixed inset-0 bg-[rgba(21,20,15,0.5)] z-50 backdrop-blur-sm ${!isClosing ? 'animate-[fade-in_0.2s_ease-out]' : ''}`}
+        style={isClosing ? { opacity: 0, transition: 'opacity 0.25s ease-out' } : undefined}
         onClick={handleClose}
         aria-hidden="true"
       />
 
-      {/* Drawer */}
-      <div 
-        className={`fixed right-0 top-0 h-full w-full max-w-md bg-gray-50 z-50 shadow-2xl flex flex-col transition-transform duration-300 ease-out ${
-          isClosing ? 'translate-x-full' : 'translate-x-0'
-        }`}
+      {/* Bottom sheet */}
+      <div
+        className={`fixed bottom-0 left-0 right-0 z-[51] bg-[var(--surface)] rounded-t-[18px] max-h-[92dvh] flex flex-col shadow-[0_14px_40px_rgba(20,20,15,0.14)] ${!isClosing ? 'animate-[drawer-up_0.28s_cubic-bezier(0.32,0.72,0,1)]' : ''}`}
+        style={isClosing ? { transform: 'translateY(100%)', transition: 'transform 0.25s cubic-bezier(0.32, 0.72, 0, 1)' } : undefined}
         role="dialog"
         aria-modal="true"
         aria-label="Carrito de compras"
       >
+        {/* Handle */}
+        <div className="w-9 h-1 rounded-full bg-[var(--line-2)] mx-auto mt-[10px] shrink-0" />
+
         {/* Header */}
-        <div
-          className="flex items-center justify-between p-4 text-white flex-shrink-0"
-          style={{ backgroundColor: business.primaryColor }}
-        >
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
-              <ShoppingBag className="w-5 h-5" />
+        <div className="flex items-center justify-between px-4 pt-[14px] pb-3 border-b border-[var(--line)] shrink-0">
+          <div>
+            <div
+              className="text-[17px] font-bold text-[var(--ink)] tracking-[-0.03em]"
+              style={{ fontFamily: 'var(--font-display)' }}
+            >
+              Tu pedido
             </div>
-            <div>
-              <h2 className="font-bold text-lg">Tu pedido</h2>
-              <p className="text-sm text-white/80">{itemCount} items</p>
-            </div>
+            <div className="text-xs text-[var(--ink-3)] mt-[1px]">{itemCount} items</div>
           </div>
           <button
+            className="w-8 h-8 rounded-full bg-[var(--bg)] border border-[var(--line)] flex items-center justify-center text-[var(--ink-2)] transition-colors hover:bg-[var(--line)] shrink-0"
             onClick={handleClose}
-            className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center hover:bg-white/30 transition-colors active:scale-95"
             aria-label="Cerrar carrito"
           >
-            <X className="w-5 h-5" />
+            <X size={16} />
           </button>
         </div>
 
-        {/* Info de customer si está identificado */}
+        {/* Customer phone badge */}
         {isIdentified && customer.phone && (
-          <div className="px-4 py-2 bg-green-50 text-green-700 text-xs flex items-center gap-2 flex-shrink-0">
-            <Phone className="w-3 h-3" />
+          <div className="px-4 py-[6px] bg-[var(--accent-soft)] text-[var(--accent)] text-xs flex items-center gap-[6px] shrink-0">
+            <Phone size={12} />
             <span>Pedido vinculado a: {customer.phone}</span>
           </div>
         )}
 
-        {/* Alertas */}
+        {/* Alert */}
         {showAlert && (
-          <div className={`px-4 py-3 border-b flex-shrink-0 ${
-            showAlert.type === 'error' ? 'bg-red-50 text-red-700 border-red-200' :
-            showAlert.type === 'success' ? 'bg-green-50 text-green-700 border-green-200' :
-            'bg-yellow-50 text-yellow-700 border-yellow-200'
-          }`}>
-            <div className="flex items-start gap-2">
-              {showAlert.type === 'error' && <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />}
-              {showAlert.type === 'success' && <CheckCircle className="w-5 h-5 shrink-0 mt-0.5" />}
-              <p className="text-sm">{showAlert.message}</p>
-            </div>
+          <div
+            className={`px-4 py-[10px] border-b border-[var(--line)] shrink-0 text-[13px] flex items-start gap-2 ${
+              showAlert.type === 'error' ? 'bg-red-50 text-red-700' :
+              showAlert.type === 'success' ? 'bg-[var(--accent-soft)] text-[var(--accent)]' :
+              'bg-amber-50 text-amber-700'
+            }`}
+          >
+            {showAlert.type === 'error' && <AlertCircle size={16} className="shrink-0 mt-[1px]" />}
+            {showAlert.type === 'success' && <CheckCircle size={16} className="shrink-0 mt-[1px]" />}
+            <p className="m-0">{showAlert.message}</p>
           </div>
         )}
 
-        {/* Estado de orden */}
+        {/* Order status */}
         {orderStatus?.hasOrder && (
-          <div className={`px-4 py-2 text-xs font-medium flex-shrink-0 ${
-            orderStatus.order?.status === 'DRAFT' ? 'bg-blue-50 text-blue-700' : 'bg-yellow-50 text-yellow-700'
-          }`}>
+          <div
+            className={`px-4 py-[6px] text-xs font-semibold shrink-0 ${
+              orderStatus.order?.status === 'DRAFT' ? 'bg-blue-50 text-blue-700' : 'bg-amber-50 text-amber-700'
+            }`}
+          >
             {orderStatus.order?.status === 'DRAFT'
-              ? `📝 Orden #${orderStatus.order.orderNumber} en borrador`
-              : `⚠️ Orden #${orderStatus.order?.orderNumber} ${getOrderStatusText(orderStatus.order!.status)}`}
+              ? `Orden #${orderStatus.order.orderNumber} en borrador`
+              : `Orden #${orderStatus.order?.orderNumber} ${getOrderStatusText(orderStatus.order!.status)}`}
           </div>
         )}
 
-        {/* Items */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-3 min-h-0">
+        {/* Body */}
+        <div className="flex-1 overflow-y-auto pt-2 min-h-0">
           {cart.items.length === 0 ? (
-            <div className="text-center py-12">
-              <ShoppingBag className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-              <p className="text-gray-500">Tu carrito está vacío</p>
+            <div className="text-center py-12 px-4 text-[var(--ink-3)]">
+              <div className="text-[40px] mb-3">🛒</div>
+              <div className="text-[14px]">Tu carrito está vacío</div>
             </div>
           ) : (
             <>
               {cart.items.map((item) => (
-                <div key={item.productId} className="flex items-center gap-3 bg-white rounded-xl p-3 shadow-sm">
+                <div key={item.productId} className="flex items-center gap-[10px] px-4 py-[10px] border-b border-[var(--line)] last:border-b-0">
                   <div className="flex-1 min-w-0">
-                    <h3 className="font-semibold text-gray-900 text-sm truncate">{item.name}</h3>
-                    <p className="text-xs text-gray-500">{formatPrice(item.price)} c/u</p>
+                    <div
+                      className="text-[14px] font-semibold text-[var(--ink)] truncate tracking-[-0.01em]"
+                      style={{ fontFamily: 'var(--font-display)' }}
+                    >
+                      {item.name}
+                    </div>
+                    <div className="flex items-center gap-[6px] mt-0.5">
+                      <span className="text-xs text-[var(--ink-3)]">{formatPrice(item.price)} c/u</span>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-1 bg-gray-100 rounded-full p-1 flex-shrink-0">
+
+                  {/* Stepper */}
+                  <div className="flex items-center gap-0.5 bg-[var(--bg)] border-[1.5px] border-[var(--line)] rounded-[20px] p-0.5 shrink-0">
                     <button
+                      className="w-7 h-7 rounded-full flex items-center justify-center transition-[background] text-[var(--ink-2)] hover:bg-[var(--line)] disabled:opacity-40"
                       onClick={() => updateItem(item.productId, -1)}
-                      disabled={orderStatus?.hasOrder && orderStatus.order?.status !== 'DRAFT'}
-                      className="w-7 h-7 rounded-full bg-white flex items-center justify-center hover:bg-gray-50 shadow-sm disabled:opacity-50 active:scale-95 transition-transform"
+                      disabled={isLocked}
+                      aria-label="Quitar uno"
                     >
-                      <Minus className="w-3 h-3 text-gray-600" />
+                      <Minus size={11} />
                     </button>
-                    <span className="w-6 text-center text-sm font-semibold">{item.quantity}</span>
-                    <button
-                      onClick={() => updateItem(item.productId, 1)}
-                      disabled={orderStatus?.hasOrder && orderStatus.order?.status !== 'DRAFT'}
-                      className="w-7 h-7 rounded-full text-white flex items-center justify-center hover:opacity-90 disabled:opacity-50 active:scale-95 transition-transform"
-                      style={{ backgroundColor: business.accentColor }}
+                    <span
+                      className="min-w-6 text-center text-[13px] font-bold text-[var(--ink)]"
+                      style={{ fontFamily: 'var(--font-display)' }}
                     >
-                      <Plus className="w-3 h-3" />
+                      {item.quantity}
+                    </span>
+                    <button
+                      className="w-7 h-7 rounded-full flex items-center justify-center bg-[var(--accent)] text-[var(--accent-ink)] hover:opacity-[0.88] transition-opacity disabled:opacity-40"
+                      onClick={() => updateItem(item.productId, 1)}
+                      disabled={isLocked}
+                      aria-label="Agregar uno"
+                    >
+                      <Plus size={11} />
                     </button>
                   </div>
-                  <div className="text-right min-w-[70px] flex-shrink-0">
-                    <p className="font-bold text-gray-900 text-sm">{formatPrice(item.price * item.quantity)}</p>
+
+                  <div
+                    className="text-[14px] font-bold text-[var(--ink)] tracking-[-0.03em] min-w-[70px] text-right"
+                    style={{ fontFamily: 'var(--font-display)' }}
+                  >
+                    {formatPrice(item.price * item.quantity)}
                   </div>
                 </div>
               ))}
 
-              <div className="bg-white rounded-xl p-4 shadow-sm mt-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Notas para el pedido</label>
+              {/* Notes */}
+              <div className="px-4 py-3">
+                <label className="text-xs font-semibold text-[var(--ink-3)] block mb-[6px]">
+                  Notas para el pedido
+                </label>
                 <textarea
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   placeholder="Ej: Sin cebolla, salsa aparte..."
-                  rows={3}
-                  disabled={orderStatus?.hasOrder && orderStatus.order?.status !== 'DRAFT'}
-                  className="w-full p-3 bg-gray-50 rounded-lg border-none focus:ring-2 focus:ring-gray-200 resize-none text-sm disabled:opacity-50"
+                  rows={2}
+                  disabled={isLocked}
+                  className="w-full px-3 py-[9px] bg-[var(--surface)] border-[1.5px] border-[var(--line)] rounded-lg text-[13px] text-[var(--ink)] resize-none outline-none transition-[border-color] leading-[1.5] placeholder:text-[var(--ink-3)] focus:border-[var(--accent)] disabled:opacity-50"
                 />
               </div>
 
-              <div className="bg-white rounded-xl p-4 shadow-sm">
-                <h4 className="font-semibold text-gray-900 mb-3">Resumen</h4>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between text-gray-600">
-                    <span>Subtotal</span>
-                    <span>{formatPrice(total)}</span>
-                  </div>
-                  <div className="flex justify-between text-gray-600">
-                    <span>Envío</span>
-                    <span className="text-green-600 font-medium">A coordinar</span>
-                  </div>
-                  <div className="border-t border-gray-100 pt-2 flex justify-between items-center">
-                    <span className="font-semibold text-gray-900">Total</span>
-                    <span className="font-bold text-xl text-gray-900">{formatPrice(total)}</span>
-                  </div>
+              {/* Summary */}
+              <div className="px-4 py-3 border-t border-[var(--line)] mt-1">
+                <div className="flex justify-between items-center py-1 text-[13px] text-[var(--ink-2)]">
+                  <span>Subtotal</span>
+                  <span>{formatPrice(total)}</span>
+                </div>
+                <div className="flex justify-between items-center py-1 text-[13px] text-[var(--ink-2)]">
+                  <span>Envío</span>
+                  <span className="text-[var(--accent)] font-medium">A coordinar</span>
+                </div>
+                <div
+                  className="flex justify-between items-center pt-[10px] mt-1 border-t border-[var(--line)] text-[16px] font-bold text-[var(--ink)] tracking-[-0.02em]"
+                  style={{ fontFamily: 'var(--font-display)' }}
+                >
+                  <span>Total</span>
+                  <span>{formatPrice(total)}</span>
                 </div>
               </div>
             </>
           )}
         </div>
 
+        {/* Footer */}
         {cart.items.length > 0 && (
-          <div className="border-t border-gray-200 p-4 bg-white space-y-3 flex-shrink-0">
+          <div className="shrink-0 border-t border-[var(--line)] px-4 py-3 bg-[var(--surface)]">
             {!isIdentified && (
-              <p className="text-xs text-gray-500 text-center">
+              <p className="text-xs text-[var(--ink-3)] text-center mb-2">
                 Te pediremos tu teléfono para confirmar el pedido
               </p>
             )}
             <button
+              className="w-full py-[14px] rounded-xl bg-[var(--accent)] text-[var(--accent-ink)] text-[15px] font-bold tracking-[-0.01em] flex items-center justify-center gap-2 transition-opacity shadow-[0_4px_14px_rgba(20,20,15,0.08)] hover:opacity-90 active:opacity-80 disabled:opacity-45 disabled:cursor-not-allowed"
+              style={{ fontFamily: 'var(--font-display)' }}
               onClick={handleSubmitOrder}
               disabled={isSubmitDisabled()}
-              className="w-full py-4 rounded-xl font-bold text-white text-lg flex items-center justify-center gap-2 shadow-lg hover:opacity-95 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-              style={{ backgroundColor: business.accentColor }}
             >
-              {isProcessing ? <><Loader2 className="w-5 h-5 animate-spin" /> Procesando...</> : getSubmitButtonText()}
+              {isProcessing ? (
+                <><Loader2 size={18} className="animate-spin" />Procesando...</>
+              ) : (
+                getSubmitButtonText()
+              )}
             </button>
           </div>
         )}
       </div>
 
-      {/* Modal de teléfono - fuera del drawer */}
-      <PhoneCaptureModal 
+      <PhoneCaptureModal
         isOpen={showPhoneModal}
         onClose={() => setShowPhoneModal(false)}
         onSubmit={handlePhoneSubmit}

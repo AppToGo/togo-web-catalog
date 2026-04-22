@@ -46,10 +46,9 @@ export function AddToCartButton({
   accentColor,
   size = 'md'
 }: AddToCartButtonProps) {
-  const { addItem, updateItem, cart } = useCart();
-  
-  // Buscar cantidad actual en el carrito
-  const cartItem = cart.items.find(item => item.productId === product.id);
+  const { addItem, updateItem, cart, isHydrated } = useCart();
+
+  const cartItem = isHydrated ? cart.items.find(item => item.productId === product.id) : undefined;
   const quantity = cartItem?.quantity || 0;
   
   // Check stock availability
