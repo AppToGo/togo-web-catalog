@@ -1,7 +1,9 @@
 import type { CatalogResponse, CatalogProduct, Category, SubCategory } from '@/src/types/catalog.types';
 import { CatalogHeader } from '@/components/client/catalog-header';
-import { CategorySection } from '@/components/server/category-section';
+import { CategorySection } from '@/components/client/category-section';
+import { IndustrySection } from '@/components/client/industry-section';
 import { CatalogShell } from '@/components/client/catalog-shell';
+import { SearchProvider } from '@/components/client/search-context';
 import type { HighlightItem } from '@/components/client/highlights-rail';
 
 interface CatalogContentProps {
@@ -35,10 +37,8 @@ function buildCatalogGroups(
   const hasSubCats = subCategories && subCategories.length > 0;
 
   if (hasSubCats) {
-    // Index known SubCategory IDs for O(1) lookup
     const knownSubCatIds = new Set(subCategories.map(sc => sc.id));
 
-    // Group products: those with a known categoryId → bySubCat, rest → otros
     const bySubCat = new Map<string, CatalogProduct[]>();
     const otrosProducts: CatalogProduct[] = [];
 
@@ -48,12 +48,10 @@ function buildCatalogGroups(
         arr.push(p);
         bySubCat.set(p.categoryId, arr);
       } else {
-        // No categoryId, or categoryId doesn't match any SubCategory → Otros
         otrosProducts.push(p);
       }
     }
 
-    // Map: industryCatId → sorted SubCategories
     const subCatsByParent = new Map<string, SubCategory[]>();
     for (const sc of subCategories) {
       const arr = subCatsByParent.get(sc.industryCategoryId) ?? [];
@@ -75,7 +73,6 @@ function buildCatalogGroups(
       if (subGroups.length > 0) groups.push({ id: cat.id, subGroups });
     }
 
-    // "Otros productos" — all products without a valid subcategory assignment
     if (otrosProducts.length > 0) {
       groups.push({
         id: 'uncategorized',
@@ -86,7 +83,6 @@ function buildCatalogGroups(
     return groups;
   }
 
-  // ── Fallback: no SubCategories — group by IndustryCategory ──────────────────
   const byIndustryCat = new Map<string, CatalogProduct[]>();
   for (const p of products) {
     const key = p.industryCategoryId ?? p.categoryId ?? 'uncategorized';
@@ -113,23 +109,6 @@ function buildCatalogGroups(
   return groups;
 }
 
-// ─── Empty state ──────────────────────────────────────────────────────────────
-
-function NoProductsFound() {
-  return (
-    <div className="text-center py-16 px-4 text-[var(--ink-3)]">
-      <div className="text-[48px] mb-3">🔍</div>
-      <div
-        className="text-[17px] font-bold text-[var(--ink)] mb-[6px] tracking-[-0.02em]"
-        style={{ fontFamily: 'var(--font-display)' }}
-      >
-        No se encontraron productos
-      </div>
-      <div className="text-[14px]">Intenta con otros términos de búsqueda o categorías</div>
-    </div>
-  );
-}
-
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export function CatalogContent({ catalog, businessSlug }: CatalogContentProps) {
@@ -138,52 +117,54 @@ export function CatalogContent({ catalog, businessSlug }: CatalogContentProps) {
   const catalogGroups = buildCatalogGroups(products, categories, subCategories);
   const useProductImages = catalog.business.useProductImages ?? false;
 
-  // Only show tabs for IndustryCategorys that have at least one product
   const activeCatIds = new Set(catalogGroups.map(g => g.id));
   const tabCategories = categories.filter(cat => activeCatIds.has(cat.id));
+
+  const categoryProductGroups = catalogGroups.map(g => ({
+    categoryId: g.id,
+    products: g.subGroups.flatMap(sg => sg.products),
+  }));
 
   const highlights = (
     catalog as CatalogResponse & { highlights?: HighlightItem[] }
   ).highlights;
 
   return (
-    <div
-      style={{
-        minHeight: '100dvh',
-        background: 'var(--bg)',
-        paddingBottom: 96,
-      } as React.CSSProperties}
-    >
-      <CatalogHeader business={business} businessSlug={businessSlug} />
+    <SearchProvider>
+      <div
+        style={{
+          minHeight: '100dvh',
+          background: 'var(--bg)',
+          paddingBottom: 96,
+        } as React.CSSProperties}
+      >
+        <CatalogHeader business={business} businessSlug={businessSlug} />
 
-      <CatalogShell categories={tabCategories} highlights={highlights}>
-        {products.length === 0 ? (
-          <NoProductsFound />
-        ) : (
-          <>
-            {catalogGroups.map(({ id: industryCatId, subGroups }) => (
-              <section
-                key={industryCatId}
-                data-cat-id={industryCatId}
-                id={`cat-${industryCatId}`}
-                className="scroll-mt-[77px]"
-              >
-                {subGroups.map(({ id: subGroupId, name, products: groupProducts }) => (
-                  <CategorySection
-                    key={subGroupId}
-                    id={subGroupId}
-                    title={name}
-                    count={groupProducts.length}
-                    products={groupProducts}
-                    useProductImages={useProductImages}
-                  />
-                ))}
-              </section>
-            ))}
-          </>
-        )}
-      </CatalogShell>
-    </div>
+        <CatalogShell
+          categories={tabCategories}
+          categoryProductGroups={categoryProductGroups}
+          highlights={highlights}
+        >
+          {catalogGroups.map(({ id: industryCatId, subGroups }) => (
+            <IndustrySection
+              key={industryCatId}
+              catId={industryCatId}
+              products={subGroups.flatMap(sg => sg.products)}
+            >
+              {subGroups.map(({ id: subGroupId, name, products: groupProducts }) => (
+                <CategorySection
+                  key={subGroupId}
+                  id={subGroupId}
+                  title={name}
+                  products={groupProducts}
+                  useProductImages={useProductImages}
+                />
+              ))}
+            </IndustrySection>
+          ))}
+        </CatalogShell>
+      </div>
+    </SearchProvider>
   );
 }
 
