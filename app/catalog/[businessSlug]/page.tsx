@@ -174,28 +174,30 @@ export default async function CatalogPage({ params, searchParams }: PageProps) {
       <>
         <StructuredData catalog={catalog} businessSlug={businessSlug} />
 
-        <CartProvider
-          businessSlug={businessSlug}
-          origin={origin}
-          tableNumber={table}
-          initialPhone={catalog.customerPhone}
-          initialName={catalog.customerName}
-          isAuthenticated={isAuthenticated}
-        >
-          <CartUIProvider>
-            <Suspense fallback={<CatalogSkeleton />}>
-              <CatalogContent catalog={catalog} businessSlug={businessSlug} />
-            </Suspense>
+        <div style={{ '--accent': catalog.business.primaryColor, '--accent-2': catalog.business.accentColor } as React.CSSProperties}>
+          <CartProvider
+            businessSlug={businessSlug}
+            origin={origin}
+            tableNumber={table}
+            initialPhone={catalog.customerPhone}
+            initialName={catalog.customerName}
+            isAuthenticated={isAuthenticated}
+          >
+            <CartUIProvider>
+              <Suspense fallback={<CatalogSkeleton />}>
+                <CatalogContent catalog={catalog} businessSlug={businessSlug} />
+              </Suspense>
 
-            {/* Client Components */}
-            <FloatingCart accentColor={catalog.business.accentColor} />
-            <ProductModal
-              token={token || ""}
-              accentColor={catalog.business.accentColor}
-            />
-            <CartDrawer business={catalog.business} />
-          </CartUIProvider>
-        </CartProvider>
+              {/* Client Components */}
+              <FloatingCart accentColor={catalog.business.primaryColor} />
+              <ProductModal
+                token={token || ""}
+                accentColor={catalog.business.primaryColor}
+              />
+              <CartDrawer business={catalog.business} />
+            </CartUIProvider>
+          </CartProvider>
+        </div>
       </>
     );
   } catch (error) {

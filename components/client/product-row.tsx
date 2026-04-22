@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Image from 'next/image';
 import { InitialsAvatar } from '@/components/ui/initials-avatar';
 import { useCart } from './cart-context';
 import { formatPrice } from '@/lib/utils';
@@ -27,9 +28,10 @@ interface ProductRowProps {
   subcatId: string;
   isExpanded: boolean;
   onToggle: () => void;
+  useProductImages: boolean;
 }
 
-export function ProductRow({ product, subcatId, isExpanded, onToggle }: ProductRowProps) {
+export function ProductRow({ product, subcatId, isExpanded, onToggle, useProductImages }: ProductRowProps) {
   const { cart, addItem, updateItem, updateItemNotes } = useCart();
   const [notes, setNotes] = useState('');
   const [clientQty, setClientQty] = useState(0);
@@ -88,12 +90,20 @@ export function ProductRow({ product, subcatId, isExpanded, onToggle }: ProductR
 
   return (
     <div
-      className={`grid grid-cols-[56px_1fr_auto] items-center gap-3 px-4 py-3 border-b border-[var(--line)] last:border-b-0 cursor-pointer transition-colors relative ${
+      className={`grid ${useProductImages ? 'grid-cols-[56px_1fr_auto]' : 'grid-cols-[1fr_auto]'} items-center gap-3 px-4 py-3 border-b border-[var(--line)] last:border-b-0 cursor-pointer transition-colors relative ${
         isExpanded ? 'bg-[var(--accent-softer)]' : 'bg-[var(--surface)] hover:bg-[var(--bg)]'
       } ${isUnavailable ? 'opacity-50' : ''}`}
       onClick={handleRowClick}
     >
-      <InitialsAvatar name={product.name} subcatId={subcatId} />
+      {useProductImages && (
+        product.image ? (
+          <div className="w-[52px] h-[52px] rounded-lg shrink-0 relative overflow-hidden">
+            <Image src={product.image} alt={product.name} fill className="object-cover" sizes="52px" />
+          </div>
+        ) : (
+          <InitialsAvatar name={product.name} subcatId={subcatId} />
+        )
+      )}
 
       <div className="flex flex-col gap-0.5 flex-1 min-w-0">
         <div
@@ -159,7 +169,7 @@ export function ProductRow({ product, subcatId, isExpanded, onToggle }: ProductR
       </div>
 
       {isExpanded && (
-        <div className="col-span-3 pt-3 pb-1 animate-[slide-down_0.18s_ease-out]">
+        <div className={`${useProductImages ? 'col-span-3' : 'col-span-2'} pt-3 pb-1 animate-[slide-down_0.18s_ease-out]`}>
           <textarea
             className="w-full px-3 py-[9px] bg-[var(--surface)] border-[1.5px] border-[var(--line)] rounded-lg text-[13px] text-[var(--ink)] resize-none outline-none transition-[border-color] leading-[1.5] placeholder:text-[var(--ink-3)] focus:border-[var(--accent)]"
             value={notes}

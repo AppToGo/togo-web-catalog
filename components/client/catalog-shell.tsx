@@ -74,8 +74,8 @@ export function CatalogShell({ categories, highlights, children }: CatalogShellP
                 onClick={() => handleTabClick(cat.id)}
                 className={`shrink-0 px-4 py-[6px] rounded-full text-[13px] font-medium border-[1.5px] border-transparent cursor-pointer transition-all whitespace-nowrap leading-[1.4] ${
                   activeId === cat.id
-                    ? 'bg-[var(--accent-soft)] text-[var(--accent)] font-semibold'
-                    : 'text-[var(--ink-2)] hover:bg-[var(--accent-softer)] hover:text-[var(--accent)]'
+                    ? 'bg-[var(--accent-2)] text-[var(--accent)] font-semibold'
+                    : 'text-[var(--ink-2)] hover:bg-[var(--accent-2-softer)] hover:text-[var(--accent-2)]'
                 }`}
               >
                 {cat.name}
