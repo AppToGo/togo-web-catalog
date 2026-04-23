@@ -125,10 +125,7 @@ export interface BusinessInfo {
   
   /** Business logo URL */
   logo?: string;
-  
-  /** Business banner image URL */
-  banner?: string;
-  
+
   /** Business description */
   description?: string;
   
