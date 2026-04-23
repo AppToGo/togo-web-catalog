@@ -184,9 +184,6 @@ export function generateStructuredData(
     url: catalogUrl,
     telephone: business.phone,
     image: business.logo || undefined,
-    ...(business.banner && { 
-      photos: [business.banner] 
-    }),
     ...(business.openingHours && {
       openingHoursSpecification: Object.entries(business.openingHours).map(([day, hours]) => ({
         '@type': 'OpeningHoursSpecification',
