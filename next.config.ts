@@ -74,7 +74,7 @@ const nextConfig: NextConfig = {
               "default-src 'self'",
               "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
               "style-src 'self' 'unsafe-inline'",
-              "img-src 'self' https: data: blob:",
+              `img-src 'self' https: data: blob:${process.env.NODE_ENV !== 'production' ? ' http:' : ''}`,
               "font-src 'self'",
               "connect-src 'self'",
               "frame-ancestors 'none'",
