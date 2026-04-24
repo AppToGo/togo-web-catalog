@@ -1,10 +1,15 @@
-import type { CatalogResponse, CatalogProduct, Category, SubCategory } from '@/src/types/catalog.types';
-import { CatalogHeader } from '@/components/client/catalog-header';
-import { CategorySection } from '@/components/client/category-section';
-import { IndustrySection } from '@/components/client/industry-section';
-import { CatalogShell } from '@/components/client/catalog-shell';
-import { SearchProvider } from '@/components/client/search-context';
-import type { HighlightItem } from '@/components/client/highlights-rail';
+import type {
+  CatalogResponse,
+  CatalogProduct,
+  Category,
+  SubCategory,
+} from "@/src/types/catalog.types";
+import { CatalogHeader } from "@/components/client/catalog-header";
+import { CategorySection } from "@/components/client/category-section";
+import { IndustrySection } from "@/components/client/industry-section";
+import { CatalogShell } from "@/components/client/catalog-shell";
+import { SearchProvider } from "@/components/client/search-context";
+import type { HighlightItem } from "@/components/client/highlights-rail";
 
 interface CatalogContentProps {
   catalog: CatalogResponse;
@@ -37,7 +42,7 @@ function buildCatalogGroups(
   const hasSubCats = subCategories && subCategories.length > 0;
 
   if (hasSubCats) {
-    const knownSubCatIds = new Set(subCategories.map(sc => sc.id));
+    const knownSubCatIds = new Set(subCategories.map((sc) => sc.id));
 
     const bySubCat = new Map<string, CatalogProduct[]>();
     const otrosProducts: CatalogProduct[] = [];
@@ -67,16 +72,22 @@ function buildCatalogGroups(
       );
 
       const subGroups: SubGroup[] = subCats
-        .map(sc => ({ id: sc.id, name: sc.name, products: bySubCat.get(sc.id) ?? [] }))
-        .filter(g => g.products.length > 0);
+        .map((sc) => ({
+          id: sc.id,
+          name: sc.name,
+          products: bySubCat.get(sc.id) ?? [],
+        }))
+        .filter((g) => g.products.length > 0);
 
       if (subGroups.length > 0) groups.push({ id: cat.id, subGroups });
     }
 
     if (otrosProducts.length > 0) {
       groups.push({
-        id: 'uncategorized',
-        subGroups: [{ id: 'otros', name: 'Otros productos', products: otrosProducts }],
+        id: "uncategorized",
+        subGroups: [
+          { id: "otros", name: "Otros productos", products: otrosProducts },
+        ],
       });
     }
 
@@ -85,24 +96,36 @@ function buildCatalogGroups(
 
   const byIndustryCat = new Map<string, CatalogProduct[]>();
   for (const p of products) {
-    const key = p.industryCategoryId ?? p.categoryId ?? 'uncategorized';
+    const key = p.industryCategoryId ?? p.categoryId ?? "uncategorized";
     const arr = byIndustryCat.get(key) ?? [];
     arr.push(p);
     byIndustryCat.set(key, arr);
   }
 
   const groups: CatalogGroup[] = categories
-    .map(cat => ({
+    .map((cat) => ({
       id: cat.id,
-      subGroups: [{ id: cat.id, name: cat.name, products: byIndustryCat.get(cat.id) ?? [] }],
+      subGroups: [
+        {
+          id: cat.id,
+          name: cat.name,
+          products: byIndustryCat.get(cat.id) ?? [],
+        },
+      ],
     }))
-    .filter(g => g.subGroups[0].products.length > 0);
+    .filter((g) => g.subGroups[0].products.length > 0);
 
-  const uncategorized = byIndustryCat.get('uncategorized') ?? [];
+  const uncategorized = byIndustryCat.get("uncategorized") ?? [];
   if (uncategorized.length > 0) {
     groups.push({
-      id: 'uncategorized',
-      subGroups: [{ id: 'uncategorized', name: 'Otros productos', products: uncategorized }],
+      id: "uncategorized",
+      subGroups: [
+        {
+          id: "uncategorized",
+          name: "Otros productos",
+          products: uncategorized,
+        },
+      ],
     });
   }
 
@@ -117,12 +140,12 @@ export function CatalogContent({ catalog, businessSlug }: CatalogContentProps) {
   const catalogGroups = buildCatalogGroups(products, categories, subCategories);
   const useProductImages = catalog.business.useProductImages ?? false;
 
-  const activeCatIds = new Set(catalogGroups.map(g => g.id));
-  const tabCategories = categories.filter(cat => activeCatIds.has(cat.id));
+  const activeCatIds = new Set(catalogGroups.map((g) => g.id));
+  const tabCategories = categories.filter((cat) => activeCatIds.has(cat.id));
 
-  const categoryProductGroups = catalogGroups.map(g => ({
+  const categoryProductGroups = catalogGroups.map((g) => ({
     categoryId: g.id,
-    products: g.subGroups.flatMap(sg => sg.products),
+    products: g.subGroups.flatMap((sg) => sg.products),
   }));
 
   const highlights = (
@@ -132,11 +155,13 @@ export function CatalogContent({ catalog, businessSlug }: CatalogContentProps) {
   return (
     <SearchProvider>
       <div
-        style={{
-          minHeight: '100dvh',
-          background: 'var(--bg)',
-          paddingBottom: 96,
-        } as React.CSSProperties}
+        style={
+          {
+            minHeight: "100dvh",
+            background: "var(--bg)",
+            paddingBottom: 96,
+          } as React.CSSProperties
+        }
       >
         <CatalogHeader business={business} />
 
@@ -149,17 +174,19 @@ export function CatalogContent({ catalog, businessSlug }: CatalogContentProps) {
             <IndustrySection
               key={industryCatId}
               catId={industryCatId}
-              products={subGroups.flatMap(sg => sg.products)}
+              products={subGroups.flatMap((sg) => sg.products)}
             >
-              {subGroups.map(({ id: subGroupId, name, products: groupProducts }) => (
-                <CategorySection
-                  key={subGroupId}
-                  id={subGroupId}
-                  title={name}
-                  products={groupProducts}
-                  useProductImages={useProductImages}
-                />
-              ))}
+              {subGroups.map(
+                ({ id: subGroupId, name, products: groupProducts }) => (
+                  <CategorySection
+                    key={subGroupId}
+                    id={subGroupId}
+                    title={name}
+                    products={groupProducts}
+                    useProductImages={useProductImages}
+                  />
+                ),
+              )}
             </IndustrySection>
           ))}
         </CatalogShell>
@@ -172,7 +199,13 @@ export function CatalogContent({ catalog, businessSlug }: CatalogContentProps) {
 
 export function CatalogContentSkeleton() {
   return (
-    <div style={{ minHeight: '100dvh', background: 'var(--bg)', paddingBottom: 96 }}>
+    <div
+      style={{
+        minHeight: "100dvh",
+        background: "var(--bg)",
+        paddingBottom: 96,
+      }}
+    >
       <div className="bg-[var(--surface)] border-b border-[var(--line)] px-4 pt-4 pb-3">
         <div className="flex items-center gap-3">
           <div className="w-12 h-12 rounded-[14px] bg-[var(--line)] animate-pulse" />

@@ -174,7 +174,14 @@ export default async function CatalogPage({ params, searchParams }: PageProps) {
       <>
         <StructuredData catalog={catalog} businessSlug={businessSlug} />
 
-        <div style={{ '--accent': catalog.business.primaryColor, '--accent-2': catalog.business.accentColor } as React.CSSProperties}>
+        <div
+          style={
+            {
+              "--accent": catalog.business.primaryColor,
+              "--accent-2": catalog.business.accentColor,
+            } as React.CSSProperties
+          }
+        >
           <CartProvider
             businessSlug={businessSlug}
             origin={origin}
