@@ -1,14 +1,23 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { X, Minus, Plus, Loader2, AlertCircle, CheckCircle, Phone } from 'lucide-react';
 import { useCart } from './cart-context';
 import { useCartUI } from './cart-ui-context';
 import { CartItemNotes } from './cart-item-notes';
-import { createOrderAction, updateOrderAction, checkOrderAction } from '@/lib/cart-actions';
+import { createOrderAction, createOrderPublicAction, updateOrderAction, checkOrderAction } from '@/lib/cart-actions';
 import { PhoneCaptureModal } from './phone-capture-modal';
 import type { BusinessInfo } from '@/src/types/catalog.types';
 import { formatPrice } from '@/lib/utils';
+
+function buildWaMeUrl(phone: string | undefined, businessName: string, orderNumber?: string): string | null {
+  if (!phone) return null;
+  const digits = phone.replace(/\D/g, '');
+  const text = orderNumber
+    ? `Hola, acabo de hacer el pedido #${orderNumber} en ${businessName} y quiero completarlo`
+    : `Hola, acabo de hacer un pedido en ${businessName} y quiero completarlo`;
+  return `https://wa.me/${digits}?text=${encodeURIComponent(text)}`;
+}
 
 interface CartDrawerProps {
   business: BusinessInfo;
@@ -27,7 +36,7 @@ interface OrderStatus {
 }
 
 export function CartDrawer({ business }: CartDrawerProps) {
-  const { cart, updateItem, updateItemNotes, itemCount, isSyncing, syncCart, customer, isIdentified, sessionId } = useCart();
+  const { cart, updateItem, updateItemNotes, itemCount, isSyncing, syncCart, customer, isIdentified, sessionId, branchId } = useCart();
   const { isCartOpen, closeCart } = useCartUI();
 
   const [notes, setNotes] = useState('');
@@ -36,6 +45,7 @@ export function CartDrawer({ business }: CartDrawerProps) {
   const [showAlert, setShowAlert] = useState<{ type: 'error' | 'success' | 'warning'; message: string } | null>(null);
   const [showPhoneModal, setShowPhoneModal] = useState(false);
   const [animationState, setAnimationState] = useState<'closed' | 'opening' | 'open' | 'closing'>('closed');
+  const pendingSubmitRef = useRef(false);
 
   useEffect(() => {
     if (isCartOpen) {
@@ -101,12 +111,29 @@ export function CartDrawer({ business }: CartDrawerProps) {
         setIsProcessing(false);
         return;
       }
-      const result = await createOrderAction(business.slug, {
-        items: cart.items, notes: notes.trim(), source: customer.origin, sessionId,
-      });
+      // WhatsApp users are identified by session token → web-catalog endpoint
+      // Direct users are identified by phone → public catalog endpoint
+      const result = customer.origin === 'whatsapp'
+        ? await createOrderAction(business.slug, {
+            items: cart.items, notes: notes.trim(), source: customer.origin, sessionId,
+          })
+        : await createOrderPublicAction(business.slug, {
+            items: cart.items,
+            notes: notes.trim(),
+            sessionId,
+            phoneNumber: customer.phone ?? '',
+          });
       if (!result.success) throw new Error(result.error || 'Error al crear orden');
-      if (result.order?.waMeUrl) { window.location.href = result.order.waMeUrl; return; }
-      setShowAlert({ type: 'success', message: `¡Orden #${result.order?.orderNumber} creada exitosamente!` });
+      if (customer.origin === 'whatsapp') {
+        setShowAlert({ type: 'success', message: `¡Pedido registrado! Te escribimos por WhatsApp para coordinar los detalles.` });
+      } else {
+        const waUrl = result.order?.waMeUrl ?? buildWaMeUrl(business.phone, business.name, result.order?.orderNumber);
+        if (waUrl) {
+          window.location.href = waUrl;
+          return;
+        }
+        setShowAlert({ type: 'success', message: `¡Orden #${result.order?.orderNumber} registrada!` });
+      }
       await checkExistingOrder();
     } catch (error) {
       setShowAlert({ type: 'error', message: error instanceof Error ? error.message : 'Error al procesar' });
@@ -115,7 +142,19 @@ export function CartDrawer({ business }: CartDrawerProps) {
     }
   };
 
-  const handlePhoneSubmit = () => { setShowPhoneModal(false); setTimeout(() => handleSubmitOrder(), 100); };
+  const handlePhoneSubmit = () => {
+    pendingSubmitRef.current = true;
+    setShowPhoneModal(false);
+  };
+
+  // Trigger submit once the customer becomes identified after closing the modal
+  useEffect(() => {
+    if (isIdentified && pendingSubmitRef.current) {
+      pendingSubmitRef.current = false;
+      handleSubmitOrder();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isIdentified]);
 
   const getOrderStatusText = (status: string): string => {
     const map: Record<string, string> = {

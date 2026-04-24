@@ -306,6 +306,8 @@ export async function createOrder(
     notes?: string;
     source: CustomerOrigin;
     sessionId: string;
+    customerPhone?: string;
+    customerName?: string;
   },
 ): Promise<OrderResponse> {
   const response = await fetch(buildWebCatalogUrl(businessSlug, "/order"), {
@@ -481,12 +483,9 @@ export async function createOrderPublic(
   businessSlug: string,
   data: {
     items: CartItem[];
-    branchId: string;
     notes?: string;
-    source: CustomerOrigin;
     sessionId: string;
-    customerPhone?: string;
-    customerName?: string;
+    phoneNumber: string;
   },
 ): Promise<OrderResponse> {
   const response = await fetch(buildPublicCatalogUrl(businessSlug, "/order"), {

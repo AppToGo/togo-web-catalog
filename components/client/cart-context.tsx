@@ -40,6 +40,7 @@ interface CartContextType {
   customer: CustomerData;
   isIdentified: boolean;
   sessionId: string;
+  branchId?: string;
   // Actions
   addItem: (item: CartItem) => void;
   updateItem: (productId: string, delta: number) => void;
@@ -434,6 +435,7 @@ export function CartProvider({
       customer,
       isIdentified,
       sessionId,
+      branchId,
       addItem,
       updateItem,
       removeItem,

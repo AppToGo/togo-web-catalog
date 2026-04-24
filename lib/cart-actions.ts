@@ -214,6 +214,8 @@ export async function createOrderAction(
     notes?: string;
     source: CustomerOrigin;
     sessionId: string;
+    customerPhone?: string;
+    customerName?: string;
   }
 ): Promise<OrderActionResult> {
   try {
@@ -386,12 +388,9 @@ export async function createOrderPublicAction(
   businessSlug: string,
   data: {
     items: CartItem[];
-    branchId: string;
     notes?: string;
-    source: CustomerOrigin;
     sessionId: string;
-    customerPhone?: string;
-    customerName?: string;
+    phoneNumber: string;
   },
 ): Promise<OrderActionResult> {
   try {
