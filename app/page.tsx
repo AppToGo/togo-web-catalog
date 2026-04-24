@@ -10,7 +10,7 @@ export default function HomePage() {
     'use server';
     const token = formData.get('token') as string;
     if (token?.trim()) {
-      redirect(`/catalog/${token.trim()}`);
+      redirect(`/${token.trim()}`);
     }
   }
 

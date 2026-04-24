@@ -91,7 +91,7 @@ const nextConfig: NextConfig = {
       },
       {
         // HTML pages - cache corto para ISR
-        source: "/catalog/:token*",
+        source: "/:businessSlug*",
         headers: [
           {
             key: "Cache-Control",
@@ -111,7 +111,12 @@ const nextConfig: NextConfig = {
       // Redirect legacy URLs
       {
         source: "/catalogo/:token*",
-        destination: "/catalog/:token*",
+        destination: "/:token*",
+        permanent: true,
+      },
+      {
+        source: "/catalog/:token*",
+        destination: "/:token*",
         permanent: true,
       },
     ];

@@ -71,7 +71,7 @@ export function sanitizeSearchQuery(query: string): string {
  * Construye URL de catálogo
  */
 export function buildCatalogUrl(token: string, params?: Record<string, string>): string {
-  const url = new URL(`/catalog/${token}`, process.env.NEXT_PUBLIC_APP_URL);
+  const url = new URL(`/${token}`, process.env.NEXT_PUBLIC_APP_URL);
   
   if (params) {
     Object.entries(params).forEach(([key, value]) => {
