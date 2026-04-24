@@ -8,9 +8,8 @@
  */
 
 import { Suspense } from "react";
-import { notFound } from "next/navigation";
 import { Metadata } from "next";
-import { fetchCatalog } from "@/lib/api";
+import { fetchCatalog, NotFoundError } from "@/lib/api";
 import { generateCatalogMetadata, generateStructuredData } from "@/lib/seo";
 import { isValidSlug } from "@/lib/utils";
 import { CatalogContent } from "@/components/server/catalog-content";
@@ -101,28 +100,6 @@ function BusinessNotFound() {
   );
 }
 
-function CatalogError({ retry }: { retry: () => void }) {
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
-      <div className="text-center max-w-md">
-        <div className="text-6xl mb-4">⚠️</div>
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">
-          Error al cargar el catálogo
-        </h1>
-        <p className="text-gray-600 mb-6">
-          Hubo un problema al cargar el catálogo. Por favor, intenta nuevamente.
-        </p>
-        <button
-          onClick={retry}
-          className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-full font-medium hover:bg-blue-700 transition-colors"
-        >
-          Intentar de nuevo
-        </button>
-      </div>
-    </div>
-  );
-}
-
 function EmptyCatalog({ businessName }: { businessName?: string }) {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
@@ -208,19 +185,7 @@ export default async function CatalogPage({ params, searchParams }: PageProps) {
       </>
     );
   } catch (error) {
-    console.error("Error loading catalog:", error);
-
-    // Handle specific error types
-    if (error instanceof Error) {
-      if (
-        error.message.includes("404") ||
-        error.message.includes("no encontrado")
-      ) {
-        return <BusinessNotFound />;
-      }
-    }
-
-    // Generic error with retry option
-    return <CatalogError retry={() => window?.location?.reload()} />;
+    if (error instanceof NotFoundError) return <BusinessNotFound />;
+    throw error;
   }
 }
