@@ -12,7 +12,7 @@
 'use client';
 
 import { createContext, useContext, useState, useCallback, useEffect, useRef, ReactNode } from 'react';
-import type { Cart, CartItem, CustomerOrigin, CustomerData, CatalogProduct } from '@/src/types/catalog.types';
+import type { Cart, CartItem, CustomerOrigin, CustomerData } from '@/src/types/catalog.types';
 import {
   addToCartAction,
   updateCartItemAction,

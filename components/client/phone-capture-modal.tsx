@@ -73,6 +73,10 @@ export function PhoneCaptureModal({ isOpen, onClose, onSubmit }: PhoneCaptureMod
 
   useEffect(() => {
     if (isOpen) {
+      // Reset fields on every open so stale values from a previous session don't persist
+      setLocalPhone('');
+      setName(customer.name || '');
+      setError('');
       setAnimationState('opening');
       const timer = setTimeout(() => setAnimationState('open'), 50);
       return () => clearTimeout(timer);
@@ -81,6 +85,7 @@ export function PhoneCaptureModal({ isOpen, onClose, onSubmit }: PhoneCaptureMod
       const timer = setTimeout(() => setAnimationState('closed'), 300);
       return () => clearTimeout(timer);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
 
   if (animationState === 'closed' && !isOpen) return null;
@@ -89,8 +94,8 @@ export function PhoneCaptureModal({ isOpen, onClose, onSubmit }: PhoneCaptureMod
 
   const selectedCountry = COUNTRY_CODES.find(c => c.dial === selectedDial) ?? DEFAULT_COUNTRY;
 
-  const validateLocalPhone = (value: string): boolean => {
-    const digits = value.replace(/\D/g, '');
+  // Receives already-cleaned digits string
+  const validateLocalPhone = (digits: string): boolean => {
     return digits.length >= 6 && digits.length <= 12;
   };
 
@@ -152,7 +157,7 @@ export function PhoneCaptureModal({ isOpen, onClose, onSubmit }: PhoneCaptureMod
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           {/* Phone field with country code picker */}
           <div>
-            <label className="block text-sm font-medium text-[var(--ink-2)] mb-1">
+            <label htmlFor="phone" className="block text-sm font-medium text-[var(--ink-2)] mb-1">
               Teléfono <span className="text-red-500">*</span>
             </label>
             <div className="flex rounded-xl border border-[var(--line)] focus-within:border-[var(--accent)] focus-within:ring-2 focus-within:ring-[var(--accent-soft)] transition-all overflow-hidden">

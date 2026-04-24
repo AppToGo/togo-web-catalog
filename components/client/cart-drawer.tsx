@@ -41,11 +41,24 @@ export function CartDrawer({ business }: CartDrawerProps) {
 
   const [notes, setNotes] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
+  const pendingSubmitRef = useRef(false);
+  // Holds the latest handleSubmitOrder to avoid stale closures in the isIdentified effect
+  const handleSubmitOrderRef = useRef<() => Promise<void>>(async () => {});
   const [orderStatus, setOrderStatus] = useState<OrderStatus | null>(null);
   const [showAlert, setShowAlert] = useState<{ type: 'error' | 'success' | 'warning'; message: string } | null>(null);
   const [showPhoneModal, setShowPhoneModal] = useState(false);
   const [animationState, setAnimationState] = useState<'closed' | 'opening' | 'open' | 'closing'>('closed');
-  const pendingSubmitRef = useRef(false);
+
+  const checkExistingOrder = useCallback(async () => {
+    if (!sessionId) return;
+    try {
+      const data = await checkOrderAction(business.slug, { sessionId });
+      setOrderStatus(data);
+      if (data.order?.notes) setNotes(data.order.notes);
+    } catch (error) {
+      console.error('Error checking order:', error);
+    }
+  }, [business.slug, sessionId]);
 
   useEffect(() => {
     if (isCartOpen) {
@@ -57,6 +70,8 @@ export function CartDrawer({ business }: CartDrawerProps) {
       }, 50);
       return () => clearTimeout(timer);
     } else {
+      // animationState intentionally omitted from deps: including it causes infinite re-renders
+      // since we set it inside this same effect
       if (animationState === 'open' || animationState === 'opening') {
         setAnimationState('closing');
         const timer = setTimeout(() => {
@@ -67,18 +82,7 @@ export function CartDrawer({ business }: CartDrawerProps) {
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isCartOpen]);
-
-  const checkExistingOrder = async () => {
-    if (!sessionId) return;
-    try {
-      const data = await checkOrderAction(business.slug, { sessionId });
-      setOrderStatus(data);
-      if (data.order?.notes) setNotes(data.order.notes);
-    } catch (error) {
-      console.error('Error checking order:', error);
-    }
-  };
+  }, [isCartOpen, checkExistingOrder]);
 
   const handleClose = useCallback(() => {
     setAnimationState('closing');
@@ -89,9 +93,22 @@ export function CartDrawer({ business }: CartDrawerProps) {
     }, 300);
   }, [closeCart]);
 
-  const handleSubmitOrder = async () => {
+  const getOrderStatusText = (status: string): string => {
+    const map: Record<string, string> = {
+      CONFIRMED: 'confirmada', PAID: 'pagada', PREPARING: 'en preparación',
+      SHIPPED: 'enviada', DELIVERED: 'entregada', CANCELLED: 'cancelada',
+    };
+    return map[status] || status.toLowerCase();
+  };
+
+  const handleSubmitOrder = useCallback(async () => {
     if (cart.items.length === 0) return;
     if (!isIdentified) { setShowPhoneModal(true); return; }
+    // Guard: non-whatsapp flow requires a valid phone
+    if (customer.origin !== 'whatsapp' && !customer.phone) {
+      setShowPhoneModal(true);
+      return;
+    }
 
     setIsProcessing(true);
     setShowAlert(null);
@@ -111,58 +128,55 @@ export function CartDrawer({ business }: CartDrawerProps) {
         setIsProcessing(false);
         return;
       }
-      // WhatsApp users are identified by session token → web-catalog endpoint
-      // Direct users are identified by phone → public catalog endpoint
+      // WhatsApp users → web-catalog endpoint (session token auth)
+      // All other origins (direct, qr, instagram, facebook) → public endpoint (phone auth)
       const result = customer.origin === 'whatsapp'
         ? await createOrderAction(business.slug, {
             items: cart.items, notes: notes.trim(), source: customer.origin, sessionId,
           })
         : await createOrderPublicAction(business.slug, {
-            items: cart.items,
+            // Backend requires branchId in each item (public catalog endpoint validation)
+            items: cart.items.map(item => ({ ...item, branchId: branchId! })),
             notes: notes.trim(),
             sessionId,
-            phoneNumber: customer.phone ?? '',
+            phoneNumber: customer.phone!,
           });
       if (!result.success) throw new Error(result.error || 'Error al crear orden');
+
       if (customer.origin === 'whatsapp') {
+        await checkExistingOrder();
         setShowAlert({ type: 'success', message: `¡Pedido registrado! Te escribimos por WhatsApp para coordinar los detalles.` });
       } else {
+        await checkExistingOrder();
         const waUrl = result.order?.waMeUrl ?? buildWaMeUrl(business.phone, business.name, result.order?.orderNumber);
         if (waUrl) {
-          window.location.href = waUrl;
+          window.open(waUrl, '_blank', 'noopener,noreferrer');
           return;
         }
         setShowAlert({ type: 'success', message: `¡Orden #${result.order?.orderNumber} registrada!` });
       }
-      await checkExistingOrder();
     } catch (error) {
       setShowAlert({ type: 'error', message: error instanceof Error ? error.message : 'Error al procesar' });
     } finally {
       setIsProcessing(false);
     }
-  };
+  }, [cart.items, customer, notes, orderStatus, sessionId, syncCart, checkExistingOrder, business]);
+
+  // Keep ref current so the isIdentified effect always calls the latest version
+  handleSubmitOrderRef.current = handleSubmitOrder;
 
   const handlePhoneSubmit = () => {
     pendingSubmitRef.current = true;
     setShowPhoneModal(false);
   };
 
-  // Trigger submit once the customer becomes identified after closing the modal
+  // Trigger submit once the customer becomes identified after the phone modal closes
   useEffect(() => {
     if (isIdentified && pendingSubmitRef.current) {
       pendingSubmitRef.current = false;
-      handleSubmitOrder();
+      handleSubmitOrderRef.current();
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isIdentified]);
-
-  const getOrderStatusText = (status: string): string => {
-    const map: Record<string, string> = {
-      CONFIRMED: 'confirmada', PAID: 'pagada', PREPARING: 'en preparación',
-      SHIPPED: 'enviada', DELIVERED: 'entregada', CANCELLED: 'cancelada',
-    };
-    return map[status] || status.toLowerCase();
-  };
 
   const getSubmitButtonText = () => {
     if (isSyncing) return 'Sincronizando...';

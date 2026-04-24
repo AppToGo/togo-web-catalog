@@ -174,15 +174,20 @@ export async function clearCartAction(
       return { success: false, error: 'Slug requerido' };
     }
 
+    // TODO: The backend does not expose a /cart/clear endpoint yet.
+    // The Redis cart expires automatically after 30 minutes (CartSessionService TTL).
+    // After order creation the user is redirected to WhatsApp, so the stale cart
+    // is unlikely to be re-synced. Track backend endpoint addition in a follow-up ticket.
+
     // @ts-ignore - Next.js 16 types requieren 2 args pero runtime funciona con 1
     revalidateTag(`catalog-${businessSlug}`, {});
-    
+
     return { success: true };
   } catch (error) {
     console.error('Error en clearCartAction:', error);
-    return { 
-      success: false, 
-      error: error instanceof Error ? error.message : 'Error al limpiar carrito' 
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Error al limpiar carrito'
     };
   }
 }
@@ -387,7 +392,7 @@ export async function updateCartItemPublicAction(
 export async function createOrderPublicAction(
   businessSlug: string,
   data: {
-    items: CartItem[];
+    items: (CartItem & { branchId: string })[];
     notes?: string;
     sessionId: string;
     phoneNumber: string;

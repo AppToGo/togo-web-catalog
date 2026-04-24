@@ -482,7 +482,7 @@ export async function updateCartItemPublic(
 export async function createOrderPublic(
   businessSlug: string,
   data: {
-    items: CartItem[];
+    items: (CartItem & { branchId: string })[];
     notes?: string;
     sessionId: string;
     phoneNumber: string;
