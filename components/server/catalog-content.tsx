@@ -138,7 +138,7 @@ export function CatalogContent({ catalog, businessSlug }: CatalogContentProps) {
           paddingBottom: 96,
         } as React.CSSProperties}
       >
-        <CatalogHeader business={business} businessSlug={businessSlug} />
+        <CatalogHeader business={business} />
 
         <CatalogShell
           categories={tabCategories}
