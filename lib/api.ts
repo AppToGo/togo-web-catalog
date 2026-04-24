@@ -47,6 +47,18 @@ const API_BASE_URL =
 const DEFAULT_REVALIDATE = 3600; // 1 hora
 
 // ═══════════════════════════════════════════════════════════
+// ERRORS
+// ═══════════════════════════════════════════════════════════
+
+export class NotFoundError extends Error {
+  readonly status = 404;
+  constructor(message: string) {
+    super(message);
+    this.name = 'NotFoundError';
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
 // UTILIDADES
 // ═══════════════════════════════════════════════════════════
 
@@ -61,11 +73,8 @@ async function handleResponse<T>(response: Response): Promise<T> {
       message: "Error desconocido",
     }));
 
-    // Error específico para recurso no encontrado
     if (response.status === 404) {
-      throw new Error(
-        `Catálogo no encontrado: ${error.message || "El negocio no existe"}`,
-      );
+      throw new NotFoundError(error.message || "El negocio no existe");
     }
 
     throw new Error(error.message || `Error ${response.status}`);

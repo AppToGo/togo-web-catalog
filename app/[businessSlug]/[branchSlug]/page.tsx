@@ -9,9 +9,8 @@
  */
 
 import { Suspense } from "react";
-import { notFound } from "next/navigation";
 import { Metadata } from "next";
-import { fetchCatalogByBranch } from "@/lib/api";
+import { fetchCatalogByBranch, NotFoundError } from "@/lib/api";
 import { generateCatalogMetadata, generateStructuredData } from "@/lib/seo";
 import { isValidSlug } from "@/lib/utils";
 import { CatalogContent } from "@/components/server/catalog-content";
@@ -166,14 +165,7 @@ export default async function BranchCatalogPage({
       </>
     );
   } catch (error) {
-    if (error instanceof Error) {
-      if (
-        error.message.includes("404") ||
-        error.message.includes("no encontrado")
-      ) {
-        return <BusinessNotFound />;
-      }
-    }
+    if (error instanceof NotFoundError) return <BusinessNotFound />;
     throw error;
   }
 }
