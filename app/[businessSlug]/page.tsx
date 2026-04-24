@@ -1,15 +1,16 @@
 /**
- * Catalog Page - Pública
+ * Business Catalog Page
  *
- * Nueva ruta: /catalog/[businessSlug]
- * Soporta catálogo público y autenticado (con token en query param)
+ * Route: /{businessSlug}
+ * Generated from WhatsApp greeting: /{businessSlug}?t={token}
  *
- * Uses normalized catalog (BusinessProduct + GlobalProduct)
+ * Fetches business-scoped catalog via public endpoint.
+ * Token (?t=) is optional — used only for customer identity (phone/name from WhatsApp).
  */
 
 import { Suspense } from "react";
 import { Metadata } from "next";
-import { fetchCatalog, NotFoundError } from "@/lib/api";
+import { fetchCatalog, NotFoundError, RateLimitError, InvalidTokenError } from "@/lib/api";
 import { generateCatalogMetadata, generateStructuredData } from "@/lib/seo";
 import { isValidSlug } from "@/lib/utils";
 import { CatalogContent } from "@/components/server/catalog-content";
@@ -21,18 +22,13 @@ import { ProductModal } from "@/components/client/product-modal";
 import { FloatingCart } from "@/components/client/floating-cart";
 import type { CustomerOrigin } from "@/lib/types";
 
-// ISR: HTML estático, revalidar por webhook o cada 1 hora
 export const revalidate = 3600;
 export const dynamicParams = true;
-
-// ═══════════════════════════════════════════════════════════
-// METADATA DINÁMICA
-// ═══════════════════════════════════════════════════════════
 
 interface PageProps {
   params: Promise<{ businessSlug: string }>;
   searchParams: Promise<{
-    token?: string;
+    t?: string; // token from WhatsApp (optional, for customer identity)
     source?: string;
     table?: string;
   }>;
@@ -42,7 +38,6 @@ export async function generateMetadata({
   params,
 }: PageProps): Promise<Metadata> {
   const { businessSlug } = await params;
-
   try {
     const catalog = await fetchCatalog(businessSlug);
     return generateCatalogMetadata(catalog, businessSlug);
@@ -53,10 +48,6 @@ export async function generateMetadata({
     };
   }
 }
-
-// ═══════════════════════════════════════════════════════════
-// STRUCTURED DATA
-// ═══════════════════════════════════════════════════════════
 
 function StructuredData({
   catalog,
@@ -74,9 +65,45 @@ function StructuredData({
   );
 }
 
-// ═══════════════════════════════════════════════════════════
-// ERROR COMPONENTS
-// ═══════════════════════════════════════════════════════════
+function TokenExpired() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
+      <div className="text-center max-w-md">
+        <div className="text-6xl mb-4">🔒</div>
+        <h1 className="text-2xl font-bold text-gray-900 mb-2">
+          Acceso no disponible
+        </h1>
+        <p className="text-gray-600">
+          Tu enlace de acceso expiró o no es válido.
+          <br />
+          Escríbenos por WhatsApp para obtener uno nuevo.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function RateLimited() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
+      <div className="text-center max-w-md">
+        <div className="text-6xl mb-4">⏳</div>
+        <h1 className="text-2xl font-bold text-gray-900 mb-2">
+          Demasiadas solicitudes
+        </h1>
+        <p className="text-gray-600 mb-6">
+          Estamos recibiendo muchas visitas. Espera unos segundos e intenta de nuevo.
+        </p>
+        <a
+          href=""
+          className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-full font-medium hover:bg-blue-700 transition-colors"
+        >
+          Reintentar
+        </a>
+      </div>
+    </div>
+  );
+}
 
 function BusinessNotFound() {
   return (
@@ -118,31 +145,37 @@ function EmptyCatalog({ businessName }: { businessName?: string }) {
   );
 }
 
-// ═══════════════════════════════════════════════════════════
-// PAGE COMPONENT
-// ═══════════════════════════════════════════════════════════
-
-export default async function CatalogPage({ params, searchParams }: PageProps) {
+export default async function BusinessCatalogPage({
+  params,
+  searchParams,
+}: PageProps) {
   const { businessSlug } = await params;
-  const { token, source, table } = await searchParams;
+  const { t: token, source, table } = await searchParams;
 
-  // Validar slug
   if (!businessSlug || !isValidSlug(businessSlug)) {
     return <BusinessNotFound />;
   }
 
   try {
-    // Determinar origen del customer
-    const origin: CustomerOrigin = token
+    let effectiveToken: string | undefined = token;
+    let origin: CustomerOrigin = token
       ? "whatsapp"
       : (source as CustomerOrigin) || "direct";
 
-    const isAuthenticated = !!token;
+    let catalog;
+    try {
+      catalog = await fetchCatalog(businessSlug, { token: effectiveToken, table });
+    } catch (err) {
+      if (err instanceof InvalidTokenError) {
+        // Token expired — load catalog anonymously
+        effectiveToken = undefined;
+        origin = (source as CustomerOrigin) || "direct";
+        catalog = await fetchCatalog(businessSlug, { table });
+      } else {
+        throw err;
+      }
+    }
 
-    // Fetch del catálogo (normalized catalog)
-    const catalog = await fetchCatalog(businessSlug, { token, table });
-
-    // Validar que el catálogo tenga productos
     if (!catalog.products || catalog.products.length === 0) {
       return <EmptyCatalog businessName={catalog.business.name} />;
     }
@@ -150,7 +183,6 @@ export default async function CatalogPage({ params, searchParams }: PageProps) {
     return (
       <>
         <StructuredData catalog={catalog} businessSlug={businessSlug} />
-
         <div
           style={
             {
@@ -165,17 +197,16 @@ export default async function CatalogPage({ params, searchParams }: PageProps) {
             tableNumber={table}
             initialPhone={catalog.customerPhone}
             initialName={catalog.customerName}
-            isAuthenticated={isAuthenticated}
+            isAuthenticated={!!effectiveToken}
           >
             <CartUIProvider>
               <Suspense fallback={<CatalogSkeleton />}>
                 <CatalogContent catalog={catalog} businessSlug={businessSlug} />
               </Suspense>
 
-              {/* Client Components */}
               <FloatingCart accentColor={catalog.business.primaryColor} />
               <ProductModal
-                token={token || ""}
+                token={effectiveToken || ""}
                 accentColor={catalog.business.primaryColor}
               />
               <CartDrawer business={catalog.business} />
@@ -186,6 +217,8 @@ export default async function CatalogPage({ params, searchParams }: PageProps) {
     );
   } catch (error) {
     if (error instanceof NotFoundError) return <BusinessNotFound />;
+    if (error instanceof RateLimitError) return <RateLimited />;
+    if (error instanceof InvalidTokenError) return <TokenExpired />;
     throw error;
   }
 }

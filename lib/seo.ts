@@ -31,8 +31,8 @@ export function generateCatalogMetadata(
     `Explora nuestro catálogo de ${productCount} productos. ` +
     `Haz tu pedido online fácilmente en ${business.name}.`;
 
-  const canonicalUrl = `${APP_URL}/catalog/${businessSlug}`;
-  const ogImageUrl = `${APP_URL}/catalog/${businessSlug}/opengraph-image`;
+  const canonicalUrl = `${APP_URL}/${businessSlug}`;
+  const ogImageUrl = `${APP_URL}/${businessSlug}/opengraph-image`;
 
   return {
     title,
@@ -116,7 +116,7 @@ export function generateProductMetadata(
     `Compra ${product.name} en ${business.name}. ` +
     `Precio: ${formatPrice(product.price)}. SKU: ${product.sku}`;
 
-  const canonicalUrl = `${APP_URL}/catalog/${businessSlug}/product/${product.id}`;
+  const canonicalUrl = `${APP_URL}/${businessSlug}/product/${product.id}`;
 
   return {
     title,
@@ -170,7 +170,7 @@ export function generateStructuredData(
   businessSlug: string
 ): StructuredData {
   const { business, products } = catalog;
-  const catalogUrl = `${APP_URL}/catalog/${businessSlug}`;
+  const catalogUrl = `${APP_URL}/${businessSlug}`;
 
   // LocalBusiness o Store
   const businessData: StructuredData = {
@@ -232,7 +232,7 @@ export function generateProductStructuredData(
   business: BusinessInfo,
   businessSlug: string
 ): StructuredData {
-  const productUrl = `${APP_URL}/catalog/${businessSlug}/product/${product.id}`;
+  const productUrl = `${APP_URL}/${businessSlug}/product/${product.id}`;
 
   return {
     '@context': 'https://schema.org',
@@ -273,7 +273,7 @@ export function generateCatalogSitemapEntry(
   catalog: CatalogResponse,
   lastModified: Date
 ) {
-  const baseUrl = `${APP_URL}/catalog/${businessSlug}`;
+  const baseUrl = `${APP_URL}/${businessSlug}`;
   
   const entries = [
     {

@@ -58,6 +58,22 @@ export class NotFoundError extends Error {
   }
 }
 
+export class RateLimitError extends Error {
+  readonly status = 429;
+  constructor() {
+    super('Too Many Requests');
+    this.name = 'RateLimitError';
+  }
+}
+
+export class InvalidTokenError extends Error {
+  readonly status = 401;
+  constructor(message?: string) {
+    super(message || 'Token inválido o expirado');
+    this.name = 'InvalidTokenError';
+  }
+}
+
 // ═══════════════════════════════════════════════════════════
 // UTILIDADES
 // ═══════════════════════════════════════════════════════════
@@ -75,6 +91,14 @@ async function handleResponse<T>(response: Response): Promise<T> {
 
     if (response.status === 404) {
       throw new NotFoundError(error.message || "El negocio no existe");
+    }
+
+    if (response.status === 429) {
+      throw new RateLimitError();
+    }
+
+    if (response.status === 401 || response.status === 403) {
+      throw new InvalidTokenError(error.message);
     }
 
     throw new Error(error.message || `Error ${response.status}`);
