@@ -172,8 +172,9 @@ export default async function BranchCatalogPage({
       return <EmptyCatalog businessName={catalog.business.name} />;
     }
 
-    // branchId viene del response del backend — necesario para operaciones del carrito
+    // branchId and branchPhone come from the backend response — needed for cart operations and wa.me redirect
     const branchId = catalog.branchId ?? undefined;
+    const branchPhone = catalog.branchPhone;
 
     return (
       <>
@@ -187,6 +188,7 @@ export default async function BranchCatalogPage({
             initialName={catalog.customerName}
             isAuthenticated={!!token}
             branchId={branchId}
+            branchPhone={branchPhone}
           >
             <CartUIProvider>
               <Suspense fallback={<CatalogSkeleton />}>

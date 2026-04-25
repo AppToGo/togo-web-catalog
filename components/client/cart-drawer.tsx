@@ -36,7 +36,7 @@ interface OrderStatus {
 }
 
 export function CartDrawer({ business }: CartDrawerProps) {
-  const { cart, updateItem, updateItemNotes, itemCount, isSyncing, syncCart, customer, isIdentified, sessionId, branchId } = useCart();
+  const { cart, updateItem, updateItemNotes, itemCount, isSyncing, syncCart, customer, isIdentified, sessionId, branchId, branchPhone } = useCart();
   const { isCartOpen, closeCart } = useCartUI();
 
   const [notes, setNotes] = useState('');
@@ -148,7 +148,9 @@ export function CartDrawer({ business }: CartDrawerProps) {
         setShowAlert({ type: 'success', message: `¡Pedido registrado! Te escribimos por WhatsApp para coordinar los detalles.` });
       } else {
         await checkExistingOrder();
-        const waUrl = result.order?.waMeUrl ?? buildWaMeUrl(business.phone, business.name, result.order?.orderNumber);
+        // Priority: order.branchPhone (branch's own WhatsApp) → context branchPhone (from catalog) → business.phone
+        const phoneForWaMe = result.order?.branchPhone ?? branchPhone ?? business.phone;
+        const waUrl = buildWaMeUrl(phoneForWaMe, business.name, result.order?.orderNumber);
         if (waUrl) {
           window.open(waUrl, '_blank', 'noopener,noreferrer');
           return;
@@ -160,7 +162,7 @@ export function CartDrawer({ business }: CartDrawerProps) {
     } finally {
       setIsProcessing(false);
     }
-  }, [cart.items, customer, notes, orderStatus, sessionId, syncCart, checkExistingOrder, business]);
+  }, [cart.items, customer, notes, orderStatus, sessionId, syncCart, checkExistingOrder, business, branchPhone]);
 
   // Keep ref current so the isIdentified effect always calls the latest version
   handleSubmitOrderRef.current = handleSubmitOrder;

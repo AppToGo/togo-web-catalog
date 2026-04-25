@@ -40,7 +40,10 @@ interface CartContextType {
   customer: CustomerData;
   isIdentified: boolean;
   sessionId: string;
+  /** Branch ID when catalog is scoped to a specific sede */
   branchId?: string;
+  /** Phone number of the branch; undefined when the branch has no dedicated number (falls back to business phone) */
+  branchPhone?: string;
   // Actions
   addItem: (item: CartItem) => void;
   updateItem: (productId: string, delta: number) => void;
@@ -87,7 +90,10 @@ interface CartProviderProps {
   initialPhone?: string;
   initialName?: string;
   isAuthenticated?: boolean;
+  /** Branch ID when catalog is scoped to a specific sede */
   branchId?: string;
+  /** Phone number of the branch; undefined when the branch has no dedicated number (falls back to business phone) */
+  branchPhone?: string;
 }
 
 export function CartProvider({
@@ -99,6 +105,7 @@ export function CartProvider({
   initialName,
   isAuthenticated = false,
   branchId,
+  branchPhone,
 }: CartProviderProps) {
   // Cart state
   const [cart, setCart] = useState<Cart>(emptyCart);
@@ -436,6 +443,7 @@ export function CartProvider({
       isIdentified,
       sessionId,
       branchId,
+      branchPhone,
       addItem,
       updateItem,
       removeItem,
