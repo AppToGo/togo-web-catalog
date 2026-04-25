@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import { X, Minus, Plus, Loader2, AlertCircle, CheckCircle, Phone } from 'lucide-react';
 import { useCart } from './cart-context';
 import { useCartUI } from './cart-ui-context';
@@ -36,7 +37,8 @@ interface OrderStatus {
 }
 
 export function CartDrawer({ business }: CartDrawerProps) {
-  const { cart, updateItem, updateItemNotes, itemCount, isSyncing, syncCart, customer, isIdentified, sessionId, branchId, branchPhone } = useCart();
+  const router = useRouter();
+  const { cart, updateItem, updateItemNotes, clearCart, itemCount, isSyncing, syncCart, customer, isIdentified, sessionId, branchId, branchPhone } = useCart();
   const { isCartOpen, closeCart } = useCartUI();
 
   const [notes, setNotes] = useState('');
@@ -143,26 +145,29 @@ export function CartDrawer({ business }: CartDrawerProps) {
           });
       if (!result.success) throw new Error(result.error || 'Error al crear orden');
 
-      if (customer.origin === 'whatsapp') {
-        await checkExistingOrder();
-        setShowAlert({ type: 'success', message: `¡Pedido registrado! Te escribimos por WhatsApp para coordinar los detalles.` });
-      } else {
-        await checkExistingOrder();
-        // Priority: order.branchPhone (branch's own WhatsApp) → context branchPhone (from catalog) → business.phone
-        const phoneForWaMe = result.order?.branchPhone ?? branchPhone ?? business.phone;
-        const waUrl = buildWaMeUrl(phoneForWaMe, business.name, result.order?.orderNumber);
-        if (waUrl) {
-          window.open(waUrl, '_blank', 'noopener,noreferrer');
-          return;
-        }
-        setShowAlert({ type: 'success', message: `¡Orden #${result.order?.orderNumber} registrada!` });
+      // Priority: order.branchPhone (branch's own WhatsApp) → context branchPhone → business.phone
+      const phoneForWaMe = result.order?.branchPhone ?? branchPhone ?? business.phone;
+      const waUrl = buildWaMeUrl(phoneForWaMe, business.name, result.order?.orderNumber);
+
+      if (customer.origin !== 'whatsapp' && waUrl) {
+        window.open(waUrl, '_blank', 'noopener,noreferrer');
       }
+
+      await checkExistingOrder();
+      clearCart();
+
+      const params = new URLSearchParams();
+      if (result.order?.orderNumber) params.set('order', result.order.orderNumber);
+      if (waUrl) params.set('wa', encodeURIComponent(waUrl));
+
+      handleClose();
+      router.push(`/${business.slug}/pedido-confirmado?${params}`);
     } catch (error) {
       setShowAlert({ type: 'error', message: error instanceof Error ? error.message : 'Error al procesar' });
     } finally {
       setIsProcessing(false);
     }
-  }, [cart.items, customer, notes, orderStatus, sessionId, syncCart, checkExistingOrder, business, branchPhone]);
+  }, [cart.items, customer, notes, orderStatus, sessionId, syncCart, checkExistingOrder, clearCart, handleClose, business, branchPhone, router]);
 
   // Keep ref current so the isIdentified effect always calls the latest version
   handleSubmitOrderRef.current = handleSubmitOrder;
