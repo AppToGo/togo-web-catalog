@@ -200,6 +200,11 @@ export interface CatalogResponse {
 
   /** Branch ID when catalog is scoped to a specific sede */
   branchId?: string | null;
+
+  /** Branch phone when the sede has its own number distinct from the business phone.
+   *  Only returned by the backend when the branch has a dedicated phone.
+   *  Absent when the business uses a single shared number across all branches. */
+  branchPhone?: string;
 }
 
 /**
@@ -269,6 +274,8 @@ export interface OrderResponse {
   itemCount: number;
   message: string;
   businessPhone?: string;
+  /** WhatsApp phone of the specific branch (E.164). Set when branch has its own number; falls back to businessPhone otherwise. */
+  branchPhone?: string;
   requiresWhatsAppConfirmation?: boolean;
   waMeUrl?: string;
 }

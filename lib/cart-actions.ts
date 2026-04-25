@@ -47,6 +47,8 @@ interface OrderActionResult {
     status: string;
     total: number;
     waMeUrl?: string;
+    /** Branch WhatsApp phone returned by backend (E.164); undefined when branch has no dedicated number */
+    branchPhone?: string;
   };
   error?: string;
 }
@@ -413,7 +415,7 @@ export async function createOrderPublicAction(
         orderNumber: result.orderNumber,
         status: result.status,
         total: result.total,
-        waMeUrl: result.waMeUrl,
+        branchPhone: result.branchPhone ?? result.businessPhone,
       },
     };
   } catch (error) {
