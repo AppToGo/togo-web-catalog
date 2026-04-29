@@ -166,7 +166,7 @@ export default async function BranchCatalogPage({
       ? "whatsapp"
       : (source as CustomerOrigin) || "direct";
 
-    const catalog = await fetchCatalogByBranch(businessSlug, branchSlug);
+    const catalog = await fetchCatalogByBranch(businessSlug, branchSlug, { token });
 
     if (!catalog.products || catalog.products.length === 0) {
       return <EmptyCatalog businessName={catalog.business.name} />;
@@ -189,6 +189,7 @@ export default async function BranchCatalogPage({
             isAuthenticated={!!token}
             branchId={branchId}
             branchPhone={branchPhone}
+            whatsappToken={token}
           >
             <CartUIProvider>
               <Suspense fallback={<CatalogSkeleton />}>

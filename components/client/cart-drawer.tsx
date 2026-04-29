@@ -38,7 +38,7 @@ interface OrderStatus {
 
 export function CartDrawer({ business }: CartDrawerProps) {
   const router = useRouter();
-  const { cart, updateItem, updateItemNotes, clearCart, itemCount, isSyncing, syncCart, customer, isIdentified, sessionId, branchId, branchPhone } = useCart();
+  const { cart, updateItem, updateItemNotes, clearCart, itemCount, isSyncing, syncCart, customer, isIdentified, sessionId, branchId, branchPhone, whatsappToken } = useCart();
   const { isCartOpen, closeCart } = useCartUI();
 
   const [notes, setNotes] = useState('');
@@ -54,13 +54,15 @@ export function CartDrawer({ business }: CartDrawerProps) {
   const checkExistingOrder = useCallback(async () => {
     if (!sessionId) return;
     try {
-      const data = await checkOrderAction(business.slug, { sessionId });
+      // WhatsApp users use the actual token for web-catalog endpoints
+      const orderKey = whatsappToken || business.slug;
+      const data = await checkOrderAction(orderKey, { sessionId });
       setOrderStatus(data);
       if (data.order?.notes) setNotes(data.order.notes);
     } catch (error) {
       console.error('Error checking order:', error);
     }
-  }, [business.slug, sessionId]);
+  }, [business.slug, sessionId, whatsappToken]);
 
   useEffect(() => {
     if (isCartOpen) {
@@ -106,8 +108,8 @@ export function CartDrawer({ business }: CartDrawerProps) {
   const handleSubmitOrder = useCallback(async () => {
     if (cart.items.length === 0) return;
     if (!isIdentified) { setShowPhoneModal(true); return; }
-    // Guard: non-whatsapp flow requires a valid phone
-    if (customer.origin !== 'whatsapp' && !customer.phone) {
+    // All flows that use the public endpoint require a phone number
+    if (!customer.phone) {
       setShowPhoneModal(true);
       return;
     }
@@ -123,21 +125,30 @@ export function CartDrawer({ business }: CartDrawerProps) {
         return;
       }
       if (orderStatus?.hasOrder && orderStatus.order?.status === 'DRAFT') {
-        const result = await updateOrderAction(business.slug, orderStatus.order.id, { notes: notes.trim(), sessionId });
+        const orderKey = whatsappToken || business.slug;
+        const result = await updateOrderAction(orderKey, orderStatus.order.id, { notes: notes.trim(), sessionId });
         if (!result.success) throw new Error(result.error || 'Error al actualizar');
         setShowAlert({ type: 'success', message: `¡Orden #${result.order?.orderNumber} actualizada!` });
         await checkExistingOrder();
         setIsProcessing(false);
         return;
       }
-      // WhatsApp users → web-catalog endpoint (session token auth)
-      // All other origins (direct, qr, instagram, facebook) → public endpoint (phone auth)
-      const result = customer.origin === 'whatsapp'
-        ? await createOrderAction(business.slug, {
+      // Cart storage is determined by branchId, not origin:
+      //   branchId present → PublicCartService (togo:cart:public:slug:branchId:sessionId)
+      //   no branchId + whatsappToken → CartSessionService (togo:cart:token)
+      // Order creation must match the cart storage system used.
+      const result = branchId
+        ? await createOrderPublicAction(business.slug, {
+            items: cart.items.map(item => ({ ...item, branchId })),
+            notes: notes.trim(),
+            sessionId,
+            phoneNumber: customer.phone!,
+          })
+        : whatsappToken
+        ? await createOrderAction(whatsappToken, {
             items: cart.items, notes: notes.trim(), source: customer.origin, sessionId,
           })
         : await createOrderPublicAction(business.slug, {
-            // Backend requires branchId in each item (public catalog endpoint validation)
             items: cart.items.map(item => ({ ...item, branchId: branchId! })),
             notes: notes.trim(),
             sessionId,
@@ -167,7 +178,7 @@ export function CartDrawer({ business }: CartDrawerProps) {
     } finally {
       setIsProcessing(false);
     }
-  }, [cart.items, customer, notes, orderStatus, sessionId, syncCart, checkExistingOrder, clearCart, handleClose, business, branchPhone, router]);
+  }, [cart.items, customer, notes, orderStatus, sessionId, whatsappToken, syncCart, checkExistingOrder, clearCart, handleClose, business, branchPhone, router]);
 
   // Keep ref current so the isIdentified effect always calls the latest version
   handleSubmitOrderRef.current = handleSubmitOrder;

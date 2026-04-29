@@ -44,6 +44,8 @@ interface CartContextType {
   branchId?: string;
   /** Phone number of the branch; undefined when the branch has no dedicated number (falls back to business phone) */
   branchPhone?: string;
+  /** WhatsApp token from ?t= query param; used to authenticate web-catalog endpoints */
+  whatsappToken?: string;
   // Actions
   addItem: (item: CartItem) => void;
   updateItem: (productId: string, delta: number) => void;
@@ -94,6 +96,8 @@ interface CartProviderProps {
   branchId?: string;
   /** Phone number of the branch; undefined when the branch has no dedicated number (falls back to business phone) */
   branchPhone?: string;
+  /** WhatsApp token from ?t= query param; required for web-catalog token-authenticated endpoints */
+  whatsappToken?: string;
 }
 
 export function CartProvider({
@@ -106,6 +110,7 @@ export function CartProvider({
   isAuthenticated = false,
   branchId,
   branchPhone,
+  whatsappToken,
 }: CartProviderProps) {
   // Cart state
   const [cart, setCart] = useState<Cart>(emptyCart);
@@ -444,6 +449,7 @@ export function CartProvider({
       sessionId,
       branchId,
       branchPhone,
+      whatsappToken,
       addItem,
       updateItem,
       removeItem,

@@ -198,6 +198,7 @@ export default async function BusinessCatalogPage({
             initialPhone={catalog.customerPhone}
             initialName={catalog.customerName}
             isAuthenticated={!!effectiveToken}
+            whatsappToken={effectiveToken}
           >
             <CartUIProvider>
               <Suspense fallback={<CatalogSkeleton />}>

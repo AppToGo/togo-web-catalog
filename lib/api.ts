@@ -411,8 +411,12 @@ function buildPublicCatalogUrl(
 export async function fetchCatalogByBranch(
   businessSlug: string,
   branchSlug: string,
+  options?: { token?: string },
 ): Promise<CatalogResponse> {
-  const url = `${API_BASE_URL}/catalog/${businessSlug}/branch/${branchSlug}`;
+  const baseUrl = `${API_BASE_URL}/catalog/${businessSlug}/branch/${branchSlug}`;
+  const url = options?.token
+    ? `${baseUrl}?token=${encodeURIComponent(options.token)}`
+    : baseUrl;
   const response = await fetch(url, {
     next: {
       tags: [
