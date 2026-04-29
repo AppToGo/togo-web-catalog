@@ -143,6 +143,7 @@ export function CartDrawer({ business }: CartDrawerProps) {
             notes: notes.trim(),
             sessionId,
             phoneNumber: customer.phone!,
+            fromWhatsApp: !!whatsappToken,
           })
         : whatsappToken
         ? await createOrderAction(whatsappToken, {

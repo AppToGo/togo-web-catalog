@@ -398,6 +398,7 @@ export async function createOrderPublicAction(
     notes?: string;
     sessionId: string;
     phoneNumber: string;
+    fromWhatsApp?: boolean;
   },
 ): Promise<OrderActionResult> {
   try {

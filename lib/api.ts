@@ -523,6 +523,7 @@ export async function createOrderPublic(
     notes?: string;
     sessionId: string;
     phoneNumber: string;
+    fromWhatsApp?: boolean;
   },
 ): Promise<OrderResponse> {
   const response = await fetch(buildPublicCatalogUrl(businessSlug, "/order"), {
