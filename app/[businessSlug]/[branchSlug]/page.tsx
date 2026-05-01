@@ -10,7 +10,8 @@
 
 import { Suspense } from "react";
 import { Metadata } from "next";
-import { fetchCatalogByBranch, NotFoundError, RateLimitError, InvalidTokenError } from "@/lib/api";
+import { fetchCatalogByBranch, getCartByToken, NotFoundError, RateLimitError, InvalidTokenError } from "@/lib/api";
+import type { Cart } from "@/src/types/catalog.types";
 import { generateCatalogMetadata, generateStructuredData } from "@/lib/seo";
 import { isValidSlug } from "@/lib/utils";
 import { CatalogContent } from "@/components/server/catalog-content";
@@ -166,7 +167,11 @@ export default async function BranchCatalogPage({
       ? "whatsapp"
       : (source as CustomerOrigin) || "direct";
 
-    const catalog = await fetchCatalogByBranch(businessSlug, branchSlug, { token });
+    const [catalog, cartResult] = await Promise.all([
+      fetchCatalogByBranch(businessSlug, branchSlug, { token }),
+      token ? getCartByToken(token).catch(() => undefined) : Promise.resolve(undefined),
+    ]);
+    const initialCart: Cart | undefined = cartResult?.items?.length ? cartResult : undefined;
 
     if (!catalog.products || catalog.products.length === 0) {
       return <EmptyCatalog businessName={catalog.business.name} />;
@@ -190,6 +195,7 @@ export default async function BranchCatalogPage({
             branchId={branchId}
             branchPhone={branchPhone}
             whatsappToken={token}
+            initialCart={initialCart}
           >
             <CartUIProvider>
               <Suspense fallback={<CatalogSkeleton />}>

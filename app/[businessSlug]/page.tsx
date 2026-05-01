@@ -10,7 +10,8 @@
 
 import { Suspense } from "react";
 import { Metadata } from "next";
-import { fetchCatalog, NotFoundError, RateLimitError, InvalidTokenError } from "@/lib/api";
+import { fetchCatalog, getCartByToken, NotFoundError, RateLimitError, InvalidTokenError } from "@/lib/api";
+import type { Cart } from "@/src/types/catalog.types";
 import { generateCatalogMetadata, generateStructuredData } from "@/lib/seo";
 import { isValidSlug } from "@/lib/utils";
 import { CatalogContent } from "@/components/server/catalog-content";
@@ -163,11 +164,19 @@ export default async function BusinessCatalogPage({
       : (source as CustomerOrigin) || "direct";
 
     let catalog;
+    let initialCart: Cart | undefined;
+
     try {
-      catalog = await fetchCatalog(businessSlug, { token: effectiveToken, table });
+      // Fetch catalog and cart in parallel when a token is present
+      const [catalogResult, cartResult] = await Promise.all([
+        fetchCatalog(businessSlug, { token: effectiveToken, table }),
+        effectiveToken ? getCartByToken(effectiveToken).catch(() => undefined) : Promise.resolve(undefined),
+      ]);
+      catalog = catalogResult;
+      initialCart = cartResult?.items?.length ? cartResult : undefined;
     } catch (err) {
       if (err instanceof InvalidTokenError) {
-        // Token expired — load catalog anonymously
+        // Token expired — load catalog anonymously, no cart
         effectiveToken = undefined;
         origin = (source as CustomerOrigin) || "direct";
         catalog = await fetchCatalog(businessSlug, { table });
@@ -199,6 +208,7 @@ export default async function BusinessCatalogPage({
             initialName={catalog.customerName}
             isAuthenticated={!!effectiveToken}
             whatsappToken={effectiveToken}
+            initialCart={initialCart}
           >
             <CartUIProvider>
               <Suspense fallback={<CatalogSkeleton />}>

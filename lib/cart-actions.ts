@@ -25,6 +25,10 @@ import {
   removeFromCartPublic,
   updateCartItemPublic,
   createOrderPublic,
+  getCartByToken,
+  addToCartByToken,
+  removeFromCartByToken,
+  updateOrderByToken,
 } from './api';
 import type { Cart, CartItem, CustomerOrigin } from '@/src/types/catalog.types';
 import { checkRateLimit, getCartRateLimitKey, RATE_LIMITS } from './rate-limit';
@@ -388,6 +392,91 @@ export async function updateCartItemPublicAction(
     return { success: true, cart };
   } catch (error) {
     return { success: false, error: error instanceof Error ? error.message : 'Error al actualizar item' };
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// TOKEN-BASED ACTIONS — WhatsApp token flow (?t=TOKEN)
+// ═══════════════════════════════════════════════════════════
+
+export async function getCartByTokenAction(token: string): Promise<Cart> {
+  // Let errors propagate — syncCart's try-catch preserves the existing cart state
+  // on backend errors instead of replacing it with an empty cart.
+  return await getCartByToken(token);
+}
+
+export async function addToCartByTokenAction(
+  token: string,
+  item: CartItem,
+): Promise<CartActionResult> {
+  try {
+    const rateKey = await getCartRateLimitKey(token, 'add');
+    if (!checkRateLimit(rateKey, RATE_LIMITS.addItem)) {
+      return { success: false, error: 'Demasiadas solicitudes. Intenta más tarde.' };
+    }
+    if (!token || !item.productId) {
+      return { success: false, error: 'Datos inválidos' };
+    }
+    const cart = await addToCartByToken(token, item);
+    return { success: true, cart };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Error al agregar item',
+    };
+  }
+}
+
+export async function removeFromCartByTokenAction(
+  token: string,
+  productId: string,
+): Promise<CartActionResult> {
+  try {
+    const rateKey = await getCartRateLimitKey(token, 'remove');
+    if (!checkRateLimit(rateKey, RATE_LIMITS.removeItem)) {
+      return { success: false, error: 'Demasiadas solicitudes. Intenta más tarde.' };
+    }
+    if (!token || !productId) {
+      return { success: false, error: 'Datos inválidos' };
+    }
+    const cart = await removeFromCartByToken(token, productId);
+    return { success: true, cart };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Error al eliminar item',
+    };
+  }
+}
+
+export async function updateOrderByTokenAction(
+  token: string,
+  orderId: string,
+  data: { notes?: string },
+): Promise<OrderActionResult> {
+  try {
+    const rateKey = await getCartRateLimitKey(token, 'update-order');
+    if (!checkRateLimit(rateKey, RATE_LIMITS.updateOrder)) {
+      return { success: false, error: 'Demasiadas solicitudes. Intenta más tarde.' };
+    }
+    if (!token || !orderId) {
+      return { success: false, error: 'Datos incompletos' };
+    }
+    const result = await updateOrderByToken(token, orderId, data);
+    return {
+      success: true,
+      order: {
+        orderId: result.orderId,
+        orderNumber: result.orderNumber,
+        status: result.status,
+        total: result.total,
+      },
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Error al actualizar orden',
+    };
   }
 }
 

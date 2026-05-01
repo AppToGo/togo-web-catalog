@@ -371,6 +371,83 @@ export async function updateOrder(
   return handleResponse<OrderResponse>(response);
 }
 
+// ═══════════════════════════════════════════════════════════
+// TOKEN-BASED OPERATIONS (WhatsApp token flow)
+// Usados cuando la URL lleva ?t=TOKEN y el usuario viene de WhatsApp.
+// Endpoints: /api/v1/web-catalog/:token/*
+// ═══════════════════════════════════════════════════════════
+
+function buildTokenUrl(token: string, path: string = ""): string {
+  const cleanPath = path.startsWith("/") ? path : path ? `/${path}` : "";
+  return `${API_BASE_URL}/web-catalog/${token}${cleanPath}`;
+}
+
+/** GET /api/v1/web-catalog/:token/cart */
+export async function getCartByToken(token: string): Promise<Cart> {
+  const response = await fetch(buildTokenUrl(token, "/cart"), {
+    cache: "no-store",
+    headers: { Accept: "application/json" },
+  });
+  return handleResponse<Cart>(response);
+}
+
+/**
+ * POST /api/v1/web-catalog/:token/cart
+ *
+ * quantity is a delta, not an absolute value:
+ *   positive → add units to the product's current quantity
+ *   negative → remove units (backend rejects if result goes below 1)
+ *   0        → update notes only, quantity unchanged
+ */
+export async function addToCartByToken(
+  token: string,
+  item: CartItem,
+): Promise<Cart> {
+  const response = await fetch(buildTokenUrl(token, "/cart"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      productId: item.productId,
+      name: item.name,
+      price: item.price,
+      quantity: item.quantity,
+      notes: item.notes,
+    }),
+    cache: "no-store",
+  });
+  return handleResponse<Cart>(response);
+}
+
+/** DELETE /api/v1/web-catalog/:token/cart/:productId */
+export async function removeFromCartByToken(
+  token: string,
+  productId: string,
+): Promise<Cart> {
+  const response = await fetch(buildTokenUrl(token, `/cart/${productId}`), {
+    method: "DELETE",
+    cache: "no-store",
+  });
+  return handleResponse<Cart>(response);
+}
+
+/**
+ * PATCH /api/v1/web-catalog/:token/order
+ * orderId va en el BODY, no en el path.
+ */
+export async function updateOrderByToken(
+  token: string,
+  orderId: string,
+  data: { notes?: string },
+): Promise<OrderResponse> {
+  const response = await fetch(buildTokenUrl(token, "/order"), {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ orderId, notes: data.notes }),
+    cache: "no-store",
+  });
+  return handleResponse<OrderResponse>(response);
+}
+
 export async function getOrderStatus(
   businessSlug: string,
   options?: { sessionId: string },
