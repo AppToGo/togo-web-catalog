@@ -1,13 +1,12 @@
 import { Metadata } from 'next';
-import Link from 'next/link';
-import { CheckCircle, MessageCircle, ArrowLeft } from 'lucide-react';
+import { CheckCircle, MessageCircle } from 'lucide-react';
 import { fetchCatalog, NotFoundError } from '@/lib/api';
 import { isValidSlug } from '@/lib/utils';
 import { notFound } from 'next/navigation';
 
 interface PageProps {
   params: Promise<{ businessSlug: string }>;
-  searchParams: Promise<{ order?: string; wa?: string }>;
+  searchParams: Promise<{ order?: string; wa?: string; t?: string }>;
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
@@ -20,7 +19,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 export default async function OrderConfirmationPage({ params, searchParams }: PageProps) {
   const { businessSlug } = await params;
-  const { order: orderNumber, wa: waUrl } = await searchParams;
+  const { order: orderNumber, wa: waUrl, t } = await searchParams;
+  const isTokenFlow = t === '1';
 
   if (!isValidSlug(businessSlug)) notFound();
 
@@ -72,9 +72,11 @@ export default async function OrderConfirmationPage({ params, searchParams }: Pa
 
         {/* Body */}
         <p className="text-[15px] text-[var(--ink-2)] leading-relaxed">
-          {orderNumber
-            ? `Andá a WhatsApp y mencioná el número #${orderNumber} para coordinar los detalles de tu pedido.`
-            : 'Andá a WhatsApp y coordiná los detalles de tu pedido con el negocio.'}
+          {isTokenFlow
+            ? 'Te vamos a contactar por WhatsApp para coordinar los detalles y completar tu pedido.'
+            : orderNumber
+              ? `Andá a WhatsApp y mencioná el número #${orderNumber} para coordinar los detalles de tu pedido.`
+              : 'Andá a WhatsApp y coordiná los detalles de tu pedido con el negocio.'}
         </p>
 
         {/* CTAs */}
@@ -91,15 +93,6 @@ export default async function OrderConfirmationPage({ params, searchParams }: Pa
               Abrir WhatsApp
             </a>
           )}
-
-          <Link
-            href={`/${businessSlug}`}
-            className="w-full py-[13px] rounded-xl border border-[var(--line)] text-[var(--ink-2)] text-[15px] font-semibold flex items-center justify-center gap-2 transition-colors hover:bg-[var(--surface)] active:bg-[var(--line)]"
-            style={{ fontFamily: 'var(--font-display)' }}
-          >
-            <ArrowLeft size={16} />
-            Volver al catálogo
-          </Link>
         </div>
 
         {/* Business name */}

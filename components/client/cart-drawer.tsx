@@ -20,6 +20,12 @@ function buildWaMeUrl(phone: string | undefined, businessName: string, orderNumb
   return `https://wa.me/${digits}?text=${encodeURIComponent(text)}`;
 }
 
+function buildWaMeUrlSimple(phone: string | undefined): string | null {
+  if (!phone) return null;
+  const digits = phone.replace(/\D/g, '');
+  return `https://wa.me/${digits}`;
+}
+
 interface CartDrawerProps {
   business: BusinessInfo;
 }
@@ -131,7 +137,9 @@ export function CartDrawer({ business }: CartDrawerProps) {
         if (!result.success) throw new Error(result.error || 'Error al actualizar');
 
         const phoneForWaMe = branchPhone ?? business.phone;
-        const waUrl = buildWaMeUrl(phoneForWaMe, business.name, result.order?.orderNumber);
+        const waUrl = whatsappToken
+          ? buildWaMeUrlSimple(phoneForWaMe)
+          : buildWaMeUrl(phoneForWaMe, business.name, result.order?.orderNumber);
 
         if (customer.origin !== 'whatsapp' && waUrl) {
           window.open(waUrl, '_blank', 'noopener,noreferrer');
@@ -143,6 +151,7 @@ export function CartDrawer({ business }: CartDrawerProps) {
         const params = new URLSearchParams();
         if (result.order?.orderNumber) params.set('order', result.order.orderNumber);
         if (waUrl) params.set('wa', encodeURIComponent(waUrl));
+        if (whatsappToken) params.set('t', '1');
 
         handleClose();
         router.push(`/${business.slug}/pedido-confirmado?${params}`);
@@ -172,7 +181,9 @@ export function CartDrawer({ business }: CartDrawerProps) {
 
       // Priority: order.branchPhone (branch's own WhatsApp) → context branchPhone → business.phone
       const phoneForWaMe = result.order?.branchPhone ?? branchPhone ?? business.phone;
-      const waUrl = buildWaMeUrl(phoneForWaMe, business.name, result.order?.orderNumber);
+      const waUrl = whatsappToken
+        ? buildWaMeUrlSimple(phoneForWaMe)
+        : buildWaMeUrl(phoneForWaMe, business.name, result.order?.orderNumber);
 
       if (customer.origin !== 'whatsapp' && waUrl) {
         window.open(waUrl, '_blank', 'noopener,noreferrer');
@@ -184,6 +195,7 @@ export function CartDrawer({ business }: CartDrawerProps) {
       const params = new URLSearchParams();
       if (result.order?.orderNumber) params.set('order', result.order.orderNumber);
       if (waUrl) params.set('wa', encodeURIComponent(waUrl));
+      if (whatsappToken) params.set('t', '1');
 
       handleClose();
       router.push(`/${business.slug}/pedido-confirmado?${params}`);

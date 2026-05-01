@@ -163,15 +163,31 @@ export default async function BranchCatalogPage({
   }
 
   try {
-    const origin: CustomerOrigin = token
+    let effectiveToken: string | undefined = token;
+    let origin: CustomerOrigin = token
       ? "whatsapp"
       : (source as CustomerOrigin) || "direct";
 
-    const [catalog, cartResult] = await Promise.all([
-      fetchCatalogByBranch(businessSlug, branchSlug, { token }),
-      token ? getCartByToken(token).catch(() => undefined) : Promise.resolve(undefined),
-    ]);
-    const initialCart: Cart | undefined = cartResult?.items?.length ? cartResult : undefined;
+    let catalog;
+    let initialCart: Cart | undefined;
+
+    try {
+      const [catalogResult, cartResult] = await Promise.all([
+        fetchCatalogByBranch(businessSlug, branchSlug, { token: effectiveToken }),
+        effectiveToken ? getCartByToken(effectiveToken).catch(() => undefined) : Promise.resolve(undefined),
+      ]);
+      catalog = catalogResult;
+      initialCart = cartResult?.items?.length ? cartResult : undefined;
+    } catch (err) {
+      if (err instanceof InvalidTokenError) {
+        // Token expired — load catalog anonymously, no cart
+        effectiveToken = undefined;
+        origin = (source as CustomerOrigin) || "direct";
+        catalog = await fetchCatalogByBranch(businessSlug, branchSlug, {});
+      } else {
+        throw err;
+      }
+    }
 
     if (!catalog.products || catalog.products.length === 0) {
       return <EmptyCatalog businessName={catalog.business.name} />;
@@ -191,10 +207,10 @@ export default async function BranchCatalogPage({
             tableNumber={table}
             initialPhone={catalog.customerPhone}
             initialName={catalog.customerName}
-            isAuthenticated={!!token}
+            isAuthenticated={!!effectiveToken}
             branchId={branchId}
             branchPhone={branchPhone}
-            whatsappToken={token}
+            whatsappToken={effectiveToken}
             initialCart={initialCart}
           >
             <CartUIProvider>
@@ -204,7 +220,7 @@ export default async function BranchCatalogPage({
 
               <FloatingCart accentColor={catalog.business.primaryColor} />
               <ProductModal
-                token={token || ""}
+                token={effectiveToken || ""}
                 accentColor={catalog.business.primaryColor}
               />
               <CartDrawer business={catalog.business} />
