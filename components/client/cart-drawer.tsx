@@ -6,7 +6,7 @@ import { X, Minus, Plus, Loader2, AlertCircle, CheckCircle, Phone } from 'lucide
 import { useCart } from './cart-context';
 import { useCartUI } from './cart-ui-context';
 import { CartItemNotes } from './cart-item-notes';
-import { createOrderAction, createOrderPublicAction, updateOrderAction, checkOrderAction } from '@/lib/cart-actions';
+import { createOrderAction, createOrderPublicAction, updateOrderAction, updateOrderByTokenAction, checkOrderAction } from '@/lib/cart-actions';
 import { PhoneCaptureModal } from './phone-capture-modal';
 import type { BusinessInfo } from '@/src/types/catalog.types';
 import { formatPrice } from '@/lib/utils';
@@ -125,18 +125,38 @@ export function CartDrawer({ business }: CartDrawerProps) {
         return;
       }
       if (orderStatus?.hasOrder && orderStatus.order?.status === 'DRAFT') {
-        const orderKey = whatsappToken || business.slug;
-        const result = await updateOrderAction(orderKey, orderStatus.order.id, { notes: notes.trim(), sessionId });
+        const result = whatsappToken
+          ? await updateOrderByTokenAction(whatsappToken, orderStatus.order.id, { notes: notes.trim() })
+          : await updateOrderAction(business.slug, orderStatus.order.id, { notes: notes.trim(), sessionId });
         if (!result.success) throw new Error(result.error || 'Error al actualizar');
-        setShowAlert({ type: 'success', message: `¡Orden #${result.order?.orderNumber} actualizada!` });
+
+        const phoneForWaMe = branchPhone ?? business.phone;
+        const waUrl = buildWaMeUrl(phoneForWaMe, business.name, result.order?.orderNumber);
+
+        if (customer.origin !== 'whatsapp' && waUrl) {
+          window.open(waUrl, '_blank', 'noopener,noreferrer');
+        }
+
         await checkExistingOrder();
-        setIsProcessing(false);
+        clearCart();
+
+        const params = new URLSearchParams();
+        if (result.order?.orderNumber) params.set('order', result.order.orderNumber);
+        if (waUrl) params.set('wa', encodeURIComponent(waUrl));
+
+        handleClose();
+        router.push(`/${business.slug}/pedido-confirmado?${params}`);
         return;
       }
       // Cart storage is determined by branchId, not origin:
       //   branchId present → PublicCartService (togo:cart:public:slug:branchId:sessionId)
-      //   no branchId + whatsappToken → CartSessionService (togo:cart:token)
-      // Order creation must match the cart storage system used.
+      //   whatsappToken present → CartSessionService (togo:cart:token)
+      // A valid cart must have one or the other — reaching neither is a misconfiguration.
+      if (!branchId && !whatsappToken) {
+        setShowAlert({ type: 'error', message: 'No se pudo determinar la sede. Por favor recarga la página.' });
+        setIsProcessing(false);
+        return;
+      }
       const result = branchId
         ? await createOrderPublicAction(business.slug, {
             items: cart.items.map(item => ({ ...item, branchId })),
@@ -145,15 +165,8 @@ export function CartDrawer({ business }: CartDrawerProps) {
             phoneNumber: customer.phone!,
             fromWhatsApp: !!whatsappToken,
           })
-        : whatsappToken
-        ? await createOrderAction(whatsappToken, {
+        : await createOrderAction(whatsappToken!, {
             items: cart.items, notes: notes.trim(), source: customer.origin, sessionId,
-          })
-        : await createOrderPublicAction(business.slug, {
-            items: cart.items.map(item => ({ ...item, branchId: branchId! })),
-            notes: notes.trim(),
-            sessionId,
-            phoneNumber: customer.phone!,
           });
       if (!result.success) throw new Error(result.error || 'Error al crear orden');
 
