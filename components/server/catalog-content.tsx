@@ -34,6 +34,13 @@ interface CatalogGroup {
   subGroups: SubGroup[];
 }
 
+// Virtual subgroup label for products under a known IndustryCategory but without a BusinessCategory
+const OTROS_LABEL = "Otros";
+// Label for products with no category at all (bottom of catalog)
+const UNCATEGORIZED_LABEL = "Otros productos";
+const UNCATEGORIZED_ID = "uncategorized";
+const makeOtrosId = (catId: string) => `otros-${catId}`;
+
 function buildCatalogGroups(
   products: CatalogProduct[],
   categories: Category[],
@@ -43,17 +50,23 @@ function buildCatalogGroups(
 
   if (hasSubCats) {
     const knownSubCatIds = new Set(subCategories.map((sc) => sc.id));
+    const knownCatIds = new Set(categories.map((cat) => cat.id));
 
     const bySubCat = new Map<string, CatalogProduct[]>();
-    const otrosProducts: CatalogProduct[] = [];
+    const otrosByIndustry = new Map<string, CatalogProduct[]>();
+    const uncategorizedProducts: CatalogProduct[] = [];
 
     for (const p of products) {
       if (p.categoryId && knownSubCatIds.has(p.categoryId)) {
         const arr = bySubCat.get(p.categoryId) ?? [];
         arr.push(p);
         bySubCat.set(p.categoryId, arr);
+      } else if (p.industryCategoryId && knownCatIds.has(p.industryCategoryId)) {
+        const arr = otrosByIndustry.get(p.industryCategoryId) ?? [];
+        arr.push(p);
+        otrosByIndustry.set(p.industryCategoryId, arr);
       } else {
-        otrosProducts.push(p);
+        uncategorizedProducts.push(p);
       }
     }
 
@@ -79,14 +92,23 @@ function buildCatalogGroups(
         }))
         .filter((g) => g.products.length > 0);
 
+      const otrosForCat = otrosByIndustry.get(cat.id) ?? [];
+      if (otrosForCat.length > 0) {
+        subGroups.push({
+          id: makeOtrosId(cat.id),
+          name: OTROS_LABEL,
+          products: otrosForCat,
+        });
+      }
+
       if (subGroups.length > 0) groups.push({ id: cat.id, subGroups });
     }
 
-    if (otrosProducts.length > 0) {
+    if (uncategorizedProducts.length > 0) {
       groups.push({
-        id: "uncategorized",
+        id: UNCATEGORIZED_ID,
         subGroups: [
-          { id: "otros", name: "Otros productos", products: otrosProducts },
+          { id: UNCATEGORIZED_ID, name: UNCATEGORIZED_LABEL, products: uncategorizedProducts },
         ],
       });
     }
@@ -96,7 +118,7 @@ function buildCatalogGroups(
 
   const byIndustryCat = new Map<string, CatalogProduct[]>();
   for (const p of products) {
-    const key = p.industryCategoryId ?? p.categoryId ?? "uncategorized";
+    const key = p.industryCategoryId ?? p.categoryId ?? UNCATEGORIZED_ID;
     const arr = byIndustryCat.get(key) ?? [];
     arr.push(p);
     byIndustryCat.set(key, arr);
@@ -115,14 +137,14 @@ function buildCatalogGroups(
     }))
     .filter((g) => g.subGroups[0].products.length > 0);
 
-  const uncategorized = byIndustryCat.get("uncategorized") ?? [];
+  const uncategorized = byIndustryCat.get(UNCATEGORIZED_ID) ?? [];
   if (uncategorized.length > 0) {
     groups.push({
-      id: "uncategorized",
+      id: UNCATEGORIZED_ID,
       subGroups: [
         {
-          id: "uncategorized",
-          name: "Otros productos",
+          id: UNCATEGORIZED_ID,
+          name: UNCATEGORIZED_LABEL,
           products: uncategorized,
         },
       ],
