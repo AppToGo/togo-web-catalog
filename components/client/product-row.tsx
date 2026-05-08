@@ -91,6 +91,7 @@ export function ProductRow({ product, subcatId, isExpanded, onToggle, useProduct
         image: product.image,
         variantId: selectedVariant?.id,
         variantLabel: selectedVariant?.label,
+        ...(selectedVariant?.attributes ? { variantAttributes: selectedVariant.attributes } : {}),
       });
     } else {
       onToggle();
@@ -114,6 +115,7 @@ export function ProductRow({ product, subcatId, isExpanded, onToggle, useProduct
         notes: notes.trim() || undefined,
         variantId: selectedVariant?.id,
         variantLabel: selectedVariant?.label,
+        ...(selectedVariant?.attributes ? { variantAttributes: selectedVariant.attributes } : {}),
       });
     }
     setNotes('');

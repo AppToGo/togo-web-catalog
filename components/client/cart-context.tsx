@@ -59,7 +59,7 @@ interface CartContextType {
   setCustomerPhone: (phone: string) => void;
   setCustomerName: (name: string) => void;
   // Stock validation
-  getStockForProduct: (productId: string, availableStock?: number) => number;
+  getStockForProduct: (productId: string, availableStock?: number, variantId?: string) => number;
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -248,10 +248,13 @@ export function CartProvider({
   // ═══════════════════════════════════════════════════════
   // STOCK VALIDATION HELPER
   // ═══════════════════════════════════════════════════════
-  const getStockForProduct = useCallback((productId: string, availableStock?: number): number => {
-    const cartItem = cart.items.find(i => i.productId === productId);
+  const getStockForProduct = useCallback((productId: string, availableStock?: number, variantId?: string): number => {
+    const cartItem = cart.items.find(i =>
+      i.productId === productId &&
+      (variantId === undefined || i.variantId === variantId)
+    );
     const inCart = cartItem?.quantity || 0;
-    
+
     if (availableStock === undefined) return Infinity;
     return Math.max(0, availableStock - inCart);
   }, [cart.items]);
@@ -345,13 +348,13 @@ export function CartProvider({
         }
       } else if (newQuantity <= 0) {
         const result = branchId
-          ? await removeFromCartPublicAction(businessSlug, productId, { sessionId, branchId })
-          : await removeFromCartAction(businessSlug, productId, { sessionId });
+          ? await removeFromCartPublicAction(businessSlug, productId, { sessionId, branchId }, variantId)
+          : await removeFromCartAction(businessSlug, productId, { sessionId }, variantId);
         if (!result.success) throw new Error(result.error);
       } else {
         const result = branchId
-          ? await updateCartItemPublicAction(businessSlug, productId, newQuantity, { sessionId, branchId })
-          : await updateCartItemAction(businessSlug, productId, newQuantity, { sessionId });
+          ? await updateCartItemPublicAction(businessSlug, productId, newQuantity, { sessionId, branchId }, undefined, variantId)
+          : await updateCartItemAction(businessSlug, productId, newQuantity, { sessionId }, undefined, variantId);
         if (!result.success) throw new Error(result.error);
       }
     } catch (error) {
@@ -386,8 +389,8 @@ export function CartProvider({
       const result = isTokenFlow
         ? await removeFromCartByTokenAction(whatsappToken!, productId)
         : branchId
-        ? await removeFromCartPublicAction(businessSlug, productId, { sessionId, branchId })
-        : await removeFromCartAction(businessSlug, productId, { sessionId });
+        ? await removeFromCartPublicAction(businessSlug, productId, { sessionId, branchId }, variantId)
+        : await removeFromCartAction(businessSlug, productId, { sessionId }, variantId);
       if (!result.success) throw new Error(result.error);
     } catch (error) {
       setCart(previousCart);
@@ -437,8 +440,8 @@ export function CartProvider({
         if (!result.success) throw new Error(result.error);
       } else {
         const result = branchId
-          ? await updateCartItemPublicAction(businessSlug, productId, currentItem.quantity, { sessionId, branchId }, trimmed)
-          : await updateCartItemAction(businessSlug, productId, currentItem.quantity, { sessionId }, trimmed);
+          ? await updateCartItemPublicAction(businessSlug, productId, currentItem.quantity, { sessionId, branchId }, trimmed, variantId)
+          : await updateCartItemAction(businessSlug, productId, currentItem.quantity, { sessionId }, trimmed, variantId);
         if (!result.success) throw new Error(result.error);
       }
     } catch (error) {

@@ -102,6 +102,7 @@ export async function updateCartItemAction(
   quantity: number,
   options: { sessionId: string },
   notes?: string,
+  variantId?: string,
 ): Promise<CartActionResult> {
   try {
     const rateKey = await getCartRateLimitKey(businessSlug, 'update');
@@ -113,7 +114,7 @@ export async function updateCartItemAction(
       return { success: false, error: 'Datos inválidos' };
     }
 
-    const cart = await updateCartItem(businessSlug, productId, quantity, options, notes);
+    const cart = await updateCartItem(businessSlug, productId, quantity, options, notes, variantId);
 
     // @ts-ignore - Next.js 16 types requieren 2 args pero runtime funciona con 1
     revalidateTag(`catalog-${businessSlug}`, {});
@@ -135,7 +136,8 @@ export async function updateCartItemAction(
 export async function removeFromCartAction(
   businessSlug: string,
   productId: string,
-  options: { sessionId: string }
+  options: { sessionId: string },
+  variantId?: string,
 ): Promise<CartActionResult> {
   try {
     const rateKey = await getCartRateLimitKey(businessSlug, 'remove');
@@ -147,7 +149,7 @@ export async function removeFromCartAction(
       return { success: false, error: 'Datos inválidos' };
     }
 
-    const cart = await removeFromCart(businessSlug, productId, options);
+    const cart = await removeFromCart(businessSlug, productId, options, variantId);
     
     // @ts-ignore - Next.js 16 types requieren 2 args pero runtime funciona con 1
     revalidateTag(`catalog-${businessSlug}`, {});
@@ -359,13 +361,14 @@ export async function removeFromCartPublicAction(
   businessSlug: string,
   productId: string,
   options: { sessionId: string; branchId?: string },
+  variantId?: string,
 ): Promise<CartActionResult> {
   try {
     const rateKey = await getCartRateLimitKey(businessSlug, 'remove');
     if (!checkRateLimit(rateKey, RATE_LIMITS.removeItem)) {
       return { success: false, error: 'Demasiadas solicitudes. Intenta más tarde.' };
     }
-    const cart = await removeFromCartPublic(businessSlug, productId, options);
+    const cart = await removeFromCartPublic(businessSlug, productId, options, variantId);
     // @ts-ignore
     revalidateTag(`catalog-${businessSlug}`, {});
     return { success: true, cart };
@@ -380,13 +383,14 @@ export async function updateCartItemPublicAction(
   quantity: number,
   options: { sessionId: string; branchId?: string },
   notes?: string,
+  variantId?: string,
 ): Promise<CartActionResult> {
   try {
     const rateKey = await getCartRateLimitKey(businessSlug, 'update');
     if (!checkRateLimit(rateKey, RATE_LIMITS.updateItem)) {
       return { success: false, error: 'Demasiadas solicitudes. Intenta más tarde.' };
     }
-    const cart = await updateCartItemPublic(businessSlug, productId, quantity, options, notes);
+    const cart = await updateCartItemPublic(businessSlug, productId, quantity, options, notes, variantId);
     // @ts-ignore
     revalidateTag(`catalog-${businessSlug}`, {});
     return { success: true, cart };

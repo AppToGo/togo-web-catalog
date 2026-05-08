@@ -67,9 +67,6 @@ export interface CatalogProduct {
 
   /** Maximum price across active variants */
   priceTo?: number;
-
-  /** True when variants.length > 1 */
-  hasVariants?: boolean;
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -271,6 +268,9 @@ export interface CartItem {
 
   /** Variant label for display (e.g. "1.5L", "Grande") */
   variantLabel?: string;
+
+  /** Variant attributes snapshot (e.g. { size: "1.5L", format: "Botella" }) */
+  variantAttributes?: Record<string, string | number>;
 }
 
 /**
