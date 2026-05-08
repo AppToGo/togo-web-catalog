@@ -51,9 +51,9 @@ interface CartContextType {
   whatsappToken?: string;
   // Actions
   addItem: (item: CartItem) => void;
-  updateItem: (productId: string, delta: number) => void;
-  removeItem: (productId: string) => void;
-  updateItemNotes: (productId: string, notes: string) => Promise<void>;
+  updateItem: (productId: string, delta: number, variantId?: string) => void;
+  removeItem: (productId: string, variantId?: string) => void;
+  updateItemNotes: (productId: string, notes: string, variantId?: string) => Promise<void>;
   clearCart: () => void;
   syncCart: () => Promise<void>;
   setCustomerPhone: (phone: string) => void;
@@ -226,7 +226,9 @@ export function CartProvider({
         const mergedItems = serverCart.items.map(si => ({
           ...si,
           // Preserve local notes if server doesn't have them
-          notes: si.notes ?? prev.items.find(p => p.productId === si.productId)?.notes,
+          notes: si.notes ?? prev.items.find(
+            p => p.productId === si.productId && p.variantId === si.variantId
+          )?.notes,
         }));
         const mergedCart = { ...serverCart, items: mergedItems };
         const sortByProductId = (items: CartItem[]) =>
@@ -268,7 +270,9 @@ export function CartProvider({
 
     // Optimista
     setCart(prev => {
-      const existingIndex = prev.items.findIndex(i => i.productId === item.productId);
+      const existingIndex = prev.items.findIndex(
+        i => i.productId === item.productId && i.variantId === item.variantId
+      );
       if (existingIndex >= 0) {
         const newItems = [...prev.items];
         newItems[existingIndex] = {
@@ -301,10 +305,12 @@ export function CartProvider({
   // ═══════════════════════════════════════════════════════
   // ACTUALIZAR CANTIDAD
   // ═══════════════════════════════════════════════════════
-  const updateItem = useCallback(async (productId: string, delta: number) => {
+  const updateItem = useCallback(async (productId: string, delta: number, variantId?: string) => {
     if (!sessionId && !whatsappToken) return;
 
-    const currentItem = cart.items.find(i => i.productId === productId);
+    const currentItem = cart.items.find(
+      i => i.productId === productId && i.variantId === variantId
+    );
     if (!currentItem) return;
 
     const isTokenFlow = !!whatsappToken;
@@ -318,7 +324,7 @@ export function CartProvider({
     setCart(prev => ({
       items: prev.items
         .map(item => {
-          if (item.productId === productId) {
+          if (item.productId === productId && item.variantId === variantId) {
             return newQuantity > 0 ? { ...item, quantity: newQuantity } : null;
           }
           return item;
@@ -360,7 +366,7 @@ export function CartProvider({
   // ═══════════════════════════════════════════════════════
   // ELIMINAR ITEM
   // ═══════════════════════════════════════════════════════
-  const removeItem = useCallback(async (productId: string) => {
+  const removeItem = useCallback(async (productId: string, variantId?: string) => {
     if (!sessionId && !whatsappToken) return;
 
     const isTokenFlow = !!whatsappToken;
@@ -370,7 +376,9 @@ export function CartProvider({
     setIsSyncing(true);
 
     setCart(prev => ({
-      items: prev.items.filter(item => item.productId !== productId),
+      items: prev.items.filter(
+        item => !(item.productId === productId && item.variantId === variantId)
+      ),
       updatedAt: new Date().toISOString(),
     }));
 
@@ -393,10 +401,12 @@ export function CartProvider({
   // ═══════════════════════════════════════════════════════
   // ACTUALIZAR NOTAS DE ITEM
   // ═══════════════════════════════════════════════════════
-  const updateItemNotes = useCallback(async (productId: string, notes: string) => {
+  const updateItemNotes = useCallback(async (productId: string, notes: string, variantId?: string) => {
     if (!sessionId && !whatsappToken) return;
 
-    const currentItem = cart.items.find(i => i.productId === productId);
+    const currentItem = cart.items.find(
+      i => i.productId === productId && i.variantId === variantId
+    );
     if (!currentItem) return;
 
     const isTokenFlow = !!whatsappToken;
@@ -409,7 +419,9 @@ export function CartProvider({
     setCart(prev => ({
       ...prev,
       items: prev.items.map(item =>
-        item.productId === productId ? { ...item, notes: trimmed } : item
+        item.productId === productId && item.variantId === variantId
+          ? { ...item, notes: trimmed }
+          : item
       ),
       updatedAt: new Date().toISOString(),
     }));

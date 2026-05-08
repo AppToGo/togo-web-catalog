@@ -244,6 +244,7 @@ export async function addToCart(
       productId: item.productId,
       quantity: item.quantity,
       notes: item.notes,
+      ...(item.variantId !== undefined ? { variantId: item.variantId } : {}),
     }),
     cache: "no-store",
   });
@@ -412,6 +413,7 @@ export async function addToCartByToken(
       price: item.price,
       quantity: item.quantity,
       notes: item.notes,
+      ...(item.variantId !== undefined ? { variantId: item.variantId } : {}),
     }),
     cache: "no-store",
   });
@@ -540,6 +542,7 @@ export async function addToCartPublic(
         price: item.price,
         notes: item.notes,
         branchId: item.branchId,
+        ...(item.variantId !== undefined ? { variantId: item.variantId } : {}),
       },
     }),
     cache: "no-store",

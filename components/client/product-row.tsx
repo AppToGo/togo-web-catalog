@@ -4,8 +4,9 @@ import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { InitialsAvatar } from '@/components/ui/initials-avatar';
 import { useCart } from './cart-context';
+import { VariantSelector } from './variant-selector';
 import { formatPrice } from '@/lib/utils';
-import type { CatalogProduct } from '@/src/types/catalog.types';
+import type { CatalogProduct, CatalogVariant } from '@/src/types/catalog.types';
 
 function MinusIcon() {
   return (
@@ -35,20 +36,37 @@ export function ProductRow({ product, subcatId, isExpanded, onToggle, useProduct
   const { cart, addItem, updateItem, updateItemNotes } = useCart();
   const [notes, setNotes] = useState('');
   const [clientQty, setClientQty] = useState(0);
+  const [selectedVariant, setSelectedVariant] = useState<CatalogVariant | null>(null);
+
+  const variants = product.variants ?? [];
+  const hasMultipleVariants = variants.length > 1;
+
+  // Auto-select when only one variant
+  useEffect(() => {
+    if (variants.length === 1 && !selectedVariant) {
+      setSelectedVariant(variants[0]);
+    }
+  }, [variants.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    const item = cart.items.find((i) => i.productId === product.id);
+    const item = cart.items.find(
+      i => i.productId === product.id && i.variantId === (selectedVariant?.id ?? undefined)
+    );
     setClientQty(item?.quantity ?? 0);
-  }, [cart.items, product.id]);
+  }, [cart.items, product.id, selectedVariant?.id]);
 
   useEffect(() => {
     if (isExpanded) {
-      const item = cart.items.find(i => i.productId === product.id);
+      const item = cart.items.find(
+        i => i.productId === product.id && i.variantId === (selectedVariant?.id ?? undefined)
+      );
       setNotes(item?.notes ?? '');
     }
   }, [isExpanded]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const qty = clientQty;
+
+  const displayPrice = selectedVariant?.price ?? product.priceFrom ?? product.price;
 
   const handleRowClick = (e: React.MouseEvent) => {
     const target = e.target as HTMLElement;
@@ -58,35 +76,63 @@ export function ProductRow({ product, subcatId, isExpanded, onToggle, useProduct
 
   const handleAdd = (e: React.MouseEvent) => {
     e.stopPropagation();
+    if (hasMultipleVariants) {
+      // Open panel so user can pick a variant
+      onToggle();
+      return;
+    }
     if (qty === 0) {
-      addItem({ productId: product.id, name: product.name, price: product.price, quantity: 1, image: product.image });
+      const price = selectedVariant?.price ?? product.priceFrom ?? product.price;
+      addItem({
+        productId: product.id,
+        name: product.name,
+        price,
+        quantity: 1,
+        image: product.image,
+        variantId: selectedVariant?.id,
+        variantLabel: selectedVariant?.label,
+      });
     } else {
       onToggle();
     }
   };
 
   const handleExpandedAdd = () => {
+    if (hasMultipleVariants && !selectedVariant) return;
+
+    const price = selectedVariant?.price ?? product.priceFrom ?? product.price;
+
     if (clientQty > 0) {
-      // Item already in cart — only update notes, preserve quantity
-      updateItemNotes(product.id, notes.trim());
+      updateItemNotes(product.id, notes.trim(), selectedVariant?.id);
     } else {
       addItem({
         productId: product.id,
         name: product.name,
-        price: product.price,
+        price,
         quantity: 1,
         image: product.image,
         notes: notes.trim() || undefined,
+        variantId: selectedVariant?.id,
+        variantLabel: selectedVariant?.label,
       });
     }
     setNotes('');
     onToggle();
   };
 
-  const handleMinus = (e: React.MouseEvent) => { e.stopPropagation(); updateItem(product.id, -1); };
-  const handlePlus = (e: React.MouseEvent) => { e.stopPropagation(); updateItem(product.id, 1); };
+  const handleMinus = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    updateItem(product.id, -1, selectedVariant?.id);
+  };
+
+  const handlePlus = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    updateItem(product.id, 1, selectedVariant?.id);
+  };
 
   const isUnavailable = !product.isAvailable || !product.active;
+
+  const stepperDisabled = isUnavailable || (hasMultipleVariants && !selectedVariant);
 
   return (
     <div
@@ -122,7 +168,9 @@ export function ProductRow({ product, subcatId, isExpanded, onToggle, useProduct
             className="text-[15px] font-bold text-[var(--ink)] tracking-[-0.03em]"
             style={{ fontFamily: 'var(--font-display)' }}
           >
-            {formatPrice(product.price)}
+            {hasMultipleVariants && !selectedVariant && product.priceFrom
+              ? `Desde ${formatPrice(product.priceFrom)}`
+              : formatPrice(displayPrice ?? 0)}
           </span>
           {isUnavailable && (
             <span className="text-[10px] font-semibold text-[var(--ink-3)] bg-[var(--line)] px-[6px] py-[2px] rounded-[4px]">
@@ -145,8 +193,9 @@ export function ProductRow({ product, subcatId, isExpanded, onToggle, useProduct
         ) : (
           <div className="flex items-center gap-0.5 bg-[var(--bg)] border-[1.5px] border-[var(--line)] rounded-[20px] p-0.5 shrink-0">
             <button
-              className="w-7 h-7 rounded-full flex items-center justify-center transition-[background,color] text-[var(--ink-2)] hover:bg-[var(--line)]"
+              className="w-7 h-7 rounded-full flex items-center justify-center transition-[background,color] text-[var(--ink-2)] hover:bg-[var(--line)] disabled:opacity-50 disabled:cursor-not-allowed"
               onClick={handleMinus}
+              disabled={stepperDisabled}
               aria-label="Quitar uno"
             >
               <MinusIcon />
@@ -158,8 +207,9 @@ export function ProductRow({ product, subcatId, isExpanded, onToggle, useProduct
               {qty}
             </span>
             <button
-              className="w-7 h-7 rounded-full flex items-center justify-center bg-[var(--accent)] text-[var(--accent-ink)] hover:opacity-[0.88] transition-opacity"
+              className="w-7 h-7 rounded-full flex items-center justify-center bg-[var(--accent)] text-[var(--accent-ink)] hover:opacity-[0.88] transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
               onClick={handlePlus}
+              disabled={stepperDisabled}
               aria-label="Agregar uno"
             >
               <PlusIcon />
@@ -170,6 +220,13 @@ export function ProductRow({ product, subcatId, isExpanded, onToggle, useProduct
 
       {isExpanded && (
         <div className={`${useProductImages ? 'col-span-3' : 'col-span-2'} pt-3 pb-1 animate-[slide-down_0.18s_ease-out]`}>
+          {hasMultipleVariants && (
+            <VariantSelector
+              variants={variants}
+              selectedVariantId={selectedVariant?.id ?? null}
+              onSelect={setSelectedVariant}
+            />
+          )}
           <textarea
             className="w-full px-3 py-[9px] bg-[var(--surface)] border-[1.5px] border-[var(--line)] rounded-lg text-[13px] text-[var(--ink)] resize-none outline-none transition-[border-color] leading-[1.5] placeholder:text-[var(--ink-3)] focus:border-[var(--accent)]"
             value={notes}
@@ -179,8 +236,9 @@ export function ProductRow({ product, subcatId, isExpanded, onToggle, useProduct
             onClick={(e) => e.stopPropagation()}
           />
           <button
-            className="w-full py-[11px] mt-3 rounded-lg bg-[var(--accent)] text-[var(--accent-ink)] text-[14px] font-semibold tracking-[-0.01em] transition-opacity hover:opacity-[0.88] active:opacity-[0.76]"
+            className="w-full py-[11px] mt-3 rounded-lg bg-[var(--accent)] text-[var(--accent-ink)] text-[14px] font-semibold tracking-[-0.01em] transition-opacity hover:opacity-[0.88] active:opacity-[0.76] disabled:opacity-50 disabled:cursor-not-allowed"
             style={{ fontFamily: 'var(--font-display)' }}
+            disabled={hasMultipleVariants && !selectedVariant}
             onClick={(e) => { e.stopPropagation(); handleExpandedAdd(); }}
           >
             {qty > 0 ? 'Actualizar pedido' : 'Agregar al pedido'}
