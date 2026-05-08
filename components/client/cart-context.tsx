@@ -51,15 +51,15 @@ interface CartContextType {
   whatsappToken?: string;
   // Actions
   addItem: (item: CartItem) => void;
-  updateItem: (productId: string, delta: number) => void;
-  removeItem: (productId: string) => void;
-  updateItemNotes: (productId: string, notes: string) => Promise<void>;
+  updateItem: (productId: string, delta: number, variantId?: string) => void;
+  removeItem: (productId: string, variantId?: string) => void;
+  updateItemNotes: (productId: string, notes: string, variantId?: string) => Promise<void>;
   clearCart: () => void;
   syncCart: () => Promise<void>;
   setCustomerPhone: (phone: string) => void;
   setCustomerName: (name: string) => void;
   // Stock validation
-  getStockForProduct: (productId: string, availableStock?: number) => number;
+  getStockForProduct: (productId: string, availableStock?: number, variantId?: string) => number;
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -226,7 +226,9 @@ export function CartProvider({
         const mergedItems = serverCart.items.map(si => ({
           ...si,
           // Preserve local notes if server doesn't have them
-          notes: si.notes ?? prev.items.find(p => p.productId === si.productId)?.notes,
+          notes: si.notes ?? prev.items.find(
+            p => p.productId === si.productId && p.variantId === si.variantId
+          )?.notes,
         }));
         const mergedCart = { ...serverCart, items: mergedItems };
         const sortByProductId = (items: CartItem[]) =>
@@ -246,10 +248,13 @@ export function CartProvider({
   // ═══════════════════════════════════════════════════════
   // STOCK VALIDATION HELPER
   // ═══════════════════════════════════════════════════════
-  const getStockForProduct = useCallback((productId: string, availableStock?: number): number => {
-    const cartItem = cart.items.find(i => i.productId === productId);
+  const getStockForProduct = useCallback((productId: string, availableStock?: number, variantId?: string): number => {
+    const cartItem = cart.items.find(i =>
+      i.productId === productId &&
+      (variantId === undefined || i.variantId === variantId)
+    );
     const inCart = cartItem?.quantity || 0;
-    
+
     if (availableStock === undefined) return Infinity;
     return Math.max(0, availableStock - inCart);
   }, [cart.items]);
@@ -268,7 +273,9 @@ export function CartProvider({
 
     // Optimista
     setCart(prev => {
-      const existingIndex = prev.items.findIndex(i => i.productId === item.productId);
+      const existingIndex = prev.items.findIndex(
+        i => i.productId === item.productId && i.variantId === item.variantId
+      );
       if (existingIndex >= 0) {
         const newItems = [...prev.items];
         newItems[existingIndex] = {
@@ -301,10 +308,12 @@ export function CartProvider({
   // ═══════════════════════════════════════════════════════
   // ACTUALIZAR CANTIDAD
   // ═══════════════════════════════════════════════════════
-  const updateItem = useCallback(async (productId: string, delta: number) => {
+  const updateItem = useCallback(async (productId: string, delta: number, variantId?: string) => {
     if (!sessionId && !whatsappToken) return;
 
-    const currentItem = cart.items.find(i => i.productId === productId);
+    const currentItem = cart.items.find(
+      i => i.productId === productId && i.variantId === variantId
+    );
     if (!currentItem) return;
 
     const isTokenFlow = !!whatsappToken;
@@ -318,7 +327,7 @@ export function CartProvider({
     setCart(prev => ({
       items: prev.items
         .map(item => {
-          if (item.productId === productId) {
+          if (item.productId === productId && item.variantId === variantId) {
             return newQuantity > 0 ? { ...item, quantity: newQuantity } : null;
           }
           return item;
@@ -339,13 +348,13 @@ export function CartProvider({
         }
       } else if (newQuantity <= 0) {
         const result = branchId
-          ? await removeFromCartPublicAction(businessSlug, productId, { sessionId, branchId })
-          : await removeFromCartAction(businessSlug, productId, { sessionId });
+          ? await removeFromCartPublicAction(businessSlug, productId, { sessionId, branchId }, variantId)
+          : await removeFromCartAction(businessSlug, productId, { sessionId }, variantId);
         if (!result.success) throw new Error(result.error);
       } else {
         const result = branchId
-          ? await updateCartItemPublicAction(businessSlug, productId, newQuantity, { sessionId, branchId })
-          : await updateCartItemAction(businessSlug, productId, newQuantity, { sessionId });
+          ? await updateCartItemPublicAction(businessSlug, productId, newQuantity, { sessionId, branchId }, undefined, variantId)
+          : await updateCartItemAction(businessSlug, productId, newQuantity, { sessionId }, undefined, variantId);
         if (!result.success) throw new Error(result.error);
       }
     } catch (error) {
@@ -360,7 +369,7 @@ export function CartProvider({
   // ═══════════════════════════════════════════════════════
   // ELIMINAR ITEM
   // ═══════════════════════════════════════════════════════
-  const removeItem = useCallback(async (productId: string) => {
+  const removeItem = useCallback(async (productId: string, variantId?: string) => {
     if (!sessionId && !whatsappToken) return;
 
     const isTokenFlow = !!whatsappToken;
@@ -370,7 +379,9 @@ export function CartProvider({
     setIsSyncing(true);
 
     setCart(prev => ({
-      items: prev.items.filter(item => item.productId !== productId),
+      items: prev.items.filter(
+        item => !(item.productId === productId && item.variantId === variantId)
+      ),
       updatedAt: new Date().toISOString(),
     }));
 
@@ -378,8 +389,8 @@ export function CartProvider({
       const result = isTokenFlow
         ? await removeFromCartByTokenAction(whatsappToken!, productId)
         : branchId
-        ? await removeFromCartPublicAction(businessSlug, productId, { sessionId, branchId })
-        : await removeFromCartAction(businessSlug, productId, { sessionId });
+        ? await removeFromCartPublicAction(businessSlug, productId, { sessionId, branchId }, variantId)
+        : await removeFromCartAction(businessSlug, productId, { sessionId }, variantId);
       if (!result.success) throw new Error(result.error);
     } catch (error) {
       setCart(previousCart);
@@ -393,10 +404,12 @@ export function CartProvider({
   // ═══════════════════════════════════════════════════════
   // ACTUALIZAR NOTAS DE ITEM
   // ═══════════════════════════════════════════════════════
-  const updateItemNotes = useCallback(async (productId: string, notes: string) => {
+  const updateItemNotes = useCallback(async (productId: string, notes: string, variantId?: string) => {
     if (!sessionId && !whatsappToken) return;
 
-    const currentItem = cart.items.find(i => i.productId === productId);
+    const currentItem = cart.items.find(
+      i => i.productId === productId && i.variantId === variantId
+    );
     if (!currentItem) return;
 
     const isTokenFlow = !!whatsappToken;
@@ -409,7 +422,9 @@ export function CartProvider({
     setCart(prev => ({
       ...prev,
       items: prev.items.map(item =>
-        item.productId === productId ? { ...item, notes: trimmed } : item
+        item.productId === productId && item.variantId === variantId
+          ? { ...item, notes: trimmed }
+          : item
       ),
       updatedAt: new Date().toISOString(),
     }));
@@ -425,8 +440,8 @@ export function CartProvider({
         if (!result.success) throw new Error(result.error);
       } else {
         const result = branchId
-          ? await updateCartItemPublicAction(businessSlug, productId, currentItem.quantity, { sessionId, branchId }, trimmed)
-          : await updateCartItemAction(businessSlug, productId, currentItem.quantity, { sessionId }, trimmed);
+          ? await updateCartItemPublicAction(businessSlug, productId, currentItem.quantity, { sessionId, branchId }, trimmed, variantId)
+          : await updateCartItemAction(businessSlug, productId, currentItem.quantity, { sessionId }, trimmed, variantId);
         if (!result.success) throw new Error(result.error);
       }
     } catch (error) {

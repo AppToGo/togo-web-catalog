@@ -58,6 +58,15 @@ export interface CatalogProduct {
   
   /** GlobalProduct ID reference */
   globalProductId?: string;
+
+  /** Variants when product has multiple presentations */
+  variants?: CatalogVariant[];
+
+  /** Minimum price across active variants */
+  priceFrom?: number;
+
+  /** Maximum price across active variants */
+  priceTo?: number;
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -221,26 +230,47 @@ export interface SearchResponse {
 // ═══════════════════════════════════════════════════════════
 
 /**
+ * Variant of a product (e.g. size, format, presentation)
+ */
+export interface CatalogVariant {
+  id: string;
+  label: string;
+  price: number;
+  isDefault: boolean;
+  isAvailable: boolean;
+  attributes: Record<string, string | number>;
+}
+
+/**
  * Cart item with normalized product ID
  */
 export interface CartItem {
   /** BusinessProduct ID (normalized) */
   productId: string;
-  
+
   /** Product name for display */
   name: string;
-  
+
   /** Quantity */
   quantity: number;
-  
+
   /** Unit price */
   price: number;
-  
+
   /** Optional notes */
   notes?: string;
-  
+
   /** Optional product image */
   image?: string;
+
+  /** ProductVariant ID when the product has variants */
+  variantId?: string;
+
+  /** Variant label for display (e.g. "1.5L", "Grande") */
+  variantLabel?: string;
+
+  /** Variant attributes snapshot (e.g. { size: "1.5L", format: "Botella" }) */
+  variantAttributes?: Record<string, string | number>;
 }
 
 /**

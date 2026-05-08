@@ -244,6 +244,7 @@ export async function addToCart(
       productId: item.productId,
       quantity: item.quantity,
       notes: item.notes,
+      ...(item.variantId !== undefined ? { variantId: item.variantId } : {}),
     }),
     cache: "no-store",
   });
@@ -270,7 +271,7 @@ export async function getCart(
  * Actualiza cantidad de un item
  *
  * Body esperado por backend:
- * { sessionId: string, productId: string, quantity: number }
+ * { sessionId: string, productId: string, quantity: number, variantId?: string }
  */
 export async function updateCartItem(
   businessSlug: string,
@@ -278,6 +279,7 @@ export async function updateCartItem(
   quantity: number,
   options?: { sessionId: string },
   notes?: string,
+  variantId?: string,
 ): Promise<Cart> {
   const url = new URL(buildWebCatalogUrl(businessSlug, "/cart/update"));
 
@@ -289,6 +291,7 @@ export async function updateCartItem(
       productId,
       quantity,
       ...(notes !== undefined ? { notes } : {}),
+      ...(variantId !== undefined ? { variantId } : {}),
     }),
     cache: "no-store",
   });
@@ -300,12 +303,13 @@ export async function updateCartItem(
  * Elimina item del carrito
  *
  * Body esperado por backend:
- * { sessionId: string, productId: string }
+ * { sessionId: string, productId: string, variantId?: string }
  */
 export async function removeFromCart(
   businessSlug: string,
   productId: string,
   options?: { sessionId: string },
+  variantId?: string,
 ): Promise<Cart> {
   const url = new URL(buildWebCatalogUrl(businessSlug, "/cart/remove"));
 
@@ -315,6 +319,7 @@ export async function removeFromCart(
     body: JSON.stringify({
       sessionId: options?.sessionId,
       productId,
+      ...(variantId !== undefined ? { variantId } : {}),
     }),
     cache: "no-store",
   });
@@ -412,6 +417,7 @@ export async function addToCartByToken(
       price: item.price,
       quantity: item.quantity,
       notes: item.notes,
+      ...(item.variantId !== undefined ? { variantId: item.variantId } : {}),
     }),
     cache: "no-store",
   });
@@ -540,6 +546,7 @@ export async function addToCartPublic(
         price: item.price,
         notes: item.notes,
         branchId: item.branchId,
+        ...(item.variantId !== undefined ? { variantId: item.variantId } : {}),
       },
     }),
     cache: "no-store",
@@ -551,6 +558,7 @@ export async function removeFromCartPublic(
   businessSlug: string,
   productId: string,
   options: { sessionId: string; branchId?: string },
+  variantId?: string,
 ): Promise<Cart> {
   const response = await fetch(
     buildPublicCatalogUrl(businessSlug, "/cart/remove"),
@@ -561,6 +569,7 @@ export async function removeFromCartPublic(
         sessionId: options.sessionId,
         productId,
         branchId: options.branchId,
+        ...(variantId !== undefined ? { variantId } : {}),
       }),
       cache: "no-store",
     },
@@ -574,6 +583,7 @@ export async function updateCartItemPublic(
   quantity: number,
   options: { sessionId: string; branchId?: string },
   notes?: string,
+  variantId?: string,
 ): Promise<Cart> {
   const response = await fetch(
     buildPublicCatalogUrl(businessSlug, "/cart/update"),
@@ -586,6 +596,7 @@ export async function updateCartItemPublic(
         quantity,
         branchId: options.branchId,
         ...(notes !== undefined ? { notes } : {}),
+        ...(variantId !== undefined ? { variantId } : {}),
       }),
       cache: "no-store",
     },
