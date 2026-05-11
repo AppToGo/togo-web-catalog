@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
+import { ChevronDown } from 'lucide-react';
 import { InitialsAvatar } from '@/components/ui/initials-avatar';
 import { useCart } from './cart-context';
 import { VariantSelector } from './variant-selector';
@@ -34,38 +35,38 @@ interface ProductRowProps {
 
 export function ProductRow({ product, subcatId, isExpanded, onToggle, useProductImages }: ProductRowProps) {
   const { cart, addItem, updateItem, updateItemNotes } = useCart();
-  const [notes, setNotes] = useState('');
-  const [clientQty, setClientQty] = useState(0);
-  const [selectedVariant, setSelectedVariant] = useState<CatalogVariant | null>(null);
 
   const variants = product.variants ?? [];
-  const hasMultipleVariants = variants.length > 1;
+  const hasVariants = variants.length > 1;
 
-  // Auto-select when only one variant
-  useEffect(() => {
-    if (variants.length === 1 && !selectedVariant) {
-      setSelectedVariant(variants[0]);
-    }
-  }, [variants.length]); // eslint-disable-line react-hooks/exhaustive-deps
+  const [notes, setNotes] = useState('');
+  const [clientQty, setClientQty] = useState(0);
+  const [selectedVariant] = useState<CatalogVariant | null>(
+    () => variants.length === 1 ? variants[0] : null
+  );
 
   useEffect(() => {
     const item = cart.items.find(
-      i => i.productId === product.id && i.variantId === (selectedVariant?.id ?? undefined)
+      i => i.productId === product.id && i.variantId === selectedVariant?.id
     );
     setClientQty(item?.quantity ?? 0);
   }, [cart.items, product.id, selectedVariant?.id]);
 
+  const notesInitializedRef = useRef(false);
+
   useEffect(() => {
-    if (isExpanded) {
-      const item = cart.items.find(
-        i => i.productId === product.id && i.variantId === (selectedVariant?.id ?? undefined)
+    if (isExpanded && !hasVariants && !notesInitializedRef.current) {
+      notesInitializedRef.current = true;
+      const cartItem = cart.items.find(
+        i => i.productId === product.id && i.variantId === selectedVariant?.id
       );
-      setNotes(item?.notes ?? '');
+      setNotes(cartItem?.notes ?? '');
+    } else if (!isExpanded) {
+      notesInitializedRef.current = false;
     }
-  }, [isExpanded]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isExpanded, hasVariants, cart.items, product.id, selectedVariant?.id]);
 
   const qty = clientQty;
-
   const displayPrice = selectedVariant?.price ?? product.priceFrom ?? product.price;
 
   const handleRowClick = (e: React.MouseEvent) => {
@@ -76,8 +77,7 @@ export function ProductRow({ product, subcatId, isExpanded, onToggle, useProduct
 
   const handleAdd = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (hasMultipleVariants) {
-      // Open panel so user can pick a variant
+    if (hasVariants) {
       onToggle();
       return;
     }
@@ -98,9 +98,26 @@ export function ProductRow({ product, subcatId, isExpanded, onToggle, useProduct
     }
   };
 
-  const handleExpandedAdd = () => {
-    if (hasMultipleVariants && !selectedVariant) return;
+  const handleVariantAdd = (variantId: string) => {
+    const v = variants.find(v => v.id === variantId);
+    if (!v) return;
+    addItem({
+      productId: product.id,
+      name: `${product.name} - ${v.label}`,
+      price: v.price,
+      quantity: 1,
+      image: product.image,
+      variantId: v.id,
+      variantLabel: v.label,
+      ...(v.attributes ? { variantAttributes: v.attributes } : {}),
+    });
+  };
 
+  const handleVariantDelta = (variantId: string, delta: number) => {
+    updateItem(product.id, delta, variantId);
+  };
+
+  const handleExpandedAdd = () => {
     const price = selectedVariant?.price ?? product.priceFrom ?? product.price;
 
     if (clientQty > 0) {
@@ -133,8 +150,17 @@ export function ProductRow({ product, subcatId, isExpanded, onToggle, useProduct
   };
 
   const isUnavailable = !product.isAvailable || !product.active;
+  const stepperDisabled = isUnavailable || (hasVariants && !selectedVariant);
 
-  const stepperDisabled = isUnavailable || (hasMultipleVariants && !selectedVariant);
+  const getVariantQty = (variantId: string) =>
+    cart.items.find(i => i.productId === product.id && i.variantId === variantId)?.quantity ?? 0;
+
+  const getVariantNotes = (variantId: string) =>
+    cart.items.find(i => i.productId === product.id && i.variantId === variantId)?.notes;
+
+  const handleVariantNote = (variantId: string, note: string) => {
+    updateItemNotes(product.id, note, variantId);
+  };
 
   return (
     <div
@@ -170,7 +196,7 @@ export function ProductRow({ product, subcatId, isExpanded, onToggle, useProduct
             className="text-[15px] font-bold text-[var(--ink)] tracking-[-0.03em]"
             style={{ fontFamily: 'var(--font-display)' }}
           >
-            {hasMultipleVariants && !selectedVariant && product.priceFrom
+            {hasVariants && product.priceFrom
               ? `Desde ${formatPrice(product.priceFrom)}`
               : formatPrice(displayPrice ?? 0)}
           </span>
@@ -183,7 +209,19 @@ export function ProductRow({ product, subcatId, isExpanded, onToggle, useProduct
       </div>
 
       <div data-stepper onClick={(e) => e.stopPropagation()}>
-        {qty === 0 ? (
+        {hasVariants ? (
+          <button
+            className="w-9 h-9 rounded-full bg-[var(--accent)] text-[var(--accent-ink)] flex items-center justify-center shrink-0 transition-[opacity,transform] shadow-[0_1px_2px_rgba(20,20,15,0.04)] hover:opacity-[0.88] active:scale-[0.92] disabled:opacity-50 disabled:cursor-not-allowed"
+            onClick={handleAdd}
+            disabled={isUnavailable}
+            aria-label={`Ver opciones de ${product.name}`}
+          >
+            <ChevronDown
+              size={18}
+              className={`transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}
+            />
+          </button>
+        ) : qty === 0 ? (
           <button
             className="w-9 h-9 rounded-full bg-[var(--accent)] text-[var(--accent-ink)] flex items-center justify-center shrink-0 transition-[opacity,transform] shadow-[0_1px_2px_rgba(20,20,15,0.04)] text-xl font-light leading-none hover:opacity-[0.88] active:scale-[0.92] disabled:opacity-50 disabled:cursor-not-allowed"
             onClick={handleAdd}
@@ -221,30 +259,37 @@ export function ProductRow({ product, subcatId, isExpanded, onToggle, useProduct
       </div>
 
       {isExpanded && (
-        <div className={`${useProductImages ? 'col-span-3' : 'col-span-2'} pt-3 pb-1 animate-[slide-down_0.18s_ease-out]`}>
-          {hasMultipleVariants && (
+        <div
+          className={`${useProductImages ? 'col-span-3' : 'col-span-2'} pt-3 pb-1 animate-[slide-down_0.18s_ease-out]`}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {hasVariants ? (
             <VariantSelector
               variants={variants}
-              selectedVariantId={selectedVariant?.id ?? null}
-              onSelect={setSelectedVariant}
+              getQty={getVariantQty}
+              getNotes={getVariantNotes}
+              onAdd={handleVariantAdd}
+              onDelta={handleVariantDelta}
+              onNote={handleVariantNote}
             />
+          ) : (
+            <>
+              <textarea
+                className="w-full px-3 py-[9px] bg-[var(--surface)] border-[1.5px] border-[var(--line)] rounded-lg text-[13px] text-[var(--ink)] resize-none outline-none transition-[border-color] leading-[1.5] placeholder:text-[var(--ink-3)] focus:border-[var(--accent)]"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="Notas para este producto (opcional)..."
+                rows={2}
+              />
+              <button
+                className="w-full py-[11px] mt-3 rounded-lg bg-[var(--accent)] text-[var(--accent-ink)] text-[14px] font-semibold tracking-[-0.01em] transition-opacity hover:opacity-[0.88] active:opacity-[0.76]"
+                style={{ fontFamily: 'var(--font-display)' }}
+                onClick={(e) => { e.stopPropagation(); handleExpandedAdd(); }}
+              >
+                {qty > 0 ? 'Actualizar pedido' : 'Agregar al pedido'}
+              </button>
+            </>
           )}
-          <textarea
-            className="w-full px-3 py-[9px] bg-[var(--surface)] border-[1.5px] border-[var(--line)] rounded-lg text-[13px] text-[var(--ink)] resize-none outline-none transition-[border-color] leading-[1.5] placeholder:text-[var(--ink-3)] focus:border-[var(--accent)]"
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            placeholder="Notas para este producto (opcional)..."
-            rows={2}
-            onClick={(e) => e.stopPropagation()}
-          />
-          <button
-            className="w-full py-[11px] mt-3 rounded-lg bg-[var(--accent)] text-[var(--accent-ink)] text-[14px] font-semibold tracking-[-0.01em] transition-opacity hover:opacity-[0.88] active:opacity-[0.76] disabled:opacity-50 disabled:cursor-not-allowed"
-            style={{ fontFamily: 'var(--font-display)' }}
-            disabled={hasMultipleVariants && !selectedVariant}
-            onClick={(e) => { e.stopPropagation(); handleExpandedAdd(); }}
-          >
-            {qty > 0 ? 'Actualizar pedido' : 'Agregar al pedido'}
-          </button>
         </div>
       )}
     </div>
