@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Pencil } from 'lucide-react';
 import { formatPrice } from '@/lib/utils';
 import type { CatalogVariant } from '@/src/types/catalog.types';
@@ -49,6 +49,12 @@ export function VariantSelector({ variants, getQty, getNotes, onAdd, onDelta, on
     setEditingVariantId(null);
     setNoteDraft('');
   };
+
+  useEffect(() => {
+    if (editingVariantId && getQty(editingVariantId) === 0) {
+      cancelEditing();
+    }
+  }, [editingVariantId, getQty]);
 
   return (
     <div className="flex flex-col gap-1 pb-3">

@@ -149,7 +149,7 @@ export function ProductRow({ product, subcatId, isExpanded, onToggle, useProduct
     updateItem(product.id, 1, selectedVariant?.id);
   };
 
-  const isUnavailable = !product.isAvailable || !product.active;
+  const isUnavailable = !product.isAvailable || !product.active || (selectedVariant !== null && selectedVariant.isAvailable === false);
   const stepperDisabled = isUnavailable || (hasVariants && !selectedVariant);
 
   const getVariantQty = (variantId: string) =>
