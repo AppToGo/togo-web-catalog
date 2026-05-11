@@ -5,12 +5,13 @@ import { Pencil, Check, X } from 'lucide-react';
 
 interface CartItemNotesProps {
   productId: string;
+  variantId?: string;
   notes?: string;
   disabled?: boolean;
-  onSave: (productId: string, notes: string) => void;
+  onSave: (productId: string, notes: string, variantId?: string) => void;
 }
 
-export function CartItemNotes({ productId, notes, disabled, onSave }: CartItemNotesProps) {
+export function CartItemNotes({ productId, variantId, notes, disabled, onSave }: CartItemNotesProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [draft, setDraft] = useState(notes ?? '');
 
@@ -21,7 +22,7 @@ export function CartItemNotes({ productId, notes, disabled, onSave }: CartItemNo
   }, [notes, isEditing]);
 
   const handleSave = () => {
-    onSave(productId, draft);
+    onSave(productId, draft, variantId);
     setIsEditing(false);
   };
 

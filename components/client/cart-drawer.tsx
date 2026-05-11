@@ -329,7 +329,7 @@ export function CartDrawer({ business }: CartDrawerProps) {
           ) : (
             <>
               {cart.items.map((item) => (
-                <div key={item.productId} className="flex items-center gap-[10px] px-4 py-[10px] border-b border-[var(--line)] last:border-b-0">
+                <div key={item.variantId ? `${item.productId}:${item.variantId}` : item.productId} className="flex items-center gap-[10px] px-4 py-[10px] border-b border-[var(--line)] last:border-b-0">
                   <div className="flex-1 min-w-0">
                     <div
                       className="text-[14px] font-semibold text-[var(--ink)] truncate tracking-[-0.01em]"
@@ -339,6 +339,7 @@ export function CartDrawer({ business }: CartDrawerProps) {
                     </div>
                     <CartItemNotes
                       productId={item.productId}
+                      variantId={item.variantId}
                       notes={item.notes}
                       disabled={isLocked}
                       onSave={updateItemNotes}
@@ -352,7 +353,7 @@ export function CartDrawer({ business }: CartDrawerProps) {
                   <div className="flex items-center gap-0.5 bg-[var(--bg)] border-[1.5px] border-[var(--line)] rounded-[20px] p-0.5 shrink-0">
                     <button
                       className="w-7 h-7 rounded-full flex items-center justify-center transition-[background] text-[var(--ink-2)] hover:bg-[var(--line)] disabled:opacity-40"
-                      onClick={() => updateItem(item.productId, -1)}
+                      onClick={() => updateItem(item.productId, -1, item.variantId)}
                       disabled={isLocked}
                       aria-label="Quitar uno"
                     >
@@ -366,7 +367,7 @@ export function CartDrawer({ business }: CartDrawerProps) {
                     </span>
                     <button
                       className="w-7 h-7 rounded-full flex items-center justify-center bg-[var(--accent)] text-[var(--accent-ink)] hover:opacity-[0.88] transition-opacity disabled:opacity-40"
-                      onClick={() => updateItem(item.productId, 1)}
+                      onClick={() => updateItem(item.productId, 1, item.variantId)}
                       disabled={isLocked}
                       aria-label="Agregar uno"
                     >

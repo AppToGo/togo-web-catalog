@@ -348,10 +348,14 @@ export async function createOrder(
     customerName?: string;
   },
 ): Promise<OrderResponse> {
+  const sanitizedData = {
+    ...data,
+    items: data.items.map(({ variantLabel, variantAttributes, image, ...rest }) => rest),
+  };
   const response = await fetch(buildWebCatalogUrl(businessSlug, "/order"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(data),
+    body: JSON.stringify(sanitizedData),
     cache: "no-store",
   });
 
@@ -614,10 +618,14 @@ export async function createOrderPublic(
     fromWhatsApp?: boolean;
   },
 ): Promise<OrderResponse> {
+  const sanitizedData = {
+    ...data,
+    items: data.items.map(({ variantLabel, variantAttributes, image, ...rest }) => rest),
+  };
   const response = await fetch(buildPublicCatalogUrl(businessSlug, "/order"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(data),
+    body: JSON.stringify(sanitizedData),
     cache: "no-store",
   });
   return handleResponse<OrderResponse>(response);
