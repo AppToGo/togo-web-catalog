@@ -139,6 +139,7 @@ export function VariantSelector({ variants, getQty, getNotes, onAdd, onDelta, on
                         if (e.key === 'Escape') cancelEditing();
                       }}
                       placeholder="Ej: Sin cebolla, extra salsa..."
+                      maxLength={500}
                       autoFocus
                     />
                     <button
@@ -146,7 +147,7 @@ export function VariantSelector({ variants, getQty, getNotes, onAdd, onDelta, on
                       className="shrink-0 px-2.5 py-1.5 text-xs font-semibold rounded-lg bg-[var(--accent)] text-[var(--accent-ink)] hover:opacity-[0.88] transition-opacity whitespace-nowrap"
                       onClick={() => saveNote(variant.id)}
                     >
-                      Agregar nota
+                      {getNotes(variant.id) ? 'Actualizar nota' : 'Agregar nota'}
                     </button>
                   </div>
                 ) : notes ? (
@@ -154,7 +155,7 @@ export function VariantSelector({ variants, getQty, getNotes, onAdd, onDelta, on
                     <p className="text-xs text-[var(--ink-3)] italic flex-1 leading-[1.4] truncate">{notes}</p>
                     <button
                       type="button"
-                      className="opacity-0 group-hover:opacity-100 shrink-0 p-0.5 rounded text-[var(--ink-3)] hover:text-[var(--accent)] transition-all"
+                      className="sm:opacity-0 sm:group-hover:opacity-100 shrink-0 p-0.5 rounded text-[var(--ink-3)] hover:text-[var(--accent)] transition-all"
                       onClick={() => startEditing(variant.id, notes)}
                       aria-label="Editar nota"
                     >

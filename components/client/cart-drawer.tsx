@@ -395,6 +395,7 @@ export function CartDrawer({ business }: CartDrawerProps) {
                   placeholder="Ej: Sin cebolla, salsa aparte..."
                   rows={2}
                   disabled={isLocked}
+                  maxLength={500}
                   className="w-full px-3 py-[9px] bg-[var(--surface)] border-[1.5px] border-[var(--line)] rounded-lg text-[13px] text-[var(--ink)] resize-none outline-none transition-[border-color] leading-[1.5] placeholder:text-[var(--ink-3)] focus:border-[var(--accent)] disabled:opacity-50"
                 />
               </div>

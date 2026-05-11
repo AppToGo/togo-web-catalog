@@ -74,7 +74,7 @@ export function CartItemNotes({ productId, variantId, notes, disabled, onSave }:
         <div className="flex items-start gap-1.5 group">
           <p className="text-xs text-[var(--ink-3)] italic flex-1 leading-[1.4]">{notes}</p>
           <button
-            className="opacity-0 group-hover:opacity-100 shrink-0 p-0.5 rounded text-[var(--ink-3)] hover:text-[var(--accent)] transition-all"
+            className="sm:opacity-0 sm:group-hover:opacity-100 shrink-0 p-0.5 rounded text-[var(--ink-3)] hover:text-[var(--accent)] transition-all"
             onClick={() => { setDraft(notes); setIsEditing(true); }}
             aria-label="Editar nota"
           >

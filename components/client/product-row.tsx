@@ -41,9 +41,7 @@ export function ProductRow({ product, subcatId, isExpanded, onToggle, useProduct
 
   const [notes, setNotes] = useState('');
   const [clientQty, setClientQty] = useState(0);
-  const [selectedVariant] = useState<CatalogVariant | null>(
-    () => variants.length === 1 ? variants[0] : null
-  );
+  const selectedVariant = variants.length === 1 ? variants[0] : null;
 
   useEffect(() => {
     const item = cart.items.find(
@@ -280,6 +278,7 @@ export function ProductRow({ product, subcatId, isExpanded, onToggle, useProduct
                 onChange={(e) => setNotes(e.target.value)}
                 placeholder="Notas para este producto (opcional)..."
                 rows={2}
+                maxLength={500}
               />
               <button
                 className="w-full py-[11px] mt-3 rounded-lg bg-[var(--accent)] text-[var(--accent-ink)] text-[14px] font-semibold tracking-[-0.01em] transition-opacity hover:opacity-[0.88] active:opacity-[0.76]"
