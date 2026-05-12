@@ -24,7 +24,7 @@ export function CatalogHeader({ business }: CatalogHeaderProps) {
 
   return (
     <div
-      className="sticky top-0 z-40 border-b border-[var(--line)] px-4 pt-4 pb-3"
+      className="sticky top-0 z-40 border-b border-(--line) px-4 pt-4 pb-3"
       style={{ background: "var(--accent)" }}
     >
       {isSearchOpen ? (

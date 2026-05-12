@@ -10,7 +10,13 @@
 
 import { Suspense } from "react";
 import { Metadata } from "next";
-import { fetchCatalogByBranch, getCartByToken, NotFoundError, RateLimitError, InvalidTokenError } from "@/lib/api";
+import {
+  fetchCatalogByBranch,
+  getCartByToken,
+  NotFoundError,
+  RateLimitError,
+  InvalidTokenError,
+} from "@/lib/api";
 import type { Cart } from "@/src/types/catalog.types";
 import { generateCatalogMetadata, generateStructuredData } from "@/lib/seo";
 import { isValidSlug } from "@/lib/utils";
@@ -22,6 +28,7 @@ import { CartDrawer } from "@/components/client/cart-drawer";
 import { ProductModal } from "@/components/client/product-modal";
 import { FloatingCart } from "@/components/client/floating-cart";
 import type { CustomerOrigin } from "@/lib/types";
+import { getColorContrast } from "@/components/utils/getColorContrast";
 
 export const revalidate = 3600;
 export const dynamicParams = true;
@@ -93,7 +100,8 @@ function RateLimited() {
           Demasiadas solicitudes
         </h1>
         <p className="text-gray-600 mb-6">
-          Estamos recibiendo muchas visitas. Espera unos segundos e intenta de nuevo.
+          Estamos recibiendo muchas visitas. Espera unos segundos e intenta de
+          nuevo.
         </p>
         <a
           href=""
@@ -173,8 +181,12 @@ export default async function BranchCatalogPage({
 
     try {
       const [catalogResult, cartResult] = await Promise.all([
-        fetchCatalogByBranch(businessSlug, branchSlug, { token: effectiveToken }),
-        effectiveToken ? getCartByToken(effectiveToken).catch(() => undefined) : Promise.resolve(undefined),
+        fetchCatalogByBranch(businessSlug, branchSlug, {
+          token: effectiveToken,
+        }),
+        effectiveToken
+          ? getCartByToken(effectiveToken).catch(() => undefined)
+          : Promise.resolve(undefined),
       ]);
       catalog = catalogResult;
       initialCart = cartResult?.items?.length ? cartResult : undefined;
@@ -196,11 +208,37 @@ export default async function BranchCatalogPage({
     // branchId and branchPhone come from the backend response — needed for cart operations and wa.me redirect
     const branchId = catalog.branchId ?? undefined;
     const branchPhone = catalog.branchPhone;
+    const contrastAccentColor = getColorContrast(
+      catalog.business.accentColor || "#000000",
+    );
+    const contrastPrimaryColor = getColorContrast(
+      catalog.business.primaryColor || "#000000",
+    );
+
+    console.log(
+      "contrastColor",
+      catalog.business.accentColor,
+      contrastAccentColor,
+    );
+    console.log(
+      "contrastColor",
+      catalog.business.primaryColor,
+      contrastPrimaryColor,
+    );
 
     return (
       <>
         <StructuredData catalog={catalog} businessSlug={businessSlug} />
-        <div style={{ '--accent': catalog.business.primaryColor, '--accent-2': catalog.business.accentColor } as React.CSSProperties}>
+        <div
+          style={
+            {
+              "--accent": catalog.business.primaryColor,
+              "--accent-2": catalog.business.accentColor,
+              "--accent-ink": contrastPrimaryColor,
+              "--accent-2-ink": contrastAccentColor,
+            } as React.CSSProperties
+          }
+        >
           <CartProvider
             businessSlug={businessSlug}
             origin={origin}

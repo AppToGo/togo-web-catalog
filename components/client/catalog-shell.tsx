@@ -1,9 +1,9 @@
-'use client';
+"use client";
 
-import { useRef, useState, useEffect, useCallback, useMemo } from 'react';
-import { HighlightsRail, type HighlightItem } from './highlights-rail';
-import { useSearchContext } from './search-context';
-import type { Category, CatalogProduct } from '@/src/types/catalog.types';
+import { useRef, useState, useEffect, useCallback, useMemo } from "react";
+import { HighlightsRail, type HighlightItem } from "./highlights-rail";
+import { useSearchContext } from "./search-context";
+import type { Category, CatalogProduct } from "@/src/types/catalog.types";
 
 interface CategoryProductGroup {
   categoryId: string;
@@ -23,17 +23,24 @@ function SearchEmptyState() {
       <div className="text-[48px] mb-3">🔍</div>
       <div
         className="text-[17px] font-bold text-[var(--ink)] mb-[6px] tracking-[-0.02em]"
-        style={{ fontFamily: 'var(--font-display)' }}
+        style={{ fontFamily: "var(--font-display)" }}
       >
         No se encontraron productos
       </div>
-      <div className="text-[14px]">Intenta con otros términos de búsqueda o categorías</div>
+      <div className="text-[14px]">
+        Intenta con otros términos de búsqueda o categorías
+      </div>
     </div>
   );
 }
 
-export function CatalogShell({ categories, categoryProductGroups, highlights, children }: CatalogShellProps) {
-  const [activeId, setActiveId] = useState<string>(categories[0]?.id ?? '');
+export function CatalogShell({
+  categories,
+  categoryProductGroups,
+  highlights,
+  children,
+}: CatalogShellProps) {
+  const [activeId, setActiveId] = useState<string>(categories[0]?.id ?? "");
   const tabsRef = useRef<HTMLDivElement>(null);
   const observerRef = useRef<IntersectionObserver | null>(null);
   const isScrollingToRef = useRef(false);
@@ -46,12 +53,16 @@ export function CatalogShell({ categories, categoryProductGroups, highlights, ch
         .filter(({ products }) => products.some(matches))
         .map(({ categoryId }) => categoryId),
     );
-    return categories.filter(cat => matchingIds.has(cat.id));
+    return categories.filter((cat) => matchingIds.has(cat.id));
   }, [categories, categoryProductGroups, matches, isSearching]);
 
   // Reset activeId when the current active category is no longer visible
   useEffect(() => {
-    if (isSearching && visibleCategories.length > 0 && !visibleCategories.find(c => c.id === activeId)) {
+    if (
+      isSearching &&
+      visibleCategories.length > 0 &&
+      !visibleCategories.find((c) => c.id === activeId)
+    ) {
       setActiveId(visibleCategories[0].id);
     }
   }, [visibleCategories, isSearching, activeId]);
@@ -64,29 +75,41 @@ export function CatalogShell({ categories, categoryProductGroups, highlights, ch
       (entries) => {
         if (isScrollingToRef.current) return;
         entries.forEach((entry) => {
-          const catId = entry.target.getAttribute('data-cat-id');
+          const catId = entry.target.getAttribute("data-cat-id");
           if (!catId) return;
           sectionMap.set(catId, entry.intersectionRatio);
         });
-        let bestId = '';
+        let bestId = "";
         let bestRatio = -1;
         sectionMap.forEach((ratio, id) => {
-          if (ratio > bestRatio) { bestRatio = ratio; bestId = id; }
+          if (ratio > bestRatio) {
+            bestRatio = ratio;
+            bestId = id;
+          }
         });
         if (bestId) setActiveId(bestId);
       },
-      { threshold: [0, 0.1, 0.25, 0.5], rootMargin: '-60px 0px -40% 0px' }
+      { threshold: [0, 0.1, 0.25, 0.5], rootMargin: "-60px 0px -40% 0px" },
     );
 
-    const sections = document.querySelectorAll('section[data-cat-id]');
+    const sections = document.querySelectorAll("section[data-cat-id]");
     sections.forEach((el) => observerRef.current?.observe(el));
-    return () => { observerRef.current?.disconnect(); };
+    return () => {
+      observerRef.current?.disconnect();
+    };
   }, [categories]);
 
   useEffect(() => {
     if (!tabsRef.current) return;
-    const activeTab = tabsRef.current.querySelector(`[data-tab-id="${activeId}"]`) as HTMLElement;
-    if (activeTab) activeTab.scrollIntoView({ inline: 'nearest', behavior: 'smooth', block: 'nearest' });
+    const activeTab = tabsRef.current.querySelector(
+      `[data-tab-id="${activeId}"]`,
+    ) as HTMLElement;
+    if (activeTab)
+      activeTab.scrollIntoView({
+        inline: "nearest",
+        behavior: "smooth",
+        block: "nearest",
+      });
   }, [activeId]);
 
   const handleTabClick = useCallback((catId: string) => {
@@ -94,28 +117,30 @@ export function CatalogShell({ categories, categoryProductGroups, highlights, ch
     const section = document.getElementById(`cat-${catId}`);
     if (!section) return;
     isScrollingToRef.current = true;
-    section.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    setTimeout(() => { isScrollingToRef.current = false; }, 800);
+    section.scrollIntoView({ behavior: "smooth", block: "start" });
+    setTimeout(() => {
+      isScrollingToRef.current = false;
+    }, 800);
   }, []);
 
   return (
     <>
       {visibleCategories.length > 0 && (
-        <div className="sticky top-[77px] z-30 bg-[var(--surface)] border-b border-[var(--line)]">
+        <div className="sticky top-19.25 z-30 bg-(--surface) border-b border-(--line)">
           <div
             ref={tabsRef}
             className="flex gap-1 overflow-x-auto px-3 py-2 scrollbar-hide"
-            style={{ scrollbarWidth: 'none' } as React.CSSProperties}
+            style={{ scrollbarWidth: "none" } as React.CSSProperties}
           >
             {visibleCategories.map((cat) => (
               <button
                 key={cat.id}
                 data-tab-id={cat.id}
                 onClick={() => handleTabClick(cat.id)}
-                className={`shrink-0 px-4 py-[6px] rounded-full text-[13px] font-medium border-[1.5px] border-transparent cursor-pointer transition-all whitespace-nowrap leading-[1.4] ${
+                className={`shrink-0 px-4 py-1.5 rounded-full text-[13px] font-medium border-[1.5px] border-transparent cursor-pointer transition-all whitespace-nowrap leading-[1.4] ${
                   activeId === cat.id
-                    ? 'bg-[var(--accent-2)] text-[var(--accent)] font-semibold'
-                    : 'text-[var(--ink-2)] hover:bg-[var(--accent-2-softer)] hover:text-[var(--accent-2)]'
+                    ? "bg-(--accent-2) text-(--accent-2-ink) font-semibold"
+                    : "text-(--ink-2) hover:bg-(--accent) hover:text-(--accent-ink)"
                 }`}
               >
                 {cat.name}
@@ -125,7 +150,11 @@ export function CatalogShell({ categories, categoryProductGroups, highlights, ch
         </div>
       )}
       <HighlightsRail highlights={highlights} />
-      {isSearching && visibleCategories.length === 0 ? <SearchEmptyState /> : children}
+      {isSearching && visibleCategories.length === 0 ? (
+        <SearchEmptyState />
+      ) : (
+        children
+      )}
     </>
   );
 }

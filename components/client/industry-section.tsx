@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
-import { useMemo } from 'react';
-import { useSearchContext } from './search-context';
-import type { CatalogProduct } from '@/src/types/catalog.types';
+import { useMemo } from "react";
+import { useSearchContext } from "./search-context";
+import type { CatalogProduct } from "@/src/types/catalog.types";
 
 interface IndustrySectionProps {
   catId: string;
@@ -10,7 +10,11 @@ interface IndustrySectionProps {
   children: React.ReactNode;
 }
 
-export function IndustrySection({ catId, products, children }: IndustrySectionProps) {
+export function IndustrySection({
+  catId,
+  products,
+  children,
+}: IndustrySectionProps) {
   const { matches, isSearching } = useSearchContext();
 
   const hasMatches = useMemo(
@@ -21,7 +25,11 @@ export function IndustrySection({ catId, products, children }: IndustrySectionPr
   if (!hasMatches) return null;
 
   return (
-    <section data-cat-id={catId} id={`cat-${catId}`} className="scroll-mt-[77px]">
+    <section
+      data-cat-id={catId}
+      id={`cat-${catId}`}
+      className="scroll-mt-19.25"
+    >
       {children}
     </section>
   );
