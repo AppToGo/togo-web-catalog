@@ -10,6 +10,7 @@ import { IndustrySection } from "@/components/client/industry-section";
 import { CatalogShell } from "@/components/client/catalog-shell";
 import { SearchProvider } from "@/components/client/search-context";
 import type { HighlightItem } from "@/components/client/highlights-rail";
+import { expandTemplateProducts } from "@/lib/expand-template-products";
 
 interface CatalogContentProps {
   catalog: CatalogResponse;
@@ -159,7 +160,8 @@ function buildCatalogGroups(
 export function CatalogContent({ catalog, businessSlug }: CatalogContentProps) {
   const { business, categories, products, subCategories } = catalog;
 
-  const catalogGroups = buildCatalogGroups(products, categories, subCategories);
+  const expandedProducts = expandTemplateProducts(products);
+  const catalogGroups = buildCatalogGroups(expandedProducts, categories, subCategories);
   const useProductImages = catalog.business.useProductImages ?? false;
 
   const activeCatIds = new Set(catalogGroups.map((g) => g.id));
