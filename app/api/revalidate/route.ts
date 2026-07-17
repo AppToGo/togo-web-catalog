@@ -8,10 +8,18 @@
 import { revalidateTag } from "next/cache";
 import { NextRequest, NextResponse } from "next/server";
 
-const REVALIDATE_SECRET = process.env.REVALIDATE_SECRET || "dev-secret-change-in-production";
+const REVALIDATE_SECRET = process.env.REVALIDATE_SECRET;
 
 export async function POST(request: NextRequest) {
   try {
+    // Sin secret configurado el endpoint queda deshabilitado (nunca aceptar un default)
+    if (!REVALIDATE_SECRET) {
+      return NextResponse.json(
+        { success: false, message: "Revalidation disabled: REVALIDATE_SECRET not set" },
+        { status: 503 },
+      );
+    }
+
     const body = await request.json();
     const { token, secret, type = "catalog" } = body;
 
