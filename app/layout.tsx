@@ -1,8 +1,8 @@
 /**
  * Root Layout
- * 
+ *
  * Configuración base del catálogo ToGo.
- * 
+ *
  * OPTIMIZACIONES:
  * - Preconnect a dominios críticos
  * - DNS prefetch para APIs
@@ -10,8 +10,16 @@
  * - Metadata base completa
  */
 
-import type { Metadata, Viewport } from 'next';
-import './globals.css';
+import type { Metadata, Viewport } from "next";
+import { Inter_Tight } from "next/font/google";
+import "./globals.css";
+
+const interTight = Inter_Tight({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700", "800"],
+  variable: "--font-inter-tight",
+  display: "swap",
+});
 
 // ═══════════════════════════════════════════════════════════
 // METADATA BASE
@@ -19,30 +27,37 @@ import './globals.css';
 
 export const metadata: Metadata = {
   title: {
-    default: 'ToGo - Catálogo Online',
-    template: '%s | ToGo',
+    default: "ToGo - Catálogo Online",
+    template: "%s | ToGo",
   },
-  description: 'Haz tu pedido online fácilmente. Encuentra los mejores productos y recíbelos en la puerta de tu casa.',
-  keywords: ['catálogo online', 'pedidos', 'tienda virtual', 'ecommerce', 'ToGo'],
-  authors: [{ name: 'ToGo' }],
-  creator: 'ToGo',
-  publisher: 'ToGo',
-  
+  description:
+    "Haz tu pedido online fácilmente. Encuentra los mejores productos y recíbelos en la puerta de tu casa.",
+  keywords: [
+    "catálogo online",
+    "pedidos",
+    "tienda virtual",
+    "ecommerce",
+    "ToGo",
+  ],
+  authors: [{ name: "ToGo" }],
+  creator: "ToGo",
+  publisher: "ToGo",
+
   // Manifest y icons
-  manifest: '/manifest.json',
-  
+  manifest: "/manifest.json",
+
   // OpenGraph base
   openGraph: {
-    type: 'website',
-    locale: 'es_CO',
-    siteName: 'ToGo',
+    type: "website",
+    locale: "es_CO",
+    siteName: "ToGo",
   },
-  
+
   // Twitter
   twitter: {
-    card: 'summary_large_image',
+    card: "summary_large_image",
   },
-  
+
   // Robots
   robots: {
     index: true,
@@ -50,12 +65,12 @@ export const metadata: Metadata = {
     googleBot: {
       index: true,
       follow: true,
-      'max-video-preview': -1,
-      'max-image-preview': 'large',
-      'max-snippet': -1,
+      "max-video-preview": -1,
+      "max-image-preview": "large",
+      "max-snippet": -1,
     },
   },
-  
+
   // Verification
   verification: {
     google: process.env.GOOGLE_SITE_VERIFICATION,
@@ -67,12 +82,12 @@ export const metadata: Metadata = {
 // ═══════════════════════════════════════════════════════════
 
 export const viewport: Viewport = {
-  width: 'device-width',
+  width: "device-width",
   initialScale: 1,
   maximumScale: 5,
   themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#fafaf9' },
-    { media: '(prefers-color-scheme: dark)', color: '#1c1917' },
+    { media: "(prefers-color-scheme: light)", color: "#fafaf9" },
+    { media: "(prefers-color-scheme: dark)", color: "#1c1917" },
   ],
 };
 
@@ -89,14 +104,18 @@ export default function RootLayout({
     <html lang="es">
       <head>
         {/* Preconnect a dominios críticos */}
-        <link rel="preconnect" href={process.env.NEXT_PUBLIC_API_URL || ''} />
-        <link rel="dns-prefetch" href={process.env.NEXT_PUBLIC_API_URL || ''} />
-        
+        <link rel="preconnect" href={process.env.NEXT_PUBLIC_API_URL || ""} />
+        <link rel="dns-prefetch" href={process.env.NEXT_PUBLIC_API_URL || ""} />
+
         {/* Preconnect a CDNs comunes de imágenes */}
-        <link rel="preconnect" href="https://images.unsplash.com" crossOrigin="anonymous" />
+        <link
+          rel="preconnect"
+          href="https://images.unsplash.com"
+          crossOrigin="anonymous"
+        />
         <link rel="dns-prefetch" href="https://images.unsplash.com" />
       </head>
-      <body className="antialiased min-h-screen">
+      <body className={`${interTight.variable} antialiased min-h-screen`}>
         {children}
       </body>
     </html>

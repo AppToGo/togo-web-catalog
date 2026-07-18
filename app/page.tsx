@@ -3,19 +3,19 @@
  * Server Component - Landing con formulario simple
  */
 
-import { redirect } from 'next/navigation';
+import { redirect } from "next/navigation";
 
 export default function HomePage() {
   async function goToCatalog(formData: FormData) {
-    'use server';
-    const token = formData.get('token') as string;
+    "use server";
+    const token = formData.get("token") as string;
     if (token?.trim()) {
-      redirect(`/catalog/${token.trim()}`);
+      redirect(`/${token.trim()}`);
     }
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-stone-50 to-stone-100 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-linear-to-br from-stone-50 to-stone-100 flex items-center justify-center p-4">
       <div className="max-w-md w-full text-center space-y-6">
         {/* Logo */}
         <div className="w-20 h-20 mx-auto bg-orange-500 rounded-2xl flex items-center justify-center text-4xl shadow-lg">
@@ -35,7 +35,7 @@ export default function HomePage() {
           <p className="text-sm text-stone-500 mb-3">
             ¿Tienes un token de acceso?
           </p>
-          
+
           <form action={goToCatalog} className="flex gap-2">
             <input
               type="text"

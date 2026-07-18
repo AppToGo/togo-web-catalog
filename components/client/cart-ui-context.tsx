@@ -5,12 +5,14 @@
  * Separado de CartContext para evitar re-renderizados innecesarios.
  * 
  * SIGUIENTE SRP: Solo estado de UI, nada de datos del carrito.
+ * 
+ * Updated for normalized catalog (BusinessProduct + GlobalProduct)
  */
 
 'use client';
 
 import { createContext, useContext, useState, ReactNode } from 'react';
-import type { Product } from '@/lib/types';
+import type { CatalogProduct } from '@/src/types/catalog.types';
 
 // ═══════════════════════════════════════════════════════════
 // TYPES
@@ -18,11 +20,11 @@ import type { Product } from '@/lib/types';
 
 interface CartUIContextType {
   isCartOpen: boolean;
-  selectedProduct: Product | null;
+  selectedProduct: CatalogProduct | null;
   openCart: () => void;
   closeCart: () => void;
   toggleCart: () => void;
-  selectProduct: (product: Product | null) => void;
+  selectProduct: (product: CatalogProduct | null) => void;
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -41,12 +43,12 @@ interface CartUIProviderProps {
 
 export function CartUIProvider({ children }: CartUIProviderProps) {
   const [isCartOpen, setIsCartOpen] = useState(false);
-  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [selectedProduct, setSelectedProduct] = useState<CatalogProduct | null>(null);
 
   const openCart = () => setIsCartOpen(true);
   const closeCart = () => setIsCartOpen(false);
   const toggleCart = () => setIsCartOpen(prev => !prev);
-  const selectProduct = (product: Product | null) => setSelectedProduct(product);
+  const selectProduct = (product: CatalogProduct | null) => setSelectedProduct(product);
 
   return (
     <CartUIContext.Provider value={{

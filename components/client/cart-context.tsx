@@ -3,18 +3,29 @@
  * 
  * Gestiona estado del carrito usando sessionId para el backend.
  * El sessionId se genera una vez y se almacena en localStorage.
+ * 
+ * Updated for normalized catalog:
+ * - Uses BusinessProduct IDs (productId field)
+ * - Handles stock validation
  */
 
 'use client';
 
 import { createContext, useContext, useState, useCallback, useEffect, useRef, ReactNode } from 'react';
-import type { Cart, CartItem, CustomerOrigin, CustomerData } from '@/lib/types';
+import type { Cart, CartItem, CustomerOrigin, CustomerData } from '@/src/types/catalog.types';
 import {
   addToCartAction,
   updateCartItemAction,
   removeFromCartAction,
   clearCartAction,
   getCartAction,
+  addToCartPublicAction,
+  removeFromCartPublicAction,
+  updateCartItemPublicAction,
+  getCartPublicAction,
+  getCartByTokenAction,
+  addToCartByTokenAction,
+  removeFromCartByTokenAction,
 } from '@/lib/cart-actions';
 
 // ═══════════════════════════════════════════════════════════
@@ -32,14 +43,23 @@ interface CartContextType {
   customer: CustomerData;
   isIdentified: boolean;
   sessionId: string;
+  /** Branch ID when catalog is scoped to a specific sede */
+  branchId?: string;
+  /** Phone number of the branch; undefined when the branch has no dedicated number (falls back to business phone) */
+  branchPhone?: string;
+  /** WhatsApp token from ?t= query param; used to authenticate web-catalog endpoints */
+  whatsappToken?: string;
   // Actions
   addItem: (item: CartItem) => void;
-  updateItem: (productId: string, delta: number) => void;
-  removeItem: (productId: string) => void;
+  updateItem: (productId: string, delta: number, variantId?: string) => void;
+  removeItem: (productId: string, variantId?: string) => void;
+  updateItemNotes: (productId: string, notes: string, variantId?: string) => Promise<void>;
   clearCart: () => void;
   syncCart: () => Promise<void>;
   setCustomerPhone: (phone: string) => void;
   setCustomerName: (name: string) => void;
+  // Stock validation
+  getStockForProduct: (productId: string, availableStock?: number, variantId?: string) => number;
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -75,19 +95,31 @@ interface CartProviderProps {
   initialPhone?: string;
   initialName?: string;
   isAuthenticated?: boolean;
+  /** Branch ID when catalog is scoped to a specific sede */
+  branchId?: string;
+  /** Phone number of the branch; undefined when the branch has no dedicated number (falls back to business phone) */
+  branchPhone?: string;
+  /** WhatsApp token from ?t= query param; required for web-catalog token-authenticated endpoints */
+  whatsappToken?: string;
+  /** Cart pre-fetched server-side (e.g. from an existing DRAFT order); skips the initial empty state */
+  initialCart?: Cart;
 }
 
-export function CartProvider({ 
-  children, 
+export function CartProvider({
+  children,
   businessSlug,
   origin = 'direct',
   tableNumber,
   initialPhone,
   initialName,
   isAuthenticated = false,
+  branchId,
+  branchPhone,
+  whatsappToken,
+  initialCart,
 }: CartProviderProps) {
-  // Cart state
-  const [cart, setCart] = useState<Cart>(emptyCart);
+  // Cart state — seed with server-prefetched cart when available
+  const [cart, setCart] = useState<Cart>(initialCart ?? emptyCart);
   const [isLoading, setIsLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
   const [isHydrated, setIsHydrated] = useState(false);
@@ -118,15 +150,17 @@ export function CartProvider({
     }
     setSessionId(savedSessionId);
 
-    // Cargar carrito
-    const savedCart = localStorage.getItem(`cart-${businessSlug}`);
-    if (savedCart) {
-      try {
-        const parsed: Cart = JSON.parse(savedCart);
-        if (parsed && Array.isArray(parsed.items)) {
-          setCart(parsed);
-        }
-      } catch { /* ignore */ }
+    // Cargar carrito — solo desde localStorage si no llegó uno del servidor
+    if (!initialCart) {
+      const savedCart = localStorage.getItem(`cart-${businessSlug}`);
+      if (savedCart) {
+        try {
+          const parsed: Cart = JSON.parse(savedCart);
+          if (parsed && Array.isArray(parsed.items)) {
+            setCart(parsed);
+          }
+        } catch { /* ignore */ }
+      }
     }
     
     // Cargar customer si no está autenticado
@@ -147,12 +181,13 @@ export function CartProvider({
     setIsLoading(false);
   }, [businessSlug, isAuthenticated]);
 
-  // Sincronizar carrito con backend cuando tengamos sessionId
+  // Sincronizar carrito con backend cuando tengamos sessionId (o token)
   useEffect(() => {
-    if (isHydrated && sessionId) {
+    if (isHydrated && (sessionId || whatsappToken)) {
       syncCart();
     }
-  }, [isHydrated, sessionId]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isHydrated, sessionId, whatsappToken]);
 
   // Persistir carrito
   useEffect(() => {
@@ -175,45 +210,79 @@ export function CartProvider({
   // SINCRONIZACIÓN
   // ═══════════════════════════════════════════════════════
   const syncCart = useCallback(async () => {
-    if (!sessionId) return;
-    
+    if (!sessionId && !whatsappToken) return;
+
+    const isTokenFlow = !!whatsappToken;
+
     setIsSyncing(true);
     try {
-      const serverCart = await getCartAction(businessSlug, { sessionId });
-      
+      const serverCart = isTokenFlow
+        ? await getCartByTokenAction(whatsappToken!)
+        : branchId
+        ? await getCartPublicAction(businessSlug, { sessionId, branchId })
+        : await getCartAction(businessSlug, { sessionId });
+
       setCart(prev => {
-        const sortByProductId = (items: CartItem[]) => 
-          [...items].sort((a: CartItem, b: CartItem) => a.productId.localeCompare(b.productId));
+        const mergedItems = serverCart.items.map(si => ({
+          ...si,
+          // Preserve local notes if server doesn't have them
+          notes: si.notes ?? prev.items.find(
+            p => p.productId === si.productId && p.variantId === si.variantId
+          )?.notes,
+        }));
+        const mergedCart = { ...serverCart, items: mergedItems };
+        const sortByProductId = (items: CartItem[]) =>
+          [...items].sort((a, b) => a.productId.localeCompare(b.productId));
         const prevJson = JSON.stringify(sortByProductId(prev.items));
-        const newJson = JSON.stringify(sortByProductId(serverCart.items));
-        if (prevJson !== newJson) return serverCart;
+        const newJson = JSON.stringify(sortByProductId(mergedCart.items));
+        if (prevJson !== newJson) return mergedCart;
         return prev;
       });
-    } catch (error) {
-      console.error('Error syncing cart:', error);
+    } catch {
+      // Error silencioso — el carrito local se preserva
     } finally {
       if (pendingOps.current === 0) setIsSyncing(false);
     }
-  }, [businessSlug, sessionId]);
+  }, [businessSlug, branchId, sessionId, whatsappToken]);
+
+  // ═══════════════════════════════════════════════════════
+  // STOCK VALIDATION HELPER
+  // ═══════════════════════════════════════════════════════
+  const getStockForProduct = useCallback((productId: string, availableStock?: number, variantId?: string): number => {
+    const cartItem = cart.items.find(i =>
+      i.productId === productId &&
+      (variantId === undefined || i.variantId === variantId)
+    );
+    const inCart = cartItem?.quantity || 0;
+
+    if (availableStock === undefined) return Infinity;
+    return Math.max(0, availableStock - inCart);
+  }, [cart.items]);
 
   // ═══════════════════════════════════════════════════════
   // AGREGAR ITEM
   // ═══════════════════════════════════════════════════════
   const addItem = useCallback(async (item: CartItem) => {
-    if (!sessionId) return;
-    
+    if (!sessionId && !whatsappToken) return;
+
+    const isTokenFlow = !!whatsappToken;
+
     const previousCart = cart;
     pendingOps.current += 1;
     setIsSyncing(true);
-    
+
     // Optimista
     setCart(prev => {
-      const existingIndex = prev.items.findIndex(i => i.productId === item.productId);
+      const existingIndex = prev.items.findIndex(
+        i => i.productId === item.productId && i.variantId === item.variantId
+      );
       if (existingIndex >= 0) {
         const newItems = [...prev.items];
         newItems[existingIndex] = {
           ...newItems[existingIndex],
-          quantity: newItems[existingIndex].quantity + item.quantity
+          quantity: newItems[existingIndex].quantity + item.quantity,
+          // notes===undefined (quick-add) preserva las previas; notes definido las actualiza
+          ...(item.notes !== undefined ? { notes: item.notes || undefined } : {}),
         };
         return { items: newItems, updatedAt: new Date().toISOString() };
       }
@@ -221,25 +290,33 @@ export function CartProvider({
     });
 
     try {
-      const result = await addToCartAction(businessSlug, item, { sessionId });
+      const result = isTokenFlow
+        ? await addToCartByTokenAction(whatsappToken!, item)
+        : branchId
+        ? await addToCartPublicAction(businessSlug, { ...item, branchId }, { sessionId })
+        : await addToCartAction(businessSlug, item, { sessionId });
       if (!result.success) throw new Error(result.error);
     } catch (error) {
       setCart(previousCart);
-      console.error('Error adding item:', error);
+      throw error;
     } finally {
       pendingOps.current -= 1;
       if (pendingOps.current === 0) setIsSyncing(false);
     }
-  }, [businessSlug, cart, sessionId]);
+  }, [businessSlug, branchId, cart, sessionId, whatsappToken]);
 
   // ═══════════════════════════════════════════════════════
   // ACTUALIZAR CANTIDAD
   // ═══════════════════════════════════════════════════════
-  const updateItem = useCallback(async (productId: string, delta: number) => {
-    if (!sessionId) return;
-    
-    const currentItem = cart.items.find(i => i.productId === productId);
+  const updateItem = useCallback(async (productId: string, delta: number, variantId?: string) => {
+    if (!sessionId && !whatsappToken) return;
+
+    const currentItem = cart.items.find(
+      i => i.productId === productId && i.variantId === variantId
+    );
     if (!currentItem) return;
+
+    const isTokenFlow = !!whatsappToken;
 
     const previousCart = cart;
     pendingOps.current += 1;
@@ -250,7 +327,7 @@ export function CartProvider({
     setCart(prev => ({
       items: prev.items
         .map(item => {
-          if (item.productId === productId) {
+          if (item.productId === productId && item.variantId === variantId) {
             return newQuantity > 0 ? { ...item, quantity: newQuantity } : null;
           }
           return item;
@@ -260,50 +337,121 @@ export function CartProvider({
     }));
 
     try {
-      if (newQuantity <= 0) {
-        // Eliminar si la cantidad es 0 o menos
-        const result = await removeFromCartAction(businessSlug, productId, { sessionId });
+      if (isTokenFlow) {
+        if (newQuantity <= 0) {
+          const result = await removeFromCartByTokenAction(whatsappToken!, productId);
+          if (!result.success) throw new Error(result.error);
+        } else {
+          // delta puede ser negativo (reducir cantidad) o positivo (aumentar)
+          const result = await addToCartByTokenAction(whatsappToken!, { ...currentItem, quantity: delta });
+          if (!result.success) throw new Error(result.error);
+        }
+      } else if (newQuantity <= 0) {
+        const result = branchId
+          ? await removeFromCartPublicAction(businessSlug, productId, { sessionId, branchId }, variantId)
+          : await removeFromCartAction(businessSlug, productId, { sessionId }, variantId);
         if (!result.success) throw new Error(result.error);
       } else {
-        // Actualizar cantidad
-        const result = await updateCartItemAction(businessSlug, productId, newQuantity, { sessionId });
+        const result = branchId
+          ? await updateCartItemPublicAction(businessSlug, productId, newQuantity, { sessionId, branchId }, undefined, variantId)
+          : await updateCartItemAction(businessSlug, productId, newQuantity, { sessionId }, undefined, variantId);
         if (!result.success) throw new Error(result.error);
       }
     } catch (error) {
       setCart(previousCart);
-      console.error('Error updating item:', error);
+      throw error;
     } finally {
       pendingOps.current -= 1;
       if (pendingOps.current === 0) setIsSyncing(false);
     }
-  }, [businessSlug, cart, sessionId]);
+  }, [businessSlug, branchId, cart, sessionId, whatsappToken]);
 
   // ═══════════════════════════════════════════════════════
   // ELIMINAR ITEM
   // ═══════════════════════════════════════════════════════
-  const removeItem = useCallback(async (productId: string) => {
-    if (!sessionId) return;
-    
+  const removeItem = useCallback(async (productId: string, variantId?: string) => {
+    if (!sessionId && !whatsappToken) return;
+
+    const isTokenFlow = !!whatsappToken;
+
     const previousCart = cart;
     pendingOps.current += 1;
     setIsSyncing(true);
 
     setCart(prev => ({
-      items: prev.items.filter(item => item.productId !== productId),
+      items: prev.items.filter(
+        item => !(item.productId === productId && item.variantId === variantId)
+      ),
       updatedAt: new Date().toISOString(),
     }));
 
     try {
-      const result = await removeFromCartAction(businessSlug, productId, { sessionId });
+      const result = isTokenFlow
+        ? await removeFromCartByTokenAction(whatsappToken!, productId)
+        : branchId
+        ? await removeFromCartPublicAction(businessSlug, productId, { sessionId, branchId }, variantId)
+        : await removeFromCartAction(businessSlug, productId, { sessionId }, variantId);
       if (!result.success) throw new Error(result.error);
     } catch (error) {
       setCart(previousCart);
-      console.error('Error removing item:', error);
+      throw error;
     } finally {
       pendingOps.current -= 1;
       if (pendingOps.current === 0) setIsSyncing(false);
     }
-  }, [businessSlug, cart, sessionId]);
+  }, [businessSlug, branchId, cart, sessionId, whatsappToken]);
+
+  // ═══════════════════════════════════════════════════════
+  // ACTUALIZAR NOTAS DE ITEM
+  // ═══════════════════════════════════════════════════════
+  const updateItemNotes = useCallback(async (productId: string, notes: string, variantId?: string) => {
+    if (!sessionId && !whatsappToken) return;
+
+    const currentItem = cart.items.find(
+      i => i.productId === productId && i.variantId === variantId
+    );
+    if (!currentItem) return;
+
+    const isTokenFlow = !!whatsappToken;
+    const trimmed = notes.trim() || undefined;
+    const previousCart = cart;
+    pendingOps.current += 1;
+    setIsSyncing(true);
+
+    // Optimistic update
+    setCart(prev => ({
+      ...prev,
+      items: prev.items.map(item =>
+        item.productId === productId && item.variantId === variantId
+          ? { ...item, notes: trimmed }
+          : item
+      ),
+      updatedAt: new Date().toISOString(),
+    }));
+
+    try {
+      if (isTokenFlow) {
+        // quantity: 0 → el backend no cambia la cantidad, solo actualiza notes
+        const result = await addToCartByTokenAction(whatsappToken!, {
+          ...currentItem,
+          quantity: 0,
+          notes: trimmed,
+        });
+        if (!result.success) throw new Error(result.error);
+      } else {
+        const result = branchId
+          ? await updateCartItemPublicAction(businessSlug, productId, currentItem.quantity, { sessionId, branchId }, trimmed, variantId)
+          : await updateCartItemAction(businessSlug, productId, currentItem.quantity, { sessionId }, trimmed, variantId);
+        if (!result.success) throw new Error(result.error);
+      }
+    } catch (error) {
+      setCart(previousCart);
+      throw error;
+    } finally {
+      pendingOps.current -= 1;
+      if (pendingOps.current === 0) setIsSyncing(false);
+    }
+  }, [businessSlug, branchId, cart, sessionId, whatsappToken]);
 
   // ═══════════════════════════════════════════════════════
   // LIMPIAR CARRITO
@@ -357,13 +505,18 @@ export function CartProvider({
       customer,
       isIdentified,
       sessionId,
+      branchId,
+      branchPhone,
+      whatsappToken,
       addItem,
       updateItem,
       removeItem,
+      updateItemNotes,
       clearCart,
       syncCart,
       setCustomerPhone,
       setCustomerName,
+      getStockForProduct,
     }}>
       {children}
     </CartContext.Provider>

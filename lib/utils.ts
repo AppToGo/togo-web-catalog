@@ -1,16 +1,26 @@
-/**
- * Utilidades del Catálogo
- * 
- * Funciones puras que pueden ejecutarse en server y client.
- */
+import type { CatalogProduct } from '@/src/types/catalog.types';
 
-// ═══════════════════════════════════════════════════════════
-// FORMATO
-// ═══════════════════════════════════════════════════════════
+// ─── Search ───────────────────────────────────────────────────────────────────
 
-/**
- * Formatea un precio en pesos colombianos
- */
+export const SEARCH_MIN_LENGTH = 2;
+
+export function normalizeSearch(value: string): string {
+  return value.trim().toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '');
+}
+
+export function matchesQuery(product: CatalogProduct, normalizedQuery: string): boolean {
+  if (!normalizedQuery || normalizedQuery.length < SEARCH_MIN_LENGTH) return true;
+  const n = (s: string) => normalizeSearch(s);
+  return (
+    n(product.name ?? '').includes(normalizedQuery) ||
+    (!!product.description && n(product.description).includes(normalizedQuery)) ||
+    (!!product.brand && n(product.brand).includes(normalizedQuery)) ||
+    n(product.sku ?? '').includes(normalizedQuery)
+  );
+}
+
+// ─── Formato ─────────────────────────────────────────────────────────────────
+
 export function formatPrice(price: number): string {
   return new Intl.NumberFormat('es-CO', {
     style: 'currency',
@@ -61,7 +71,7 @@ export function sanitizeSearchQuery(query: string): string {
  * Construye URL de catálogo
  */
 export function buildCatalogUrl(token: string, params?: Record<string, string>): string {
-  const url = new URL(`/catalog/${token}`, process.env.NEXT_PUBLIC_APP_URL);
+  const url = new URL(`/${token}`, process.env.NEXT_PUBLIC_APP_URL);
   
   if (params) {
     Object.entries(params).forEach(([key, value]) => {

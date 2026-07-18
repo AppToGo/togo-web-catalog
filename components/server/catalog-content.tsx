@@ -1,142 +1,259 @@
-/**
- * CatalogContent - Server Component
- * 
- * Renderiza todo el contenido estático del catálogo.
- * Versión pública: recibe el catálogo completo del Server Component padre.
- */
-
-import type { Catalog, Product } from '@/lib/types';
-import { CatalogHeader } from '@/components/server/catalog-header';
-import { CategorySection } from '@/components/server/category-section';
-import { ProductGrid } from '@/components/client/product-grid';
-import { SearchInput } from '@/components/client/search-input';
-import { CategoryChips } from '@/components/client/category-chips';
-
-// ═══════════════════════════════════════════════════════════
-// TYPES
-// ═══════════════════════════════════════════════════════════
+import type {
+  CatalogResponse,
+  CatalogProduct,
+  Category,
+  SubCategory,
+} from "@/src/types/catalog.types";
+import { CatalogHeader } from "@/components/client/catalog-header";
+import { CategorySection } from "@/components/client/category-section";
+import { IndustrySection } from "@/components/client/industry-section";
+import { CatalogShell } from "@/components/client/catalog-shell";
+import { SearchProvider } from "@/components/client/search-context";
+import type { HighlightItem } from "@/components/client/highlights-rail";
+import { expandTemplateProducts } from "@/lib/expand-template-products";
 
 interface CatalogContentProps {
-  catalog: Catalog;
+  catalog: CatalogResponse;
   businessSlug: string;
 }
 
-// ═══════════════════════════════════════════════════════════
-// UTILIDADES DE FILTRADO (SERVER-SIDE)
-// ═══════════════════════════════════════════════════════════
+// ─── Two-level catalog grouping ───────────────────────────────────────────────
+//
+// Level 1 (tabs + scroll-spy anchor): IndustryCategory  → catalog.categories
+// Level 2 (sticky section headers):   SubCategory       → catalog.subCategories
+//
+// Fallback (no subCategories): single level using IndustryCategory as header.
 
-function sanitizeSearchQuery(query: string): string {
-  const trimmed = query.trim().slice(0, 100);
-  return trimmed.replace(/[^a-zA-Z0-9áéíóúÁÉÍÓÚñÑüÜ\s]/g, '');
+interface SubGroup {
+  id: string;
+  name?: string;
+  products: CatalogProduct[];
 }
 
-function filterProducts(
-  products: Product[],
-  categoryId?: string,
-  searchQuery?: string
-): Product[] {
-  let result = products;
+interface CatalogGroup {
+  id: string;
+  subGroups: SubGroup[];
+}
 
-  if (categoryId) {
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    if (uuidRegex.test(categoryId)) {
-      result = result.filter((p) => p.industryCategoryId === categoryId);
+// Virtual subgroup label for products under a known IndustryCategory but without a BusinessCategory
+const OTROS_LABEL = "Otros";
+// Label for products with no category at all (bottom of catalog)
+const UNCATEGORIZED_LABEL = "Otros productos";
+const UNCATEGORIZED_ID = "uncategorized";
+const makeOtrosId = (catId: string) => `otros-${catId}`;
+
+function buildCatalogGroups(
+  products: CatalogProduct[],
+  categories: Category[],
+  subCategories?: SubCategory[],
+): CatalogGroup[] {
+  const hasSubCats = subCategories && subCategories.length > 0;
+
+  if (hasSubCats) {
+    const knownSubCatIds = new Set(subCategories.map((sc) => sc.id));
+    const knownCatIds = new Set(categories.map((cat) => cat.id));
+
+    const bySubCat = new Map<string, CatalogProduct[]>();
+    const otrosByIndustry = new Map<string, CatalogProduct[]>();
+    const uncategorizedProducts: CatalogProduct[] = [];
+
+    for (const p of products) {
+      if (p.categoryId && knownSubCatIds.has(p.categoryId)) {
+        const arr = bySubCat.get(p.categoryId) ?? [];
+        arr.push(p);
+        bySubCat.set(p.categoryId, arr);
+      } else if (p.industryCategoryId && knownCatIds.has(p.industryCategoryId)) {
+        const arr = otrosByIndustry.get(p.industryCategoryId) ?? [];
+        arr.push(p);
+        otrosByIndustry.set(p.industryCategoryId, arr);
+      } else {
+        uncategorizedProducts.push(p);
+      }
     }
-  }
 
-  if (searchQuery) {
-    const query = sanitizeSearchQuery(searchQuery);
-    if (query.length >= 2) {
-      const escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const regex = new RegExp(escapedQuery, 'i');
-      result = result.filter(
-        (p) => regex.test(p.name) || regex.test(p.sku) || (p.description && regex.test(p.description))
+    const subCatsByParent = new Map<string, SubCategory[]>();
+    for (const sc of subCategories) {
+      const arr = subCatsByParent.get(sc.industryCategoryId) ?? [];
+      arr.push(sc);
+      subCatsByParent.set(sc.industryCategoryId, arr);
+    }
+
+    const groups: CatalogGroup[] = [];
+
+    for (const cat of categories) {
+      const subCats = (subCatsByParent.get(cat.id) ?? []).sort(
+        (a, b) => a.sortOrder - b.sortOrder,
       );
+
+      const subGroups: SubGroup[] = subCats
+        .map((sc) => ({
+          id: sc.id,
+          name: sc.name,
+          products: bySubCat.get(sc.id) ?? [],
+        }))
+        .filter((g) => g.products.length > 0);
+
+      const otrosForCat = otrosByIndustry.get(cat.id) ?? [];
+      if (otrosForCat.length > 0) {
+        subGroups.push({
+          id: makeOtrosId(cat.id),
+          name: OTROS_LABEL,
+          products: otrosForCat,
+        });
+      }
+
+      if (subGroups.length > 0) groups.push({ id: cat.id, subGroups });
     }
+
+    if (uncategorizedProducts.length > 0) {
+      groups.push({
+        id: UNCATEGORIZED_ID,
+        subGroups: [
+          { id: UNCATEGORIZED_ID, name: UNCATEGORIZED_LABEL, products: uncategorizedProducts },
+        ],
+      });
+    }
+
+    return groups;
   }
 
-  return result;
-}
+  const byIndustryCat = new Map<string, CatalogProduct[]>();
+  for (const p of products) {
+    const key = p.industryCategoryId ?? p.categoryId ?? UNCATEGORIZED_ID;
+    const arr = byIndustryCat.get(key) ?? [];
+    arr.push(p);
+    byIndustryCat.set(key, arr);
+  }
 
-function paginateProducts(
-  products: Product[],
-  page: number,
-  perPage: number
-): { paginated: Product[]; totalPages: number; total: number } {
-  const total = products.length;
-  const totalPages = Math.ceil(total / perPage);
-  const start = (page - 1) * perPage;
-  const paginated = products.slice(start, start + perPage);
-  return { paginated, totalPages, total };
-}
+  const groups: CatalogGroup[] = categories
+    .map((cat) => ({
+      id: cat.id,
+      subGroups: [
+        {
+          id: cat.id,
+          name: cat.name,
+          products: byIndustryCat.get(cat.id) ?? [],
+        },
+      ],
+    }))
+    .filter((g) => g.subGroups[0].products.length > 0);
 
-function groupProductsBySubCategory(
-  products: Product[],
-  subCategories: Catalog['subCategories'],
-  activeCategory?: string
-) {
-  if (products.length === 0) return [];
-
-  const groups: { subCategory: typeof subCategories[0] | null; products: Product[]; id: string }[] = [];
-  const relevantSubCategories = activeCategory
-    ? subCategories.filter((sc) => sc.industryCategoryId === activeCategory)
-    : subCategories;
-
-  relevantSubCategories.forEach((subCategory) => {
-    const subProducts = products.filter((p) => p.categoryId === subCategory.id);
-    if (subProducts.length > 0) {
-      groups.push({ subCategory, products: subProducts, id: subCategory.id });
-    }
-  });
-
-  const uncategorized = products.filter(
-    (p) => !subCategories.some((sc) => sc.id === p.categoryId)
-  );
+  const uncategorized = byIndustryCat.get(UNCATEGORIZED_ID) ?? [];
   if (uncategorized.length > 0) {
-    groups.push({ subCategory: null, products: uncategorized, id: 'uncategorized' });
+    groups.push({
+      id: UNCATEGORIZED_ID,
+      subGroups: [
+        {
+          id: UNCATEGORIZED_ID,
+          name: UNCATEGORIZED_LABEL,
+          products: uncategorized,
+        },
+      ],
+    });
   }
 
   return groups;
 }
 
-// ═══════════════════════════════════════════════════════════
-// COMPONENTE PRINCIPAL
-// ═══════════════════════════════════════════════════════════
+// ─── Main component ───────────────────────────────────────────────────────────
 
 export function CatalogContent({ catalog, businessSlug }: CatalogContentProps) {
-  const { business, categories, subCategories, products } = catalog;
+  const { business, categories, products, subCategories } = catalog;
+
+  const expandedProducts = expandTemplateProducts(products);
+  const catalogGroups = buildCatalogGroups(expandedProducts, categories, subCategories);
+  const useProductImages = catalog.business.useProductImages ?? false;
+
+  const activeCatIds = new Set(catalogGroups.map((g) => g.id));
+  const tabCategories = categories.filter((cat) => activeCatIds.has(cat.id));
+
+  const categoryProductGroups = catalogGroups.map((g) => ({
+    categoryId: g.id,
+    products: g.subGroups.flatMap((sg) => sg.products),
+  }));
+
+  const highlights = (
+    catalog as CatalogResponse & { highlights?: HighlightItem[] }
+  ).highlights;
 
   return (
-    <div 
-      className="min-h-screen bg-gray-50 pb-32"
-      style={{
-        '--business-primary': business.primaryColor,
-        '--business-accent': business.accentColor,
-      } as React.CSSProperties}
-    >
-      {/* Header */}
-      <CatalogHeader business={business} businessSlug={businessSlug} />
+    <SearchProvider>
+      <div
+        style={
+          {
+            minHeight: "100dvh",
+            background: "var(--bg)",
+            paddingBottom: 96,
+          } as React.CSSProperties
+        }
+      >
+        <CatalogHeader business={business} />
 
-      {/* Search */}
-      <div className="sticky top-[72px] z-30 bg-white border-b border-gray-100 px-4 py-3">
-        <SearchInput placeholder="¿Qué estás buscando?" />
+        <CatalogShell
+          categories={tabCategories}
+          categoryProductGroups={categoryProductGroups}
+          highlights={highlights}
+        >
+          {catalogGroups.map(({ id: industryCatId, subGroups }) => (
+            <IndustrySection
+              key={industryCatId}
+              catId={industryCatId}
+              products={subGroups.flatMap((sg) => sg.products)}
+            >
+              {subGroups.map(
+                ({ id: subGroupId, name, products: groupProducts }) => (
+                  <CategorySection
+                    key={subGroupId}
+                    id={subGroupId}
+                    title={name}
+                    products={groupProducts}
+                    useProductImages={useProductImages}
+                  />
+                ),
+              )}
+            </IndustrySection>
+          ))}
+        </CatalogShell>
+      </div>
+    </SearchProvider>
+  );
+}
+
+// ─── Loading skeleton ─────────────────────────────────────────────────────────
+
+export function CatalogContentSkeleton() {
+  return (
+    <div
+      style={{
+        minHeight: "100dvh",
+        background: "var(--bg)",
+        paddingBottom: 96,
+      }}
+    >
+      <div className="bg-[var(--surface)] border-b border-[var(--line)] px-4 pt-4 pb-3">
+        <div className="flex items-center gap-3">
+          <div className="w-12 h-12 rounded-[14px] bg-[var(--line)] animate-pulse" />
+          <div className="flex-1">
+            <div className="h-[18px] w-[140px] bg-[var(--line)] rounded-[6px] mb-[6px] animate-pulse" />
+            <div className="h-3 w-[100px] bg-[var(--line)] rounded-[4px] animate-pulse" />
+          </div>
+        </div>
       </div>
 
-      {/* Categories */}
-      <CategoryChips
-        categories={categories}
-        primaryColor={business.primaryColor}
-      />
-
-      {/* Products */}
-      <main className="max-w-5xl mx-auto px-4 py-6">
-        <CategorySection
-          title="Todos los productos"
-          count={products.length}
-          products={products}
-          accentColor={business.accentColor}
-        />
-      </main>
+      <div>
+        {[1, 2, 3, 4, 5, 6].map((i) => (
+          <div
+            key={i}
+            className="grid grid-cols-[56px_1fr] gap-3 px-4 py-3 border-b border-[var(--line)]"
+          >
+            <div className="w-[52px] h-[52px] rounded-lg bg-[var(--line)] animate-pulse" />
+            <div>
+              <div className="h-[14px] w-[60%] bg-[var(--line)] rounded-[4px] mb-[6px] animate-pulse" />
+              <div className="h-3 w-[80%] bg-[var(--line)] rounded-[4px] animate-pulse" />
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
