@@ -12,7 +12,7 @@ const REVALIDATE_SECRET = process.env.REVALIDATE_SECRET;
 
 export async function POST(request: NextRequest) {
   try {
-    // Sin secret configurado el endpoint queda deshabilitado (nunca aceptar un default)
+    // Without a configured secret the endpoint stays disabled (never accept a default)
     if (!REVALIDATE_SECRET) {
       return NextResponse.json(
         { success: false, message: "Revalidation disabled: REVALIDATE_SECRET not set" },

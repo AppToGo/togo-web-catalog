@@ -16,7 +16,7 @@ const nextConfig: NextConfig = {
     // Formatos modernos para mejor compresión
     formats: ["image/avif", "image/webp"],
 
-    // Remote patterns permitidos: bucket público de producción + MinIO local en dev
+    // Allowed remote patterns: production public bucket + local MinIO in dev
     remotePatterns: [
       {
         protocol: "https",
