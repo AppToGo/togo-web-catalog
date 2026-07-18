@@ -10,7 +10,7 @@
 
 import { MetadataRoute } from 'next';
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://togo.shop';
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://catalogo.togoapp.co';
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // URLs estáticas

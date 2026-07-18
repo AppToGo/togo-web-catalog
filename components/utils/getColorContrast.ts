@@ -1,9 +1,8 @@
 export function getColorContrast(hex = "#000000") {
-  const [r, g, b] = hex
-    .replace("#", "")
-    .match(/.{2}/g)
-    .map((x) => parseInt(x, 16));
-  const lum = (c) => {
+  // Fall back to black when the hex string is malformed
+  const pairs = hex.replace("#", "").match(/.{2}/g) ?? ["00", "00", "00"];
+  const [r, g, b] = pairs.map((x) => parseInt(x, 16));
+  const lum = (c: number) => {
     c /= 255;
     return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
   };

@@ -13,7 +13,7 @@
 import { Metadata } from 'next';
 import type { CatalogResponse, CatalogProduct, BusinessInfo } from '@/src/types/catalog.types';
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://togo.shop';
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://catalogo.togoapp.co';
 
 // ═══════════════════════════════════════════════════════════
 // METADATA

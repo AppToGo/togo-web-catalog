@@ -5,9 +5,6 @@ const nextConfig: NextConfig = {
   // RENDERING
   // ═══════════════════════════════════════════════════════
 
-  // Output standalone para Docker/despliegue optimizado
-  output: "standalone",
-
   // Compression gzip/brotli
   compress: true,
 
@@ -19,12 +16,20 @@ const nextConfig: NextConfig = {
     // Formatos modernos para mejor compresión
     formats: ["image/avif", "image/webp"],
 
-    // Remote patterns permitidos
+    // Allowed remote patterns: production public bucket + local MinIO in dev
     remotePatterns: [
       {
         protocol: "https",
-        hostname: "**",
+        hostname: "img.togoapp.co",
       },
+      ...(process.env.NODE_ENV !== "production"
+        ? [
+            {
+              protocol: "http" as const,
+              hostname: "localhost",
+            },
+          ]
+        : []),
     ],
 
     // Tamaños de imagen para srcset
@@ -132,6 +137,7 @@ const nextConfig: NextConfig = {
     // Allow Server Actions from dev tunnel (x-forwarded-host mismatch with origin)
     serverActions: {
       allowedOrigins: [
+        "catalogo.togoapp.co",
         "localhost:3001",
         "*.use2.devtunnels.ms",
         "*.devtunnels.ms",
