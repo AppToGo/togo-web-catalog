@@ -24,7 +24,7 @@ export default function HomePage() {
           alt="ToGo"
           width={80}
           height={80}
-          className="mx-auto rounded-2xl shadow-lg"
+          className="mx-auto"
           priority
         />
 
