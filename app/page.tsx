@@ -3,6 +3,7 @@
  * Server Component - Landing con formulario simple
  */
 
+import Image from "next/image";
 import { redirect } from "next/navigation";
 
 export default function HomePage() {
@@ -18,9 +19,14 @@ export default function HomePage() {
     <div className="min-h-screen bg-linear-to-br from-stone-50 to-stone-100 flex items-center justify-center p-4">
       <div className="max-w-md w-full text-center space-y-6">
         {/* Logo */}
-        <div className="w-20 h-20 mx-auto bg-orange-500 rounded-2xl flex items-center justify-center text-4xl shadow-lg">
-          🚀
-        </div>
+        <Image
+          src="/logo.png"
+          alt="ToGo"
+          width={80}
+          height={80}
+          className="mx-auto rounded-2xl shadow-lg"
+          priority
+        />
 
         {/* Título */}
         <div>
