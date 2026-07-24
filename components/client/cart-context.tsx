@@ -115,7 +115,7 @@ export function CartProvider({
   isAuthenticated = false,
   branchId,
   branchPhone,
-  whatsappToken,
+  whatsappToken: initialWhatsappToken,
   initialCart,
 }: CartProviderProps) {
   // Cart state — seed with server-prefetched cart when available
@@ -124,6 +124,13 @@ export function CartProvider({
   const [isSyncing, setIsSyncing] = useState(false);
   const [isHydrated, setIsHydrated] = useState(false);
   const [sessionId, setSessionId] = useState<string>('');
+  // Token activo: arranca con el que llega por URL (?t=), pero se degrada a
+  // `undefined` en runtime si el backend lo rechaza (vencido/inválido) — ver
+  // syncCart y las acciones de carrito más abajo. A partir de ahí el negocio
+  // sigue funcionando por el flujo anónimo (sessionId), sin bloquear al
+  // usuario ni requerir un token nuevo (que además no se puede reemitir desde
+  // acá — lo emite el backend solo cuando el cliente lo pide por WhatsApp).
+  const [activeToken, setActiveToken] = useState<string | undefined>(initialWhatsappToken);
   
   // Customer state
   const [customer, setCustomer] = useState<CustomerData>({
@@ -181,13 +188,21 @@ export function CartProvider({
     setIsLoading(false);
   }, [businessSlug, isAuthenticated]);
 
-  // Sincronizar carrito con backend cuando tengamos sessionId (o token)
+  // Sincronizar carrito con backend una sola vez, al montar (cuando ya
+  // tengamos sessionId o token). El guard por ref es necesario: si no,
+  // cuando activeToken se degrada a undefined dentro de syncCart (token
+  // vencido), este efecto se volvería a disparar por el cambio de
+  // dependencia y traería el carrito anónimo — que en ese momento todavía
+  // está vacío (el cliente nunca lo usó, su carrito vivía bajo el token) —
+  // pisando el carrito local recién restaurado con uno vacío.
+  const hasSyncedOnMountRef = useRef(false);
   useEffect(() => {
-    if (isHydrated && (sessionId || whatsappToken)) {
+    if (isHydrated && (sessionId || activeToken) && !hasSyncedOnMountRef.current) {
+      hasSyncedOnMountRef.current = true;
       syncCart();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isHydrated, sessionId, whatsappToken]);
+  }, [isHydrated, sessionId, activeToken]);
 
   // Persistir carrito
   useEffect(() => {
@@ -210,18 +225,11 @@ export function CartProvider({
   // SINCRONIZACIÓN
   // ═══════════════════════════════════════════════════════
   const syncCart = useCallback(async () => {
-    if (!sessionId && !whatsappToken) return;
+    if (!sessionId && !activeToken) return;
 
-    const isTokenFlow = !!whatsappToken;
+    const isTokenFlow = !!activeToken;
 
-    setIsSyncing(true);
-    try {
-      const serverCart = isTokenFlow
-        ? await getCartByTokenAction(whatsappToken!)
-        : branchId
-        ? await getCartPublicAction(businessSlug, { sessionId, branchId })
-        : await getCartAction(businessSlug, { sessionId });
-
+    const mergeServerCart = (serverCart: Cart) => {
       setCart(prev => {
         const mergedItems = serverCart.items.map(si => ({
           ...si,
@@ -238,12 +246,34 @@ export function CartProvider({
         if (prevJson !== newJson) return mergedCart;
         return prev;
       });
+    };
+
+    setIsSyncing(true);
+    try {
+      if (isTokenFlow) {
+        const result = await getCartByTokenAction(activeToken!);
+        if (result.invalidToken) {
+          // Token vencido/inválido (ej. pestaña abierta desde antes de que
+          // expirara): degradar a flujo anónimo para el resto de la sesión
+          // en vez de pisar el carrito local con uno vacío — de acá en más
+          // las mutaciones usan sessionId, sin bloquear al usuario.
+          setActiveToken(undefined);
+          return;
+        }
+        mergeServerCart(result.cart);
+        return;
+      }
+
+      const serverCart = branchId
+        ? await getCartPublicAction(businessSlug, { sessionId, branchId })
+        : await getCartAction(businessSlug, { sessionId });
+      mergeServerCart(serverCart);
     } catch {
       // Error silencioso — el carrito local se preserva
     } finally {
       if (pendingOps.current === 0) setIsSyncing(false);
     }
-  }, [businessSlug, branchId, sessionId, whatsappToken]);
+  }, [businessSlug, branchId, sessionId, activeToken]);
 
   // ═══════════════════════════════════════════════════════
   // STOCK VALIDATION HELPER
@@ -263,9 +293,9 @@ export function CartProvider({
   // AGREGAR ITEM
   // ═══════════════════════════════════════════════════════
   const addItem = useCallback(async (item: CartItem) => {
-    if (!sessionId && !whatsappToken) return;
+    if (!sessionId && !activeToken) return;
 
-    const isTokenFlow = !!whatsappToken;
+    const isTokenFlow = !!activeToken;
 
     const previousCart = cart;
     pendingOps.current += 1;
@@ -291,10 +321,23 @@ export function CartProvider({
 
     try {
       const result = isTokenFlow
-        ? await addToCartByTokenAction(whatsappToken!, item)
+        ? await addToCartByTokenAction(activeToken!, item)
         : branchId
         ? await addToCartPublicAction(businessSlug, { ...item, branchId }, { sessionId })
         : await addToCartAction(businessSlug, item, { sessionId });
+
+      if (!result.success && result.errorCode === 'INVALID_TOKEN') {
+        // Token vencido a mitad de sesión: degradar y reintentar por el
+        // camino anónimo antes de deshacer el update optimista — así el
+        // usuario no ve el ítem desaparecer.
+        setActiveToken(undefined);
+        const fallback = branchId
+          ? await addToCartPublicAction(businessSlug, { ...item, branchId }, { sessionId })
+          : await addToCartAction(businessSlug, item, { sessionId });
+        if (!fallback.success) throw new Error(fallback.error);
+        return;
+      }
+
       if (!result.success) throw new Error(result.error);
     } catch (error) {
       setCart(previousCart);
@@ -303,20 +346,20 @@ export function CartProvider({
       pendingOps.current -= 1;
       if (pendingOps.current === 0) setIsSyncing(false);
     }
-  }, [businessSlug, branchId, cart, sessionId, whatsappToken]);
+  }, [businessSlug, branchId, cart, sessionId, activeToken]);
 
   // ═══════════════════════════════════════════════════════
   // ACTUALIZAR CANTIDAD
   // ═══════════════════════════════════════════════════════
   const updateItem = useCallback(async (productId: string, delta: number, variantId?: string) => {
-    if (!sessionId && !whatsappToken) return;
+    if (!sessionId && !activeToken) return;
 
     const currentItem = cart.items.find(
       i => i.productId === productId && i.variantId === variantId
     );
     if (!currentItem) return;
 
-    const isTokenFlow = !!whatsappToken;
+    const isTokenFlow = !!activeToken;
 
     const previousCart = cart;
     pendingOps.current += 1;
@@ -336,27 +379,37 @@ export function CartProvider({
       updatedAt: new Date().toISOString(),
     }));
 
+    const callAnonymous = () =>
+      newQuantity <= 0
+        ? branchId
+          ? removeFromCartPublicAction(businessSlug, productId, { sessionId, branchId }, variantId)
+          : removeFromCartAction(businessSlug, productId, { sessionId }, variantId)
+        : branchId
+        ? updateCartItemPublicAction(businessSlug, productId, newQuantity, { sessionId, branchId }, undefined, variantId)
+        : updateCartItemAction(businessSlug, productId, newQuantity, { sessionId }, undefined, variantId);
+
     try {
       if (isTokenFlow) {
-        if (newQuantity <= 0) {
-          const result = await removeFromCartByTokenAction(whatsappToken!, productId);
-          if (!result.success) throw new Error(result.error);
-        } else {
-          // delta puede ser negativo (reducir cantidad) o positivo (aumentar)
-          const result = await addToCartByTokenAction(whatsappToken!, { ...currentItem, quantity: delta });
-          if (!result.success) throw new Error(result.error);
+        // delta puede ser negativo (reducir cantidad) o positivo (aumentar)
+        const result = newQuantity <= 0
+          ? await removeFromCartByTokenAction(activeToken!, productId)
+          : await addToCartByTokenAction(activeToken!, { ...currentItem, quantity: delta });
+
+        if (!result.success && result.errorCode === 'INVALID_TOKEN') {
+          // Token vencido a mitad de sesión: degradar y reintentar por el
+          // camino anónimo antes de deshacer el update optimista.
+          setActiveToken(undefined);
+          const fallback = await callAnonymous();
+          if (!fallback.success) throw new Error(fallback.error);
+          return;
         }
-      } else if (newQuantity <= 0) {
-        const result = branchId
-          ? await removeFromCartPublicAction(businessSlug, productId, { sessionId, branchId }, variantId)
-          : await removeFromCartAction(businessSlug, productId, { sessionId }, variantId);
+
         if (!result.success) throw new Error(result.error);
-      } else {
-        const result = branchId
-          ? await updateCartItemPublicAction(businessSlug, productId, newQuantity, { sessionId, branchId }, undefined, variantId)
-          : await updateCartItemAction(businessSlug, productId, newQuantity, { sessionId }, undefined, variantId);
-        if (!result.success) throw new Error(result.error);
+        return;
       }
+
+      const result = await callAnonymous();
+      if (!result.success) throw new Error(result.error);
     } catch (error) {
       setCart(previousCart);
       throw error;
@@ -364,15 +417,15 @@ export function CartProvider({
       pendingOps.current -= 1;
       if (pendingOps.current === 0) setIsSyncing(false);
     }
-  }, [businessSlug, branchId, cart, sessionId, whatsappToken]);
+  }, [businessSlug, branchId, cart, sessionId, activeToken]);
 
   // ═══════════════════════════════════════════════════════
   // ELIMINAR ITEM
   // ═══════════════════════════════════════════════════════
   const removeItem = useCallback(async (productId: string, variantId?: string) => {
-    if (!sessionId && !whatsappToken) return;
+    if (!sessionId && !activeToken) return;
 
-    const isTokenFlow = !!whatsappToken;
+    const isTokenFlow = !!activeToken;
 
     const previousCart = cart;
     pendingOps.current += 1;
@@ -385,12 +438,27 @@ export function CartProvider({
       updatedAt: new Date().toISOString(),
     }));
 
+    const callAnonymous = () =>
+      branchId
+        ? removeFromCartPublicAction(businessSlug, productId, { sessionId, branchId }, variantId)
+        : removeFromCartAction(businessSlug, productId, { sessionId }, variantId);
+
     try {
-      const result = isTokenFlow
-        ? await removeFromCartByTokenAction(whatsappToken!, productId)
-        : branchId
-        ? await removeFromCartPublicAction(businessSlug, productId, { sessionId, branchId }, variantId)
-        : await removeFromCartAction(businessSlug, productId, { sessionId }, variantId);
+      if (isTokenFlow) {
+        const result = await removeFromCartByTokenAction(activeToken!, productId);
+
+        if (!result.success && result.errorCode === 'INVALID_TOKEN') {
+          setActiveToken(undefined);
+          const fallback = await callAnonymous();
+          if (!fallback.success) throw new Error(fallback.error);
+          return;
+        }
+
+        if (!result.success) throw new Error(result.error);
+        return;
+      }
+
+      const result = await callAnonymous();
       if (!result.success) throw new Error(result.error);
     } catch (error) {
       setCart(previousCart);
@@ -399,20 +467,20 @@ export function CartProvider({
       pendingOps.current -= 1;
       if (pendingOps.current === 0) setIsSyncing(false);
     }
-  }, [businessSlug, branchId, cart, sessionId, whatsappToken]);
+  }, [businessSlug, branchId, cart, sessionId, activeToken]);
 
   // ═══════════════════════════════════════════════════════
   // ACTUALIZAR NOTAS DE ITEM
   // ═══════════════════════════════════════════════════════
   const updateItemNotes = useCallback(async (productId: string, notes: string, variantId?: string) => {
-    if (!sessionId && !whatsappToken) return;
+    if (!sessionId && !activeToken) return;
 
     const currentItem = cart.items.find(
       i => i.productId === productId && i.variantId === variantId
     );
     if (!currentItem) return;
 
-    const isTokenFlow = !!whatsappToken;
+    const isTokenFlow = !!activeToken;
     const trimmed = notes.trim() || undefined;
     const previousCart = cart;
     pendingOps.current += 1;
@@ -429,21 +497,33 @@ export function CartProvider({
       updatedAt: new Date().toISOString(),
     }));
 
+    const callAnonymous = () =>
+      branchId
+        ? updateCartItemPublicAction(businessSlug, productId, currentItem.quantity, { sessionId, branchId }, trimmed, variantId)
+        : updateCartItemAction(businessSlug, productId, currentItem.quantity, { sessionId }, trimmed, variantId);
+
     try {
       if (isTokenFlow) {
         // quantity: 0 → el backend no cambia la cantidad, solo actualiza notes
-        const result = await addToCartByTokenAction(whatsappToken!, {
+        const result = await addToCartByTokenAction(activeToken!, {
           ...currentItem,
           quantity: 0,
           notes: trimmed,
         });
+
+        if (!result.success && result.errorCode === 'INVALID_TOKEN') {
+          setActiveToken(undefined);
+          const fallback = await callAnonymous();
+          if (!fallback.success) throw new Error(fallback.error);
+          return;
+        }
+
         if (!result.success) throw new Error(result.error);
-      } else {
-        const result = branchId
-          ? await updateCartItemPublicAction(businessSlug, productId, currentItem.quantity, { sessionId, branchId }, trimmed, variantId)
-          : await updateCartItemAction(businessSlug, productId, currentItem.quantity, { sessionId }, trimmed, variantId);
-        if (!result.success) throw new Error(result.error);
+        return;
       }
+
+      const result = await callAnonymous();
+      if (!result.success) throw new Error(result.error);
     } catch (error) {
       setCart(previousCart);
       throw error;
@@ -451,7 +531,7 @@ export function CartProvider({
       pendingOps.current -= 1;
       if (pendingOps.current === 0) setIsSyncing(false);
     }
-  }, [businessSlug, branchId, cart, sessionId, whatsappToken]);
+  }, [businessSlug, branchId, cart, sessionId, activeToken]);
 
   // ═══════════════════════════════════════════════════════
   // LIMPIAR CARRITO
@@ -507,7 +587,7 @@ export function CartProvider({
       sessionId,
       branchId,
       branchPhone,
-      whatsappToken,
+      whatsappToken: activeToken,
       addItem,
       updateItem,
       removeItem,

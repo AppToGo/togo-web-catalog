@@ -172,7 +172,13 @@ export function CartDrawer({ business }: CartDrawerProps) {
             notes: notes.trim(),
             sessionId,
             phoneNumber: customer.phone!,
-            fromWhatsApp: !!whatsappToken,
+            // customer.origin refleja de dónde vino el cliente originalmente
+            // (se fija al montar y no cambia), a diferencia de whatsappToken
+            // que puede degradarse a undefined a mitad de sesión si el token
+            // venció — sin esto, un cliente de WhatsApp con token vencido
+            // perdería el mensaje de checkout por WhatsApp aunque el pedido
+            // se cree bien por el camino público.
+            fromWhatsApp: customer.origin === 'whatsapp',
           })
         : await createOrderAction(whatsappToken!, {
             items: cart.items, notes: notes.trim(), source: customer.origin, sessionId,
