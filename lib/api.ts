@@ -44,7 +44,7 @@ const API_BASE_URL =
 // CONFIGURACIÓN
 // ═══════════════════════════════════════════════════════════
 
-const DEFAULT_REVALIDATE = 3600; // 1 hora
+const DEFAULT_REVALIDATE = 86400; // 24 horas — red de seguridad; la revalidación on-demand cubre el caso normal
 
 // ═══════════════════════════════════════════════════════════
 // ERRORS
