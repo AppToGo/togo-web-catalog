@@ -188,9 +188,17 @@ export function CartProvider({
     setIsLoading(false);
   }, [businessSlug, isAuthenticated]);
 
-  // Sincronizar carrito con backend cuando tengamos sessionId (o token)
+  // Sincronizar carrito con backend una sola vez, al montar (cuando ya
+  // tengamos sessionId o token). El guard por ref es necesario: si no,
+  // cuando activeToken se degrada a undefined dentro de syncCart (token
+  // vencido), este efecto se volvería a disparar por el cambio de
+  // dependencia y traería el carrito anónimo — que en ese momento todavía
+  // está vacío (el cliente nunca lo usó, su carrito vivía bajo el token) —
+  // pisando el carrito local recién restaurado con uno vacío.
+  const hasSyncedOnMountRef = useRef(false);
   useEffect(() => {
-    if (isHydrated && (sessionId || activeToken)) {
+    if (isHydrated && (sessionId || activeToken) && !hasSyncedOnMountRef.current) {
+      hasSyncedOnMountRef.current = true;
       syncCart();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
