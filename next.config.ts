@@ -2,6 +2,14 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   // ═══════════════════════════════════════════════════════
+  // OUTPUT
+  // ═══════════════════════════════════════════════════════
+
+  // Standalone build: genera un servidor Node autocontenido
+  // (solo las deps de producción que realmente usa), ideal para Docker.
+  output: "standalone",
+
+  // ═══════════════════════════════════════════════════════
   // RENDERING
   // ═══════════════════════════════════════════════════════
 

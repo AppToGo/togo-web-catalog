@@ -362,20 +362,24 @@ export async function createOrder(
   return handleResponse<OrderResponse>(response);
 }
 
+/**
+ * Actualiza una orden DRAFT anónima (sin token) con el carrito actual de la
+ * sesión — reemplaza todos los items, no solo las notas.
+ * Pega a /catalog/:businessSlug/order (PublicOrderService.updateOrder), NO a
+ * /web-catalog/:businessSlug/order/:orderId (esa ruta no existe — es
+ * token-only y no matchea ningún endpoint para un slug real).
+ */
 export async function updateOrder(
   businessSlug: string,
   orderId: string,
-  data: { notes?: string; sessionId: string },
+  data: { notes?: string; sessionId: string; branchId: string },
 ): Promise<OrderResponse> {
-  const response = await fetch(
-    buildWebCatalogUrl(businessSlug, `/order/${orderId}`),
-    {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data),
-      cache: "no-store",
-    },
-  );
+  const response = await fetch(buildPublicCatalogUrl(businessSlug, "/order"), {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ orderId, ...data }),
+    cache: "no-store",
+  });
 
   return handleResponse<OrderResponse>(response);
 }
@@ -458,9 +462,40 @@ export async function updateOrderByToken(
   return handleResponse<OrderResponse>(response);
 }
 
+/**
+ * Busca el pedido DRAFT vinculado a un token de WhatsApp (si existe).
+ * Pega a /web-catalog/:token/order — NO usar getOrderStatus para el camino
+ * de token: esa función pega a /catalog/:businessSlug/order, cuyo backend
+ * valida el segmento con formato de slug (solo minúsculas) y rechaza un
+ * token real (que trae mayúsculas), haciendo que checkExistingOrder nunca
+ * detecte el DRAFT existente para clientes de WhatsApp.
+ */
+export async function getOrderByToken(token: string): Promise<{
+  hasOrder: boolean;
+  order?: {
+    id: string;
+    orderNumber: string;
+    status: string;
+    total: number;
+    itemCount: number;
+    notes?: string;
+  };
+}> {
+  const response = await fetch(buildTokenUrl(token, "/order"), {
+    cache: "no-store",
+  });
+  return handleResponse(response);
+}
+
+/**
+ * Busca la orden DRAFT (u otro estado) asociada a un sessionId anónimo.
+ * Pega a /catalog/:businessSlug/order (PublicOrderService.getOrderBySessionId),
+ * NO a /web-catalog/:businessSlug/order — esa ruta es token-only, siempre
+ * 401ea con un slug real e ignora el sessionId.
+ */
 export async function getOrderStatus(
   businessSlug: string,
-  options?: { sessionId: string },
+  options?: { sessionId: string; branchId?: string },
 ): Promise<{
   hasOrder: boolean;
   order?: {
@@ -472,8 +507,12 @@ export async function getOrderStatus(
     notes?: string;
   };
 }> {
-  const url = new URL(buildWebCatalogUrl(businessSlug, "/order"));
+  const url = new URL(buildPublicCatalogUrl(businessSlug, "/order"));
   if (options?.sessionId) url.searchParams.set("sessionId", options.sessionId);
+  // El sessionId se persiste por negocio (no por sede) en localStorage — sin
+  // mandar branchId, un DRAFT creado en otra sede del mismo negocio
+  // aparecería como si perteneciera a la sede actual.
+  if (options?.branchId) url.searchParams.set("branchId", options.branchId);
 
   const response = await fetch(url.toString(), {
     cache: "no-store",
