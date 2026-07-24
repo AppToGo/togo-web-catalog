@@ -30,7 +30,9 @@ import { FloatingCart } from "@/components/client/floating-cart";
 import type { CustomerOrigin } from "@/lib/types";
 import { getColorContrast } from "@/components/utils/getColorContrast";
 
-export const revalidate = 3600;
+// Next.js exige un literal acá (no admite un valor importado en el build) —
+// debe coincidir con DEFAULT_REVALIDATE en lib/api.ts.
+export const revalidate = 86400;
 export const dynamicParams = true;
 
 interface PageProps {

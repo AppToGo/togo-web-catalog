@@ -151,14 +151,15 @@ export function AddToCartButton({ product }) {
 ### ISR (Incremental Static Regeneration)
 
 ```tsx
-// app/catalog/[token]/page.tsx
-export const revalidate = 3600; // 1 hora
+// app/[businessSlug]/page.tsx
+export const revalidate = 86400; // 24h — red de seguridad; la revalidación on-demand cubre el caso normal
 
-export default async function CatalogPage() {
-  const catalog = await getCatalog(token, {
-    next: { 
-      tags: [`catalog-${token}`], // Tag para revalidación
-      revalidate: 3600 
+export default async function BusinessCatalogPage({ params }) {
+  const { businessSlug } = await params;
+  const catalog = await fetchCatalog(businessSlug, {
+    next: {
+      tags: [`catalog-${businessSlug}`, "catalog"], // Tags para revalidación
+      revalidate: 86400
     }
   });
   // ...
