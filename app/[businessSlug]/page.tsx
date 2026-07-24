@@ -23,7 +23,9 @@ import { ProductModal } from "@/components/client/product-modal";
 import { FloatingCart } from "@/components/client/floating-cart";
 import type { CustomerOrigin } from "@/lib/types";
 
-export const revalidate = 86400; // 24h — red de seguridad; la revalidación on-demand cubre el caso normal
+// Next.js exige un literal acá (no admite un valor importado en el build) —
+// debe coincidir con DEFAULT_REVALIDATE en lib/api.ts.
+export const revalidate = 86400;
 export const dynamicParams = true;
 
 interface PageProps {

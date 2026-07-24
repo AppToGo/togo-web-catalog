@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { token, secret, type = "catalog" } = body;
+    const { token, secret } = body;
 
     // Validar secret
     if (!secret || secret !== REVALIDATE_SECRET) {
@@ -38,10 +38,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log(`[REVALIDATE] Revalidando ${type}: ${token}`);
+    console.log(`[REVALIDATE] Revalidando catalog: ${token}`);
 
-    // Revalidar por tag - esto regenera el HTML en la próxima visita
-    const tag = type === "categories" ? `categories-${token}` : `catalog-${token}`;
+    // Revalidar por tag - esto regenera el HTML en la próxima visita.
+    // Solo existe el tag "catalog-<slug>" (ver lib/api.ts): el emisor
+    // (CatalogCacheService en el backend) siempre manda este tipo, así que
+    // no hay ningún otro tag real que revalidar.
+    const tag = `catalog-${token}`;
     // @ts-ignore - Next.js 16 types requieren 2 args pero runtime funciona con 1
     revalidateTag(tag);
 
@@ -52,7 +55,6 @@ export async function POST(request: NextRequest) {
       message: "Revalidation triggered",
       tag,
       token,
-      type,
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
