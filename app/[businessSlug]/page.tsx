@@ -23,7 +23,7 @@ import { ProductModal } from "@/components/client/product-modal";
 import { FloatingCart } from "@/components/client/floating-cart";
 import type { CustomerOrigin } from "@/lib/types";
 
-export const revalidate = 3600;
+export const revalidate = 86400; // 24h — red de seguridad; la revalidación on-demand cubre el caso normal
 export const dynamicParams = true;
 
 interface PageProps {
