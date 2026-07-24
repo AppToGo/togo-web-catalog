@@ -131,9 +131,16 @@ export function CartDrawer({ business }: CartDrawerProps) {
         return;
       }
       if (orderStatus?.hasOrder && orderStatus.order?.status === 'DRAFT') {
+        // Mismo guard que el flujo de creación (líneas más abajo): sin token
+        // y sin sede resuelta no hay forma de saber qué carrito público usar.
+        if (!whatsappToken && !branchId) {
+          setShowAlert({ type: 'error', message: 'No se pudo determinar la sede. Por favor recarga la página.' });
+          setIsProcessing(false);
+          return;
+        }
         const result = whatsappToken
           ? await updateOrderByTokenAction(whatsappToken, orderStatus.order.id, { notes: notes.trim() })
-          : await updateOrderAction(business.slug, orderStatus.order.id, { notes: notes.trim(), sessionId });
+          : await updateOrderAction(business.slug, orderStatus.order.id, { notes: notes.trim(), sessionId, branchId: branchId! });
         if (!result.success) throw new Error(result.error || 'Error al actualizar');
 
         const phoneForWaMe = branchPhone ?? business.phone;

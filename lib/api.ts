@@ -362,20 +362,24 @@ export async function createOrder(
   return handleResponse<OrderResponse>(response);
 }
 
+/**
+ * Actualiza una orden DRAFT anónima (sin token) con el carrito actual de la
+ * sesión — reemplaza todos los items, no solo las notas.
+ * Pega a /catalog/:businessSlug/order (PublicOrderService.updateOrder), NO a
+ * /web-catalog/:businessSlug/order/:orderId (esa ruta no existe — es
+ * token-only y no matchea ningún endpoint para un slug real).
+ */
 export async function updateOrder(
   businessSlug: string,
   orderId: string,
-  data: { notes?: string; sessionId: string },
+  data: { notes?: string; sessionId: string; branchId: string },
 ): Promise<OrderResponse> {
-  const response = await fetch(
-    buildWebCatalogUrl(businessSlug, `/order/${orderId}`),
-    {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data),
-      cache: "no-store",
-    },
-  );
+  const response = await fetch(buildPublicCatalogUrl(businessSlug, "/order"), {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ orderId, ...data }),
+    cache: "no-store",
+  });
 
   return handleResponse<OrderResponse>(response);
 }
@@ -458,6 +462,12 @@ export async function updateOrderByToken(
   return handleResponse<OrderResponse>(response);
 }
 
+/**
+ * Busca la orden DRAFT (u otro estado) asociada a un sessionId anónimo.
+ * Pega a /catalog/:businessSlug/order (PublicOrderService.getOrderBySessionId),
+ * NO a /web-catalog/:businessSlug/order — esa ruta es token-only, siempre
+ * 401ea con un slug real e ignora el sessionId.
+ */
 export async function getOrderStatus(
   businessSlug: string,
   options?: { sessionId: string },
@@ -472,7 +482,7 @@ export async function getOrderStatus(
     notes?: string;
   };
 }> {
-  const url = new URL(buildWebCatalogUrl(businessSlug, "/order"));
+  const url = new URL(buildPublicCatalogUrl(businessSlug, "/order"));
   if (options?.sessionId) url.searchParams.set("sessionId", options.sessionId);
 
   const response = await fetch(url.toString(), {

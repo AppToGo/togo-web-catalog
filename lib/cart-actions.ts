@@ -272,7 +272,7 @@ export async function createOrderAction(
 export async function updateOrderAction(
   businessSlug: string,
   orderId: string,
-  data: { notes?: string; sessionId: string }
+  data: { notes?: string; sessionId: string; branchId: string }
 ): Promise<OrderActionResult> {
   try {
     const rateKey = await getCartRateLimitKey(businessSlug, 'update-order');
@@ -280,7 +280,7 @@ export async function updateOrderAction(
       return { success: false, error: 'Demasiadas solicitudes. Intenta más tarde.' };
     }
 
-    if (!businessSlug || !orderId) {
+    if (!businessSlug || !orderId || !data.branchId) {
       return { success: false, error: 'Datos incompletos' };
     }
 
