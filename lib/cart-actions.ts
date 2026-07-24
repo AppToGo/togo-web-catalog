@@ -29,6 +29,7 @@ import {
   addToCartByToken,
   removeFromCartByToken,
   updateOrderByToken,
+  getOrderByToken,
   InvalidTokenError,
 } from './api';
 import type { Cart, CartItem, CustomerOrigin } from '@/src/types/catalog.types';
@@ -309,7 +310,7 @@ export async function updateOrderAction(
 
 export async function checkOrderAction(
   businessSlug: string,
-  options: { sessionId: string }
+  options: { sessionId: string; branchId?: string }
 ) {
   try {
     const rateKey = await getCartRateLimitKey(businessSlug, 'check-order');
@@ -500,6 +501,25 @@ export async function updateOrderByTokenAction(
       success: false,
       error: error instanceof Error ? error.message : 'Error al actualizar orden',
     };
+  }
+}
+
+/**
+ * Busca el pedido DRAFT vinculado a un token de WhatsApp (si existe).
+ * checkExistingOrder debe usar esto para clientes con token, NO
+ * checkOrderAction (que apunta al endpoint anónimo por sessionId y rechaza
+ * un token real por no tener formato de slug).
+ */
+export async function getOrderByTokenAction(token: string) {
+  try {
+    const rateKey = await getCartRateLimitKey(token, 'check-order');
+    if (!checkRateLimit(rateKey, RATE_LIMITS.checkOrder)) {
+      return { hasOrder: false };
+    }
+    return await getOrderByToken(token);
+  } catch (error) {
+    console.error('Error en getOrderByTokenAction:', error);
+    return { hasOrder: false };
   }
 }
 

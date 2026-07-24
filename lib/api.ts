@@ -463,6 +463,31 @@ export async function updateOrderByToken(
 }
 
 /**
+ * Busca el pedido DRAFT vinculado a un token de WhatsApp (si existe).
+ * Pega a /web-catalog/:token/order — NO usar getOrderStatus para el camino
+ * de token: esa función pega a /catalog/:businessSlug/order, cuyo backend
+ * valida el segmento con formato de slug (solo minúsculas) y rechaza un
+ * token real (que trae mayúsculas), haciendo que checkExistingOrder nunca
+ * detecte el DRAFT existente para clientes de WhatsApp.
+ */
+export async function getOrderByToken(token: string): Promise<{
+  hasOrder: boolean;
+  order?: {
+    id: string;
+    orderNumber: string;
+    status: string;
+    total: number;
+    itemCount: number;
+    notes?: string;
+  };
+}> {
+  const response = await fetch(buildTokenUrl(token, "/order"), {
+    cache: "no-store",
+  });
+  return handleResponse(response);
+}
+
+/**
  * Busca la orden DRAFT (u otro estado) asociada a un sessionId anónimo.
  * Pega a /catalog/:businessSlug/order (PublicOrderService.getOrderBySessionId),
  * NO a /web-catalog/:businessSlug/order — esa ruta es token-only, siempre
@@ -470,7 +495,7 @@ export async function updateOrderByToken(
  */
 export async function getOrderStatus(
   businessSlug: string,
-  options?: { sessionId: string },
+  options?: { sessionId: string; branchId?: string },
 ): Promise<{
   hasOrder: boolean;
   order?: {
@@ -484,6 +509,10 @@ export async function getOrderStatus(
 }> {
   const url = new URL(buildPublicCatalogUrl(businessSlug, "/order"));
   if (options?.sessionId) url.searchParams.set("sessionId", options.sessionId);
+  // El sessionId se persiste por negocio (no por sede) en localStorage — sin
+  // mandar branchId, un DRAFT creado en otra sede del mismo negocio
+  // aparecería como si perteneciera a la sede actual.
+  if (options?.branchId) url.searchParams.set("branchId", options.branchId);
 
   const response = await fetch(url.toString(), {
     cache: "no-store",

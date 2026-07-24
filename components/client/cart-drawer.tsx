@@ -6,7 +6,7 @@ import { X, Minus, Plus, Loader2, AlertCircle, CheckCircle, Phone } from 'lucide
 import { useCart } from './cart-context';
 import { useCartUI } from './cart-ui-context';
 import { CartItemNotes } from './cart-item-notes';
-import { createOrderAction, createOrderPublicAction, updateOrderAction, updateOrderByTokenAction, checkOrderAction } from '@/lib/cart-actions';
+import { createOrderAction, createOrderPublicAction, updateOrderAction, updateOrderByTokenAction, checkOrderAction, getOrderByTokenAction } from '@/lib/cart-actions';
 import { PhoneCaptureModal } from './phone-capture-modal';
 import type { BusinessInfo } from '@/src/types/catalog.types';
 import { formatPrice } from '@/lib/utils';
@@ -60,15 +60,20 @@ export function CartDrawer({ business }: CartDrawerProps) {
   const checkExistingOrder = useCallback(async () => {
     if (!sessionId) return;
     try {
-      // WhatsApp users use the actual token for web-catalog endpoints
-      const orderKey = whatsappToken || business.slug;
-      const data = await checkOrderAction(orderKey, { sessionId });
+      // Caminos separados a propósito (no un solo orderKey compartido):
+      // checkOrderAction pega al endpoint anónimo (/catalog/:businessSlug/order),
+      // cuyo backend valida formato de slug — un token real de WhatsApp
+      // (trae mayúsculas) lo rechazaría, dejando hasOrder siempre en false
+      // para clientes de WhatsApp.
+      const data = whatsappToken
+        ? await getOrderByTokenAction(whatsappToken)
+        : await checkOrderAction(business.slug, { sessionId, branchId });
       setOrderStatus(data);
       if (data.order?.notes) setNotes(data.order.notes);
     } catch (error) {
       console.error('Error checking order:', error);
     }
-  }, [business.slug, sessionId, whatsappToken]);
+  }, [business.slug, sessionId, whatsappToken, branchId]);
 
   useEffect(() => {
     if (isCartOpen) {
@@ -111,6 +116,19 @@ export function CartDrawer({ business }: CartDrawerProps) {
     return map[status] || status.toLowerCase();
   };
 
+  // Cart storage is determined by branchId, not origin:
+  //   branchId present → PublicCartService (togo:cart:public:slug:branchId:sessionId)
+  //   whatsappToken present → CartSessionService (togo:cart:token)
+  // A valid cart must have one or the other — reaching neither is a
+  // misconfiguration. Compartido entre el flujo de creación y el de
+  // actualización de una orden DRAFT (antes duplicado en ambos).
+  const requireResolvedSede = useCallback((): boolean => {
+    if (whatsappToken || branchId) return true;
+    setShowAlert({ type: 'error', message: 'No se pudo determinar la sede. Por favor recarga la página.' });
+    setIsProcessing(false);
+    return false;
+  }, [whatsappToken, branchId]);
+
   const handleSubmitOrder = useCallback(async () => {
     if (cart.items.length === 0) return;
     if (!isIdentified) { setShowPhoneModal(true); return; }
@@ -131,16 +149,10 @@ export function CartDrawer({ business }: CartDrawerProps) {
         return;
       }
       if (orderStatus?.hasOrder && orderStatus.order?.status === 'DRAFT') {
-        // Mismo guard que el flujo de creación (líneas más abajo): sin token
-        // y sin sede resuelta no hay forma de saber qué carrito público usar.
-        if (!whatsappToken && !branchId) {
-          setShowAlert({ type: 'error', message: 'No se pudo determinar la sede. Por favor recarga la página.' });
-          setIsProcessing(false);
-          return;
-        }
-        const result = whatsappToken
-          ? await updateOrderByTokenAction(whatsappToken, orderStatus.order.id, { notes: notes.trim() })
-          : await updateOrderAction(business.slug, orderStatus.order.id, { notes: notes.trim(), sessionId, branchId: branchId! });
+        if (!requireResolvedSede()) return;
+        const result = branchId
+          ? await updateOrderAction(business.slug, orderStatus.order.id, { notes: notes.trim(), sessionId, branchId })
+          : await updateOrderByTokenAction(whatsappToken!, orderStatus.order.id, { notes: notes.trim() });
         if (!result.success) throw new Error(result.error || 'Error al actualizar');
 
         const phoneForWaMe = branchPhone ?? business.phone;
@@ -164,15 +176,7 @@ export function CartDrawer({ business }: CartDrawerProps) {
         router.push(`/${business.slug}/pedido-confirmado?${params}`);
         return;
       }
-      // Cart storage is determined by branchId, not origin:
-      //   branchId present → PublicCartService (togo:cart:public:slug:branchId:sessionId)
-      //   whatsappToken present → CartSessionService (togo:cart:token)
-      // A valid cart must have one or the other — reaching neither is a misconfiguration.
-      if (!branchId && !whatsappToken) {
-        setShowAlert({ type: 'error', message: 'No se pudo determinar la sede. Por favor recarga la página.' });
-        setIsProcessing(false);
-        return;
-      }
+      if (!requireResolvedSede()) return;
       const result = branchId
         ? await createOrderPublicAction(business.slug, {
             items: cart.items.map(item => ({ ...item, branchId })),
@@ -217,7 +221,7 @@ export function CartDrawer({ business }: CartDrawerProps) {
     } finally {
       setIsProcessing(false);
     }
-  }, [cart.items, customer, notes, orderStatus, sessionId, whatsappToken, syncCart, checkExistingOrder, clearCart, handleClose, business, branchPhone, router]);
+  }, [cart.items, customer, notes, orderStatus, sessionId, whatsappToken, branchId, requireResolvedSede, syncCart, checkExistingOrder, clearCart, handleClose, business, branchPhone, router]);
 
   // Keep ref current so the isIdentified effect always calls the latest version
   handleSubmitOrderRef.current = handleSubmitOrder;
