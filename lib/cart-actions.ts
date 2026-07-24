@@ -29,6 +29,7 @@ import {
   addToCartByToken,
   removeFromCartByToken,
   updateOrderByToken,
+  InvalidTokenError,
 } from './api';
 import type { Cart, CartItem, CustomerOrigin } from '@/src/types/catalog.types';
 import { checkRateLimit, getCartRateLimitKey, RATE_LIMITS } from './rate-limit';
@@ -41,6 +42,9 @@ interface CartActionResult {
   success: boolean;
   cart?: Cart;
   error?: string;
+  /** Seteado cuando el fallo es por token inválido/vencido — permite al
+   * cliente degradar a flujo anónimo en vez de tratarlo como un error genérico. */
+  errorCode?: 'INVALID_TOKEN';
 }
 
 interface OrderActionResult {
@@ -403,10 +407,23 @@ export async function updateCartItemPublicAction(
 // TOKEN-BASED ACTIONS — WhatsApp token flow (?t=TOKEN)
 // ═══════════════════════════════════════════════════════════
 
-export async function getCartByTokenAction(token: string): Promise<Cart> {
-  // Let errors propagate — syncCart's try-catch preserves the existing cart state
-  // on backend errors instead of replacing it with an empty cart.
-  return await getCartByToken(token);
+export async function getCartByTokenAction(
+  token: string,
+): Promise<{ cart: Cart; invalidToken?: boolean }> {
+  try {
+    const cart = await getCartByToken(token);
+    return { cart };
+  } catch (error) {
+    // Token inválido/vencido: no es un error de red — se informa explícitamente
+    // para que syncCart pueda degradar a flujo anónimo en vez de solo preservar
+    // el carrito local sin más (que era el comportamiento anterior).
+    if (error instanceof InvalidTokenError) {
+      return { cart: { items: [], updatedAt: new Date().toISOString() }, invalidToken: true };
+    }
+    // Otros errores (red, 500, etc.) siguen propagándose — syncCart's try-catch
+    // preserva el carrito local existente en ese caso.
+    throw error;
+  }
 }
 
 export async function addToCartByTokenAction(
@@ -427,6 +444,7 @@ export async function addToCartByTokenAction(
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Error al agregar item',
+      errorCode: error instanceof InvalidTokenError ? 'INVALID_TOKEN' : undefined,
     };
   }
 }
@@ -449,6 +467,7 @@ export async function removeFromCartByTokenAction(
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Error al eliminar item',
+      errorCode: error instanceof InvalidTokenError ? 'INVALID_TOKEN' : undefined,
     };
   }
 }
