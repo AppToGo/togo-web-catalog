@@ -191,6 +191,10 @@ export default async function BusinessCatalogPage({
       return <EmptyCatalog businessName={catalog.business.name} />;
     }
 
+    // branchId and branchPhone come from the backend response — needed for cart operations and wa.me redirect
+    const branchId = catalog.branchId ?? undefined;
+    const branchPhone = catalog.branchPhone;
+
     return (
       <>
         <StructuredData catalog={catalog} businessSlug={businessSlug} />
@@ -209,6 +213,8 @@ export default async function BusinessCatalogPage({
             initialPhone={catalog.customerPhone}
             initialName={catalog.customerName}
             isAuthenticated={!!effectiveToken}
+            branchId={branchId}
+            branchPhone={branchPhone}
             whatsappToken={effectiveToken}
             initialCart={initialCart}
           >
