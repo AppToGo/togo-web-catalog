@@ -111,19 +111,18 @@ async function handleResponse<T>(response: Response): Promise<T> {
 // ═══════════════════════════════════════════════════════════
 
 /**
- * Obtiene el catálogo público por businessSlug.
+ * Obtiene el catálogo público por businessSlug (negocio de una sola sede,
+ * o multi-sede sin sede explícita — ver requiresBranchSelection).
  *
- * Uses normalized catalog endpoint: GET /api/v1/web-catalog/:businessSlug
- * Returns BusinessProduct + GlobalProduct combined data.
- *
- * Si se proporciona token, se obtienen también los datos del customer.
- * El backend decide si requiere token o no según la configuración del negocio.
+ * Usa el endpoint público GET /api/v1/catalog/:businessSlug (no requiere
+ * token). El token es opcional y solo enriquece la respuesta con datos
+ * del customer (teléfono) cuando es válido — igual que fetchCatalogByBranch.
  */
 export async function fetchCatalog(
   businessSlug: string,
   options?: { token?: string; table?: string },
 ): Promise<CatalogResponse> {
-  const url = new URL(buildWebCatalogUrl(businessSlug));
+  const url = new URL(buildPublicCatalogUrl(businessSlug));
 
   if (options?.token) {
     url.searchParams.set("token", options.token);
