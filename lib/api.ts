@@ -37,8 +37,18 @@ export type {
   CustomerOrigin,
 };
 
+// Este archivo solo se ejecuta en el servidor (Server Components / Server
+// Actions, ver 'use server' en cart-actions.ts) — nunca corre en el browser.
+// En producción preferimos API_INTERNAL_URL (red interna de Docker/Swarm,
+// ej. http://togo-togoapi-qjfgoj:3000/v1) en vez de NEXT_PUBLIC_API_URL
+// (dominio público vía Cloudflare): las llamadas servidor-a-servidor entre
+// contenedores del mismo VPS son bloqueadas por el Managed Challenge/Bot
+// Fight Mode de Cloudflare (fetch() de Node no pasa el challenge JS), lo
+// que el código interpreta como token inválido y rompe el catálogo.
 const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000/v1";
+  process.env.API_INTERNAL_URL ||
+  process.env.NEXT_PUBLIC_API_URL ||
+  "http://localhost:3000/v1";
 
 // ═══════════════════════════════════════════════════════════
 // CONFIGURACIÓN
