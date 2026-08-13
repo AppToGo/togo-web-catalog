@@ -529,8 +529,10 @@ export async function createOrderPublicAction(
     items: (CartItem & { branchId: string })[];
     notes?: string;
     sessionId: string;
-    phoneNumber: string;
+    phoneNumber?: string;
     fromWhatsApp?: boolean;
+    /** Código de mesa (Fase 2) — ver docs/architecture/pedidos-en-mesa.md */
+    tableCode?: string;
   },
 ): Promise<OrderActionResult> {
   try {
