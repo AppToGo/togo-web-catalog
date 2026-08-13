@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { X, Minus, Plus, Loader2, AlertCircle, CheckCircle, Phone } from 'lucide-react';
+import { X, Minus, Plus, Loader2, AlertCircle, CheckCircle, Phone, Utensils } from 'lucide-react';
 import { useCart } from './cart-context';
 import { useCartUI } from './cart-ui-context';
 import { CartItemNotes } from './cart-item-notes';
@@ -129,13 +129,22 @@ export function CartDrawer({ business }: CartDrawerProps) {
     return false;
   }, [whatsappToken, branchId]);
 
+  // Fase 2 (docs/architecture/pedidos-en-mesa.md): un pedido con mesa no
+  // necesita teléfono — el comensal está sentado en el local. El backend
+  // atribuye el pedido al cliente técnico del negocio cuando no hay
+  // teléfono. Sin mesa, el teléfono sigue siendo obligatorio (comportamiento
+  // previo, sin cambios).
+  const isTableOrder = !!customer.tableNumber;
+
   const handleSubmitOrder = useCallback(async () => {
     if (cart.items.length === 0) return;
-    if (!isIdentified) { setShowPhoneModal(true); return; }
-    // All flows that use the public endpoint require a phone number
-    if (!customer.phone) {
-      setShowPhoneModal(true);
-      return;
+    if (!isTableOrder) {
+      if (!isIdentified) { setShowPhoneModal(true); return; }
+      // All flows that use the public endpoint require a phone number
+      if (!customer.phone) {
+        setShowPhoneModal(true);
+        return;
+      }
     }
 
     setIsProcessing(true);
@@ -182,7 +191,9 @@ export function CartDrawer({ business }: CartDrawerProps) {
             items: cart.items.map(item => ({ ...item, branchId })),
             notes: notes.trim(),
             sessionId,
-            phoneNumber: customer.phone!,
+            // Sin teléfono en un pedido de mesa: el backend usa el cliente
+            // técnico del negocio (Fase 2).
+            phoneNumber: customer.phone || undefined,
             // customer.origin refleja de dónde vino el cliente originalmente
             // (se fija al montar y no cambia), a diferencia de whatsappToken
             // que puede degradarse a undefined a mitad de sesión si el token
@@ -190,6 +201,7 @@ export function CartDrawer({ business }: CartDrawerProps) {
             // perdería el mensaje de checkout por WhatsApp aunque el pedido
             // se cree bien por el camino público.
             fromWhatsApp: customer.origin === 'whatsapp',
+            tableCode: customer.tableNumber,
           })
         : await createOrderAction(whatsappToken!, {
             items: cart.items, notes: notes.trim(), source: customer.origin, sessionId,
@@ -221,7 +233,7 @@ export function CartDrawer({ business }: CartDrawerProps) {
     } finally {
       setIsProcessing(false);
     }
-  }, [cart.items, customer, notes, orderStatus, sessionId, whatsappToken, branchId, requireResolvedSede, syncCart, checkExistingOrder, clearCart, handleClose, business, branchPhone, router]);
+  }, [cart.items, customer, isTableOrder, notes, orderStatus, sessionId, whatsappToken, branchId, requireResolvedSede, syncCart, checkExistingOrder, clearCart, handleClose, business, branchPhone, router]);
 
   // Keep ref current so the isIdentified effect always calls the latest version
   handleSubmitOrderRef.current = handleSubmitOrder;
@@ -242,7 +254,7 @@ export function CartDrawer({ business }: CartDrawerProps) {
   const getSubmitButtonText = () => {
     if (isSyncing) return 'Sincronizando...';
     if (isProcessing) return 'Procesando...';
-    if (!isIdentified) return 'Continuar';
+    if (!isIdentified && !isTableOrder) return 'Continuar';
     if (orderStatus?.hasOrder && orderStatus.order?.status !== 'DRAFT') return 'Orden no modificable';
     if (orderStatus?.hasOrder) return 'Actualizar orden';
     return 'Enviar pedido';
@@ -299,6 +311,14 @@ export function CartDrawer({ business }: CartDrawerProps) {
             <X size={16} />
           </button>
         </div>
+
+        {/* Mesa badge (Fase 2) */}
+        {isTableOrder && (
+          <div className="px-4 py-[6px] bg-[var(--accent-soft)] text-[var(--accent)] text-xs flex items-center gap-[6px] shrink-0">
+            <Utensils size={12} />
+            <span>Pedido en mesa: {customer.tableNumber}</span>
+          </div>
+        )}
 
         {/* Customer phone badge */}
         {isIdentified && customer.phone && (
@@ -442,7 +462,7 @@ export function CartDrawer({ business }: CartDrawerProps) {
         {/* Footer */}
         {cart.items.length > 0 && (
           <div className="shrink-0 border-t border-[var(--line)] px-4 py-3 bg-[var(--surface)]">
-            {!isIdentified && (
+            {!isIdentified && !isTableOrder && (
               <p className="text-xs text-[var(--ink-3)] text-center mb-2">
                 Te pediremos tu teléfono para confirmar el pedido
               </p>

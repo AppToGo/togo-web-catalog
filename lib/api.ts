@@ -662,8 +662,12 @@ export async function createOrderPublic(
     items: (CartItem & { branchId: string })[];
     notes?: string;
     sessionId: string;
-    phoneNumber: string;
+    // Opcional cuando viene tableCode (Fase 2, pedido de mesa): el backend
+    // atribuye el pedido al cliente técnico del negocio si no hay teléfono.
+    phoneNumber?: string;
     fromWhatsApp?: boolean;
+    /** Código de mesa (Fase 2) — ver docs/architecture/pedidos-en-mesa.md */
+    tableCode?: string;
   },
 ): Promise<OrderResponse> {
   const sanitizedData = {
