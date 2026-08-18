@@ -70,10 +70,16 @@ export default async function OrderConfirmationPage({ params, searchParams }: Pa
           )}
         </div>
 
-        {/* Body */}
+        {/* Body
+            El texto del flujo con token decía "te vamos a contactar", y esa
+            promesa no siempre se cumple: el mensaje de checkout es una
+            notificación proactiva que puede quedar bloqueada (ventana de
+            servicio de 24h de Meta) sin que el cliente se entere de nada.
+            Ahora se le da siempre un camino propio de vuelta a la
+            conversación en lugar de pedirle que espere. */}
         <p className="text-[15px] text-[var(--ink-2)] leading-relaxed">
           {isTokenFlow
-            ? 'Te vamos a contactar por WhatsApp para coordinar los detalles y completar tu pedido.'
+            ? 'Volvé a WhatsApp para elegir la entrega y confirmar tu pedido. Si no ves el mensaje, escribinos por el mismo chat.'
             : orderNumber
               ? `Andá a WhatsApp y mencioná el número #${orderNumber} para coordinar los detalles de tu pedido.`
               : 'Andá a WhatsApp y coordiná los detalles de tu pedido con el negocio.'}
@@ -81,7 +87,7 @@ export default async function OrderConfirmationPage({ params, searchParams }: Pa
 
         {/* CTAs */}
         <div className="flex flex-col gap-3 w-full">
-          {decodedWaUrl && (
+          {decodedWaUrl ? (
             <a
               href={decodedWaUrl}
               target="_blank"
@@ -90,8 +96,16 @@ export default async function OrderConfirmationPage({ params, searchParams }: Pa
               style={{ fontFamily: 'var(--font-display)' }}
             >
               <MessageCircle size={18} />
-              Abrir WhatsApp
+              {isTokenFlow ? 'Continuar en WhatsApp' : 'Abrir WhatsApp'}
             </a>
+          ) : (
+            // Sin teléfono resoluble no hay link al que mandar al cliente; al
+            // menos que sepa que el pedido quedó guardado y cómo retomarlo.
+            <p className="text-[13px] text-[var(--ink-3)] leading-relaxed">
+              Tu pedido quedó guardado
+              {orderNumber ? ` con el número #${orderNumber}` : ''}. Escribile al
+              negocio por WhatsApp para terminar de coordinarlo.
+            </p>
           )}
         </div>
 
