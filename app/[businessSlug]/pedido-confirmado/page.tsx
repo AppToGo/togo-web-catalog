@@ -79,10 +79,10 @@ export default async function OrderConfirmationPage({ params, searchParams }: Pa
             conversación en lugar de pedirle que espere. */}
         <p className="text-[15px] text-[var(--ink-2)] leading-relaxed">
           {isTokenFlow
-            ? 'Volvé a WhatsApp para elegir la entrega y confirmar tu pedido. Si no ves el mensaje, escribinos por el mismo chat.'
+            ? 'Vuelve a WhatsApp para elegir la entrega y confirmar tu pedido. Si no ves el mensaje, escríbenos por el mismo chat.'
             : orderNumber
-              ? `Andá a WhatsApp y mencioná el número #${orderNumber} para coordinar los detalles de tu pedido.`
-              : 'Andá a WhatsApp y coordiná los detalles de tu pedido con el negocio.'}
+              ? `Ve a WhatsApp y menciona el número #${orderNumber} para coordinar los detalles de tu pedido.`
+              : 'Ve a WhatsApp y coordina los detalles de tu pedido con el negocio.'}
         </p>
 
         {/* CTAs */}
@@ -103,7 +103,7 @@ export default async function OrderConfirmationPage({ params, searchParams }: Pa
             // menos que sepa que el pedido quedó guardado y cómo retomarlo.
             <p className="text-[13px] text-[var(--ink-3)] leading-relaxed">
               Tu pedido quedó guardado
-              {orderNumber ? ` con el número #${orderNumber}` : ''}. Escribile al
+              {orderNumber ? ` con el número #${orderNumber}` : ''}. Escríbele al
               negocio por WhatsApp para terminar de coordinarlo.
             </p>
           )}

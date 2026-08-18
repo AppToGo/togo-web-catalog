@@ -195,7 +195,7 @@ export function PhoneCaptureModal({ isOpen, onClose, onSubmit }: PhoneCaptureMod
               />
             </div>
             <p className="text-xs text-[var(--ink-3)] mt-1">
-              Ingresá solo el número local, sin el código de país
+              Ingresa solo el número local, sin el código de país
             </p>
           </div>
 
