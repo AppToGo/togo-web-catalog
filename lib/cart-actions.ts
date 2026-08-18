@@ -187,10 +187,11 @@ export async function clearCartAction(
       return { success: false, error: 'Slug requerido' };
     }
 
-    // TODO: The backend does not expose a /cart/clear endpoint yet.
-    // The Redis cart expires automatically after 30 minutes (CartSessionService TTL).
-    // After order creation the user is redirected to WhatsApp, so the stale cart
-    // is unlikely to be re-synced. Track backend endpoint addition in a follow-up ticket.
+    // No hay endpoint /cart/clear, y ya no hace falta: el backend borra el
+    // carrito de Redis al crear la orden (POST :slug/order) y al actualizarla
+    // (PATCH :slug/order). Esto solo limpia el estado local; si por alguna
+    // razón quedara un carrito servidor huérfano, caduca solo a los 30 min
+    // (TTL de PublicCartService).
 
     // @ts-ignore - Next.js 16 types requieren 2 args pero runtime funciona con 1
     revalidateTag(`catalog-${businessSlug}`, {});
