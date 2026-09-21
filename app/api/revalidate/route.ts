@@ -31,7 +31,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!token || typeof token !== "string" || token.length < 10) {
+    // `token` es el slug del negocio (tag "catalog-<slug>"): puede ser corto
+    // ("togoprod"), así que se valida el formato y no un largo mínimo.
+    if (!token || typeof token !== "string" || !/^[a-z0-9][a-z0-9-]{0,99}$/i.test(token)) {
       return NextResponse.json(
         { success: false, message: "Bad Request: Invalid token" },
         { status: 400 },
