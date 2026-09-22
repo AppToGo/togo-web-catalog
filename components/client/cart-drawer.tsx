@@ -11,12 +11,15 @@ import { PhoneCaptureModal } from './phone-capture-modal';
 import type { BusinessInfo } from '@/src/types/catalog.types';
 import { formatPrice } from '@/lib/utils';
 
-function buildWaMeUrl(phone: string | undefined, businessName: string, orderNumber?: string): string | null {
+// Sin número de pedido a propósito: el consecutivo del negocio se asigna al
+// confirmar, así que acá el backend todavía devuelve el id legado alfanumérico
+// (#A1B2C3) y citarlo solo confunde — el cliente vería después otro número
+// distinto, el real. El bot identifica al cliente por su teléfono y le ofrece
+// su pedido en curso, que es más fiable que pedirle que copie un código.
+function buildWaMeUrl(phone: string | undefined, businessName: string): string | null {
   if (!phone) return null;
   const digits = phone.replace(/\D/g, '');
-  const text = orderNumber
-    ? `Hola, acabo de hacer el pedido #${orderNumber} en ${businessName} y quiero completarlo`
-    : `Hola, acabo de hacer un pedido en ${businessName} y quiero completarlo`;
+  const text = `Hola, acabo de hacer un pedido en ${businessName} y quiero completarlo`;
   return `https://wa.me/${digits}?text=${encodeURIComponent(text)}`;
 }
 
@@ -167,7 +170,7 @@ export function CartDrawer({ business }: CartDrawerProps) {
         const phoneForWaMe = branchPhone ?? business.phone;
         const waUrl = whatsappToken
           ? buildWaMeUrlSimple(phoneForWaMe)
-          : buildWaMeUrl(phoneForWaMe, business.name, result.order?.orderNumber);
+          : buildWaMeUrl(phoneForWaMe, business.name);
 
         if (customer.origin !== 'whatsapp' && waUrl) {
           window.open(waUrl, '_blank', 'noopener,noreferrer');
@@ -177,7 +180,6 @@ export function CartDrawer({ business }: CartDrawerProps) {
         clearCart();
 
         const params = new URLSearchParams();
-        if (result.order?.orderNumber) params.set('order', result.order.orderNumber);
         if (waUrl) params.set('wa', encodeURIComponent(waUrl));
         if (whatsappToken) params.set('t', '1');
 
@@ -212,7 +214,7 @@ export function CartDrawer({ business }: CartDrawerProps) {
       const phoneForWaMe = result.order?.branchPhone ?? branchPhone ?? business.phone;
       const waUrl = whatsappToken
         ? buildWaMeUrlSimple(phoneForWaMe)
-        : buildWaMeUrl(phoneForWaMe, business.name, result.order?.orderNumber);
+        : buildWaMeUrl(phoneForWaMe, business.name);
 
       if (customer.origin !== 'whatsapp' && waUrl) {
         window.open(waUrl, '_blank', 'noopener,noreferrer');
@@ -222,7 +224,6 @@ export function CartDrawer({ business }: CartDrawerProps) {
       clearCart();
 
       const params = new URLSearchParams();
-      if (result.order?.orderNumber) params.set('order', result.order.orderNumber);
       if (waUrl) params.set('wa', encodeURIComponent(waUrl));
       if (whatsappToken) params.set('t', '1');
 
@@ -350,8 +351,11 @@ export function CartDrawer({ business }: CartDrawerProps) {
               orderStatus.order?.status === 'DRAFT' ? 'bg-blue-50 text-blue-700' : 'bg-amber-50 text-amber-700'
             }`}
           >
+            {/* En DRAFT no se muestra número: el consecutivo del negocio se
+                asigna al confirmar, así que ahí `orderNumber` todavía es el id
+                legado alfanumérico. Una vez confirmada sí es el número real. */}
             {orderStatus.order?.status === 'DRAFT'
-              ? `Orden #${orderStatus.order.orderNumber} en borrador`
+              ? 'Tienes un pedido en borrador'
               : `Orden #${orderStatus.order?.orderNumber} ${getOrderStatusText(orderStatus.order!.status)}`}
           </div>
         )}
