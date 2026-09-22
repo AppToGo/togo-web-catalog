@@ -6,7 +6,7 @@ import { notFound } from 'next/navigation';
 
 interface PageProps {
   params: Promise<{ businessSlug: string }>;
-  searchParams: Promise<{ order?: string; wa?: string; t?: string }>;
+  searchParams: Promise<{ wa?: string; t?: string }>;
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
@@ -19,7 +19,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 export default async function OrderConfirmationPage({ params, searchParams }: PageProps) {
   const { businessSlug } = await params;
-  const { order: orderNumber, wa: waUrl, t } = await searchParams;
+  const { wa: waUrl, t } = await searchParams;
   const isTokenFlow = t === '1';
 
   if (!isValidSlug(businessSlug)) notFound();
@@ -63,11 +63,6 @@ export default async function OrderConfirmationPage({ params, searchParams }: Pa
             ¡Tu pedido fue registrado!
           </h1>
 
-          {orderNumber && (
-            <div className="inline-flex items-center gap-1.5 self-center bg-[var(--accent-soft,#f0fdf4)] text-[var(--accent)] px-4 py-1.5 rounded-full text-[15px] font-bold tracking-[-0.01em]">
-              #{orderNumber}
-            </div>
-          )}
         </div>
 
         {/* Body
@@ -80,9 +75,7 @@ export default async function OrderConfirmationPage({ params, searchParams }: Pa
         <p className="text-[15px] text-[var(--ink-2)] leading-relaxed">
           {isTokenFlow
             ? 'Vuelve a WhatsApp para elegir la entrega y confirmar tu pedido. Si no ves el mensaje, escríbenos por el mismo chat.'
-            : orderNumber
-              ? `Ve a WhatsApp y menciona el número #${orderNumber} para coordinar los detalles de tu pedido.`
-              : 'Ve a WhatsApp y coordina los detalles de tu pedido con el negocio.'}
+            : 'Ve a WhatsApp y coordina los detalles de tu pedido con el negocio. Te identificamos por tu teléfono.'}
         </p>
 
         {/* CTAs */}
@@ -102,9 +95,8 @@ export default async function OrderConfirmationPage({ params, searchParams }: Pa
             // Sin teléfono resoluble no hay link al que mandar al cliente; al
             // menos que sepa que el pedido quedó guardado y cómo retomarlo.
             <p className="text-[13px] text-[var(--ink-3)] leading-relaxed">
-              Tu pedido quedó guardado
-              {orderNumber ? ` con el número #${orderNumber}` : ''}. Escríbele al
-              negocio por WhatsApp para terminar de coordinarlo.
+              Tu pedido quedó guardado. Escríbele al negocio por WhatsApp para
+              terminar de coordinarlo.
             </p>
           )}
         </div>
