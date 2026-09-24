@@ -56,12 +56,19 @@ export function CartDrawer({ business }: CartDrawerProps) {
   // Holds the latest handleSubmitOrder to avoid stale closures in the isIdentified effect
   const handleSubmitOrderRef = useRef<() => Promise<void>>(async () => {});
   const [orderStatus, setOrderStatus] = useState<OrderStatus | null>(null);
+  // Sin esto, tocar "Actualizar" antes de que resuelva checkExistingOrder()
+  // (llamada de red disparada al abrir el drawer) veía orderStatus === null,
+  // trataba el pedido DRAFT existente como inexistente, y creaba uno nuevo
+  // en vez de actualizarlo — perdiendo dirección/método de pago ya
+  // guardados en el pedido original.
+  const [isCheckingOrder, setIsCheckingOrder] = useState(false);
   const [showAlert, setShowAlert] = useState<{ type: 'error' | 'success' | 'warning'; message: string } | null>(null);
   const [showPhoneModal, setShowPhoneModal] = useState(false);
   const [animationState, setAnimationState] = useState<'closed' | 'opening' | 'open' | 'closing'>('closed');
 
   const checkExistingOrder = useCallback(async () => {
     if (!sessionId) return;
+    setIsCheckingOrder(true);
     try {
       // Caminos separados a propósito (no un solo orderKey compartido):
       // checkOrderAction pega al endpoint anónimo (/catalog/:businessSlug/order),
@@ -75,6 +82,8 @@ export function CartDrawer({ business }: CartDrawerProps) {
       if (data.order?.notes) setNotes(data.order.notes);
     } catch (error) {
       console.error('Error checking order:', error);
+    } finally {
+      setIsCheckingOrder(false);
     }
   }, [business.slug, sessionId, whatsappToken, branchId]);
 
@@ -140,7 +149,7 @@ export function CartDrawer({ business }: CartDrawerProps) {
   const isTableOrder = !!customer.tableNumber;
 
   const handleSubmitOrder = useCallback(async () => {
-    if (cart.items.length === 0) return;
+    if (cart.items.length === 0 || isCheckingOrder) return;
     if (!isTableOrder) {
       if (!isIdentified) { setShowPhoneModal(true); return; }
       // All flows that use the public endpoint require a phone number
@@ -243,7 +252,7 @@ export function CartDrawer({ business }: CartDrawerProps) {
     } finally {
       setIsProcessing(false);
     }
-  }, [cart.items, customer, isTableOrder, notes, orderStatus, sessionId, whatsappToken, branchId, requireResolvedSede, syncCart, checkExistingOrder, clearCart, handleClose, business, branchPhone, router]);
+  }, [cart.items, customer, isTableOrder, notes, orderStatus, isCheckingOrder, sessionId, whatsappToken, branchId, requireResolvedSede, syncCart, checkExistingOrder, clearCart, handleClose, business, branchPhone, router]);
 
   // Keep ref current so the isIdentified effect always calls the latest version
   handleSubmitOrderRef.current = handleSubmitOrder;
@@ -264,6 +273,7 @@ export function CartDrawer({ business }: CartDrawerProps) {
   const getSubmitButtonText = () => {
     if (isSyncing) return 'Sincronizando...';
     if (isProcessing) return 'Procesando...';
+    if (isCheckingOrder) return 'Verificando pedido...';
     if (!isIdentified && !isTableOrder) return 'Continuar';
     if (orderStatus?.hasOrder && orderStatus.order?.status !== 'DRAFT') return 'Orden no modificable';
     if (orderStatus?.hasOrder) return 'Actualizar orden';
@@ -271,7 +281,7 @@ export function CartDrawer({ business }: CartDrawerProps) {
   };
 
   const isSubmitDisabled = () => (
-    isProcessing || isSyncing || cart.items.length === 0 ||
+    isProcessing || isSyncing || isCheckingOrder || cart.items.length === 0 ||
     (orderStatus?.hasOrder && orderStatus.order?.status !== 'DRAFT')
   );
 
