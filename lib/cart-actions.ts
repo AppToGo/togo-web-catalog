@@ -454,6 +454,7 @@ export async function addToCartByTokenAction(
 export async function removeFromCartByTokenAction(
   token: string,
   productId: string,
+  variantId?: string,
 ): Promise<CartActionResult> {
   try {
     const rateKey = await getCartRateLimitKey(token, 'remove');
@@ -463,7 +464,7 @@ export async function removeFromCartByTokenAction(
     if (!token || !productId) {
       return { success: false, error: 'Datos inválidos' };
     }
-    const cart = await removeFromCartByToken(token, productId);
+    const cart = await removeFromCartByToken(token, productId, variantId);
     return { success: true, cart };
   } catch (error) {
     return {
