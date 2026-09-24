@@ -22,6 +22,18 @@ import { Plus, Minus } from 'lucide-react';
 import type { CatalogProduct } from '@/src/types/catalog.types';
 import { useCart } from './cart-context';
 
+// `product.id` es el Product.id (normalizado), no el ProductVariant.id que
+// espera el carrito/backend — sin resolver esto, un producto de variante
+// única terminaba guardado con el Product.id como si fuera su variantId, y
+// la validación del backend lo rechazaba como "no encontrado" al
+// confirmar/actualizar el pedido. Mismo criterio que product-row.tsx.
+function resolveDefaultVariant(product: CatalogProduct) {
+  return (
+    product.variants?.find((v) => v.isDefault) ??
+    (product.variants?.length === 1 ? product.variants[0] : undefined)
+  );
+}
+
 // ═══════════════════════════════════════════════════════════
 // TYPES
 // ═══════════════════════════════════════════════════════════
@@ -48,9 +60,12 @@ export function AddToCartButton({
 }: AddToCartButtonProps) {
   const { addItem, updateItem, cart, isHydrated } = useCart();
 
-  const cartItem = isHydrated ? cart.items.find(item => item.productId === product.id) : undefined;
+  const defaultVariant = resolveDefaultVariant(product);
+  const cartItem = isHydrated
+    ? cart.items.find(item => item.productId === product.id && item.variantId === defaultVariant?.id)
+    : undefined;
   const quantity = cartItem?.quantity || 0;
-  
+
   // Check stock availability
   const isOutOfStock = product.stock === 0;
   const isMaxStockReached = product.stock !== undefined && quantity >= product.stock;
@@ -58,21 +73,23 @@ export function AddToCartButton({
   // Handlers
   const handleAdd = useCallback(() => {
     if (isOutOfStock || isMaxStockReached) return;
-    
+
     addItem({
       productId: product.id,
       name: product.name,
       price: product.price,
       quantity: 1,
       image: product.image,
+      variantId: defaultVariant?.id,
+      variantLabel: defaultVariant?.label,
     });
-  }, [addItem, product, isOutOfStock, isMaxStockReached]);
+  }, [addItem, product, defaultVariant, isOutOfStock, isMaxStockReached]);
 
   const handleUpdate = useCallback((delta: number) => {
     // Prevent going above stock limit
     if (delta > 0 && isMaxStockReached) return;
-    updateItem(product.id, delta);
-  }, [updateItem, product.id, isMaxStockReached]);
+    updateItem(product.id, delta, defaultVariant?.id);
+  }, [updateItem, product.id, defaultVariant?.id, isMaxStockReached]);
 
   // Tamaños
   const sizes = {
@@ -168,34 +185,37 @@ export function AddToCartModalControls({
   onClose 
 }: AddToCartModalControlsProps) {
   const { addItem, updateItem, cart } = useCart();
-  
-  const cartItem = cart.items.find(item => item.productId === product.id);
+
+  const defaultVariant = resolveDefaultVariant(product);
+  const cartItem = cart.items.find(item => item.productId === product.id && item.variantId === defaultVariant?.id);
   const quantity = cartItem?.quantity || 0;
-  
+
   // Check stock
   const isOutOfStock = product.stock === 0;
   const isMaxStockReached = product.stock !== undefined && quantity >= product.stock;
 
   const handleAdd = useCallback(() => {
     if (isOutOfStock || isMaxStockReached) return;
-    
+
     addItem({
       productId: product.id,
       name: product.name,
       price: product.price,
       quantity: 1,
       image: product.image,
+      variantId: defaultVariant?.id,
+      variantLabel: defaultVariant?.label,
     });
     onClose?.();
-  }, [addItem, product, onClose, isOutOfStock, isMaxStockReached]);
+  }, [addItem, product, defaultVariant, onClose, isOutOfStock, isMaxStockReached]);
 
   const handleUpdate = useCallback((delta: number) => {
     if (delta > 0 && isMaxStockReached) return;
-    updateItem(product.id, delta);
+    updateItem(product.id, delta, defaultVariant?.id);
     if (quantity + delta <= 0) {
       onClose?.();
     }
-  }, [updateItem, product.id, quantity, onClose, isMaxStockReached]);
+  }, [updateItem, product.id, defaultVariant?.id, quantity, onClose, isMaxStockReached]);
 
   if (isOutOfStock) {
     return (
