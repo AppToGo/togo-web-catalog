@@ -445,8 +445,10 @@ export async function addToCartByToken(
 export async function removeFromCartByToken(
   token: string,
   productId: string,
+  variantId?: string,
 ): Promise<Cart> {
-  const response = await fetch(buildTokenUrl(token, `/cart/${productId}`), {
+  const query = variantId ? `?variantId=${encodeURIComponent(variantId)}` : "";
+  const response = await fetch(buildTokenUrl(token, `/cart/${productId}${query}`), {
     method: "DELETE",
     cache: "no-store",
   });

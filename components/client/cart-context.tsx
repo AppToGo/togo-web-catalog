@@ -392,7 +392,7 @@ export function CartProvider({
       if (isTokenFlow) {
         // delta puede ser negativo (reducir cantidad) o positivo (aumentar)
         const result = newQuantity <= 0
-          ? await removeFromCartByTokenAction(activeToken!, productId)
+          ? await removeFromCartByTokenAction(activeToken!, productId, variantId)
           : await addToCartByTokenAction(activeToken!, { ...currentItem, quantity: delta });
 
         if (!result.success && result.errorCode === 'INVALID_TOKEN') {
@@ -445,7 +445,7 @@ export function CartProvider({
 
     try {
       if (isTokenFlow) {
-        const result = await removeFromCartByTokenAction(activeToken!, productId);
+        const result = await removeFromCartByTokenAction(activeToken!, productId, variantId);
 
         if (!result.success && result.errorCode === 'INVALID_TOKEN') {
           setActiveToken(undefined);
