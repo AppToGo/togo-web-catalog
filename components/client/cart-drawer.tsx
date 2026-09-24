@@ -162,9 +162,18 @@ export function CartDrawer({ business }: CartDrawerProps) {
       }
       if (orderStatus?.hasOrder && orderStatus.order?.status === 'DRAFT') {
         if (!requireResolvedSede()) return;
-        const result = branchId
-          ? await updateOrderAction(business.slug, orderStatus.order.id, { notes: notes.trim(), sessionId, branchId })
-          : await updateOrderByTokenAction(whatsappToken!, orderStatus.order.id, { notes: notes.trim() });
+        // A diferencia de la creación (que manda cart.items explícito en el
+        // body), estos dos endpoints de actualización NO reciben items —
+        // cada uno relee el carrito guardado server-side del storage que le
+        // corresponde (ver comentario arriba). Por eso acá hay que ramificar
+        // por whatsappToken (de dónde salió initialCart), no por branchId:
+        // una página de sede siempre resuelve branchId aunque el cliente
+        // haya llegado por un link de WhatsApp con su carrito en el storage
+        // por token — ramificar por branchId mandaba a esos clientes al
+        // endpoint de sesión, que encontraba el carrito de sesión vacío.
+        const result = whatsappToken
+          ? await updateOrderByTokenAction(whatsappToken, orderStatus.order.id, { notes: notes.trim() })
+          : await updateOrderAction(business.slug, orderStatus.order.id, { notes: notes.trim(), sessionId, branchId: branchId! });
         if (!result.success) throw new Error(result.error || 'Error al actualizar');
 
         const phoneForWaMe = branchPhone ?? business.phone;
