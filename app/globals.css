@@ -7,12 +7,8 @@
 :root {
   --accent: #14804a;
   --accent-ink: #ffffff;
-  --accent-soft: color-mix(in oklch, var(--accent) 10%, #fff);
-  --accent-softer: color-mix(in oklch, var(--accent) 5%, #fff);
   --accent-2: #ff6b35;
   --accent-2-ink: #ffffff;
-  --accent-2-soft: color-mix(in oklch, var(--accent-2) 12%, #fff);
-  --accent-2-softer: color-mix(in oklch, var(--accent-2) 6%, #fff);
   --bg: #fbfaf7;
   --surface: #ffffff;
   --ink: #1a1a1a;
@@ -43,6 +39,19 @@
   --color-card: var(--surface);
   --color-card-foreground: var(--ink);
   --radius: 0.75rem;
+}
+
+/* Tonos derivados del color del negocio. Un var() dentro de una custom
+   property se resuelve en el elemento donde se declara: si vivieran solo en
+   :root quedarían fijados al --accent por defecto aunque la página
+   sobrescriba --accent en el wrapper del catálogo. Por eso se redeclaran en
+   [data-catalog-theme] (el wrapper que recibe los colores del admin). */
+:root,
+[data-catalog-theme] {
+  --accent-soft: color-mix(in oklch, var(--accent) 10%, #fff);
+  --accent-softer: color-mix(in oklch, var(--accent) 5%, #fff);
+  --accent-2-soft: color-mix(in oklch, var(--accent-2) 12%, #fff);
+  --accent-2-softer: color-mix(in oklch, var(--accent-2) 6%, #fff);
 }
 
 * {
