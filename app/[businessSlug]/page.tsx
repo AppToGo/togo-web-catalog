@@ -22,6 +22,7 @@ import { CartDrawer } from "@/components/client/cart-drawer";
 import { ProductModal } from "@/components/client/product-modal";
 import { FloatingCart } from "@/components/client/floating-cart";
 import type { CustomerOrigin } from "@/lib/types";
+import { getColorContrast } from "@/components/utils/getColorContrast";
 
 // Next.js exige un literal acá (no admite un valor importado en el build) —
 // debe coincidir con DEFAULT_REVALIDATE en lib/api.ts.
@@ -194,15 +195,24 @@ export default async function BusinessCatalogPage({
     // branchId and branchPhone come from the backend response — needed for cart operations and wa.me redirect
     const branchId = catalog.branchId ?? undefined;
     const branchPhone = catalog.branchPhone;
+    const contrastAccentColor = getColorContrast(
+      catalog.business.accentColor || "#000000",
+    );
+    const contrastPrimaryColor = getColorContrast(
+      catalog.business.primaryColor || "#000000",
+    );
 
     return (
       <>
         <StructuredData catalog={catalog} businessSlug={businessSlug} />
         <div
+          data-catalog-theme
           style={
             {
               "--accent": catalog.business.primaryColor,
               "--accent-2": catalog.business.accentColor,
+              "--accent-ink": contrastPrimaryColor,
+              "--accent-2-ink": contrastAccentColor,
             } as React.CSSProperties
           }
         >
