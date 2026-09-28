@@ -217,21 +217,11 @@ export default async function BranchCatalogPage({
       catalog.business.primaryColor || "#000000",
     );
 
-    console.log(
-      "contrastColor",
-      catalog.business.accentColor,
-      contrastAccentColor,
-    );
-    console.log(
-      "contrastColor",
-      catalog.business.primaryColor,
-      contrastPrimaryColor,
-    );
-
     return (
       <>
         <StructuredData catalog={catalog} businessSlug={businessSlug} />
         <div
+          data-catalog-theme
           style={
             {
               "--accent": catalog.business.primaryColor,
