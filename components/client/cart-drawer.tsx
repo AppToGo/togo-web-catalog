@@ -148,6 +148,18 @@ export function CartDrawer({ business }: CartDrawerProps) {
   // previo, sin cambios).
   const isTableOrder = !!customer.tableNumber;
 
+  // Qué pedido existente puede editar el cliente desde acá:
+  // - DRAFT: siempre.
+  // - CONFIRMED por el flujo con token: el backend (GET /web-catalog/:token/order)
+  //   solo lo devuelve con hasOrder=true si el bloqueo de edición está vigente
+  //   (el bot lo tomó cuando el cliente pidió modificar su pedido confirmado),
+  //   y PATCH lo acepta en ese caso. El endpoint anónimo sí devuelve pedidos ya
+  //   confirmados que no se pueden tocar, por eso ahí solo vale DRAFT.
+  const existingStatus = orderStatus?.hasOrder ? orderStatus.order?.status : undefined;
+  const isConfirmedEdit = !!whatsappToken && existingStatus === 'CONFIRMED';
+  const canEditExisting = existingStatus === 'DRAFT' || isConfirmedEdit;
+  const isLocked = !!existingStatus && !canEditExisting;
+
   const handleSubmitOrder = useCallback(async () => {
     if (cart.items.length === 0 || isCheckingOrder) return;
     if (!isTableOrder) {
@@ -164,12 +176,12 @@ export function CartDrawer({ business }: CartDrawerProps) {
     await syncCart();
 
     try {
-      if (orderStatus?.hasOrder && orderStatus.order?.status !== 'DRAFT') {
-        setShowAlert({ type: 'error', message: `Esta orden ya fue ${getOrderStatusText(orderStatus.order!.status)}.` });
+      if (isLocked) {
+        setShowAlert({ type: 'error', message: `Esta orden ya fue ${getOrderStatusText(existingStatus!)}.` });
         setIsProcessing(false);
         return;
       }
-      if (orderStatus?.hasOrder && orderStatus.order?.status === 'DRAFT') {
+      if (orderStatus?.order && canEditExisting) {
         if (!requireResolvedSede()) return;
         // A diferencia de la creación (que manda cart.items explícito en el
         // body), estos dos endpoints de actualización NO reciben items —
@@ -252,7 +264,7 @@ export function CartDrawer({ business }: CartDrawerProps) {
     } finally {
       setIsProcessing(false);
     }
-  }, [cart.items, customer, isTableOrder, notes, orderStatus, isCheckingOrder, sessionId, whatsappToken, branchId, requireResolvedSede, syncCart, checkExistingOrder, clearCart, handleClose, business, branchPhone, router]);
+  }, [cart.items, customer, isTableOrder, notes, orderStatus, isLocked, canEditExisting, isCheckingOrder, sessionId, whatsappToken, branchId, requireResolvedSede, syncCart, checkExistingOrder, clearCart, handleClose, business, branchPhone, router]);
 
   // Keep ref current so the isIdentified effect always calls the latest version
   handleSubmitOrderRef.current = handleSubmitOrder;
@@ -275,19 +287,19 @@ export function CartDrawer({ business }: CartDrawerProps) {
     if (isProcessing) return 'Procesando...';
     if (isCheckingOrder) return 'Verificando pedido...';
     if (!isIdentified && !isTableOrder) return 'Continuar';
-    if (orderStatus?.hasOrder && orderStatus.order?.status !== 'DRAFT') return 'Orden no modificable';
+    if (isLocked) return 'Orden no modificable';
+    if (isConfirmedEdit) return 'Guardar cambios';
     if (orderStatus?.hasOrder) return 'Actualizar orden';
     return 'Enviar pedido';
   };
 
   const isSubmitDisabled = () => (
     isProcessing || isSyncing || isCheckingOrder || cart.items.length === 0 ||
-    (orderStatus?.hasOrder && orderStatus.order?.status !== 'DRAFT')
+    isLocked
   );
 
   const total = cart.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const isClosing = animationState === 'closing';
-  const isLocked = !!(orderStatus?.hasOrder && orderStatus.order?.status !== 'DRAFT');
 
   if (animationState === 'closed' && !isCartOpen) return null;
 
@@ -367,7 +379,7 @@ export function CartDrawer({ business }: CartDrawerProps) {
         {orderStatus?.hasOrder && (
           <div
             className={`px-4 py-[6px] text-xs font-semibold shrink-0 ${
-              orderStatus.order?.status === 'DRAFT' ? 'bg-blue-50 text-blue-700' : 'bg-amber-50 text-amber-700'
+              canEditExisting ? 'bg-blue-50 text-blue-700' : 'bg-amber-50 text-amber-700'
             }`}
           >
             {/* En DRAFT no se muestra número: el consecutivo del negocio se
@@ -375,6 +387,8 @@ export function CartDrawer({ business }: CartDrawerProps) {
                 legado alfanumérico. Una vez confirmada sí es el número real. */}
             {orderStatus.order?.status === 'DRAFT'
               ? 'Tienes un pedido en borrador'
+              : isConfirmedEdit
+              ? `Estás editando tu pedido #${orderStatus.order?.orderNumber}`
               : `Orden #${orderStatus.order?.orderNumber} ${getOrderStatusText(orderStatus.order!.status)}`}
           </div>
         )}
