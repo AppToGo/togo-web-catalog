@@ -25,9 +25,11 @@ import {
 interface ProductModalProps {
   token: string;
   accentColor: string;
+  /** Mismo ajuste del negocio que en la lista: sin fotos, la hoja tampoco las muestra */
+  useProductImages: boolean;
 }
 
-export function ProductModal(_props: ProductModalProps) {
+export function ProductModal({ useProductImages }: ProductModalProps) {
   const { selectedProduct, selectProduct } = useCartUI();
   const [shownProduct, setShownProduct] = useState<CatalogProduct | null>(selectedProduct);
   const sheetRef = useRef<HTMLDivElement>(null);
@@ -88,6 +90,7 @@ export function ProductModal(_props: ProductModalProps) {
           <ProductSheetContent
             key={getProductRowKey(shownProduct)}
             product={shownProduct}
+            showPhoto={useProductImages}
             onClose={handleClose}
           />
         )}
@@ -103,10 +106,11 @@ export function ProductModal(_props: ProductModalProps) {
 
 interface ProductSheetContentProps {
   product: CatalogProduct;
+  showPhoto: boolean;
   onClose: () => void;
 }
 
-function ProductSheetContent({ product, onClose }: ProductSheetContentProps) {
+function ProductSheetContent({ product, showPhoto, onClose }: ProductSheetContentProps) {
   const { cart, addItem, getStockForProduct } = useCart();
 
   const variants = product.variants ?? [];
@@ -121,10 +125,11 @@ function ProductSheetContent({ product, onClose }: ProductSheetContentProps) {
   const [compactHeader, setCompactHeader] = useState(false);
 
   const photoRef = useRef<HTMLDivElement>(null);
+  const titleRef = useRef<HTMLHeadingElement>(null);
   const descRef = useRef<HTMLParagraphElement>(null);
 
   const pickedVariant = hasVariants
-    ? variants.find((v) => v.id === pickedVariantId) ?? null
+    ? (variants.find((v) => v.id === pickedVariantId) ?? null)
     : singleVariant;
   const needsVariant = hasVariants && !pickedVariant;
 
@@ -143,24 +148,26 @@ function ProductSheetContent({ product, onClose }: ProductSheetContentProps) {
   }, [descExpanded]);
 
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
-    const photoHeight = photoRef.current?.offsetHeight ?? 0;
-    setCompactHeader(e.currentTarget.scrollTop > photoHeight - 56);
+    // Con foto: al pasarla. Sin foto: cuando el nombre queda bajo la cabecera.
+    const title = titleRef.current;
+    const threshold = showPhoto
+      ? (photoRef.current?.offsetHeight ?? 0)
+      : title
+        ? title.offsetTop + title.offsetHeight
+        : 0;
+    setCompactHeader(e.currentTarget.scrollTop > threshold - 56);
   };
 
-  const minVariantPrice = hasVariants
-    ? Math.min(...variants.map((v) => v.price))
-    : undefined;
+  const minVariantPrice = hasVariants ? Math.min(...variants.map((v) => v.price)) : undefined;
   const unitPrice =
-    pickedVariant?.price ?? (hasVariants ? undefined : product.priceFrom ?? product.price);
+    pickedVariant?.price ?? (hasVariants ? undefined : (product.priceFrom ?? product.price));
   const priceLabel =
     unitPrice !== undefined
       ? formatPrice(unitPrice)
       : `Desde ${formatPrice(product.priceFrom ?? minVariantPrice ?? product.price)}`;
 
   const isUnavailable =
-    !product.isAvailable ||
-    !product.active ||
-    pickedVariant?.isAvailable === false;
+    !product.isAvailable || !product.active || pickedVariant?.isAvailable === false;
   // Infinity cuando el producto no maneja stock
   const maxQty = getStockForProduct(product.id, product.stock, pickedVariant?.id);
   const outOfStock = maxQty <= 0;
@@ -178,11 +185,8 @@ function ProductSheetContent({ product, onClose }: ProductSheetContentProps) {
     : 'Elige una opción';
 
   const ctaDisabled = isUnavailable || outOfStock || needsVariant;
-  const ctaLabel = isUnavailable || outOfStock
-    ? 'Agotado'
-    : needsVariant
-      ? 'Elige una opción'
-      : 'Agregar';
+  const ctaLabel =
+    isUnavailable || outOfStock ? 'Agotado' : needsVariant ? 'Elige una opción' : 'Agregar';
 
   const handleAdd = () => {
     if (ctaDisabled || unitPrice === undefined) return;
@@ -232,35 +236,51 @@ function ProductSheetContent({ product, onClose }: ProductSheetContentProps) {
 
       {/* Zona de scroll */}
       <div
-        className="flex-1 min-h-0 overflow-y-auto overscroll-contain"
+        className="relative flex-1 min-h-0 overflow-y-auto overscroll-contain"
         onScroll={handleScroll}
       >
-        <div ref={photoRef} className="relative aspect-3/2 bg-(--accent-soft)">
-          {product.image ? (
-            <Image
-              src={product.image}
-              alt={product.name}
-              fill
-              className="object-cover"
-              sizes="100vw"
+        {showPhoto ? (
+          <div ref={photoRef} className="relative aspect-3/2 bg-(--accent-soft)">
+            {product.image ? (
+              <Image
+                src={product.image}
+                alt={product.name}
+                fill
+                className="object-cover"
+                sizes="100vw"
+              />
+            ) : (
+              <PhotoPlaceholder name={product.name} />
+            )}
+            <span
+              aria-hidden="true"
+              className="absolute top-2 left-1/2 -translate-x-1/2 w-9 h-1 rounded-full bg-(--surface)/90"
             />
-          ) : (
-            <PhotoPlaceholder name={product.name} />
-          )}
-          <span
-            aria-hidden="true"
-            className="absolute top-2 left-1/2 -translate-x-1/2 w-9 h-1 rounded-full bg-(--surface)/90"
-          />
-          <button
-            className="absolute top-3.5 right-3.5 w-10 h-10 rounded-full bg-(--surface)/95 text-(--ink) flex items-center justify-center shadow-[0_1px_4px_rgba(0,0,0,0.12)] active:scale-95 transition-transform"
-            onClick={onClose}
-            aria-label="Cerrar detalle"
-          >
-            <X size={18} strokeWidth={2.2} />
-          </button>
-        </div>
+            <button
+              className="absolute top-3.5 right-3.5 w-10 h-10 rounded-full bg-(--surface)/95 text-(--ink) flex items-center justify-center shadow-[0_1px_4px_rgba(0,0,0,0.12)] active:scale-95 transition-transform"
+              onClick={onClose}
+              aria-label="Cerrar detalle"
+            >
+              <X size={18} strokeWidth={2.2} />
+            </button>
+          </div>
+        ) : (
+          <div className="relative h-14">
+            <span
+              aria-hidden="true"
+              className="absolute top-2 left-1/2 -translate-x-1/2 w-9 h-1 rounded-full bg-(--line-2)"
+            />
+            <button
+              className="absolute top-3.5 right-3.5 w-10 h-10 rounded-full bg-(--bg) text-(--ink) flex items-center justify-center active:scale-95 transition-transform"
+              onClick={onClose}
+              aria-label="Cerrar detalle"
+            >
+              <X size={18} strokeWidth={2.2} />
+            </button>
+          </div>
+        )}
 
-        <div className="px-4 pt-4.5 pb-6 flex flex-col gap-3.5">
+        <div className={`px-4 ${showPhoto ? 'pt-4.5' : 'pt-0'} pb-6 flex flex-col gap-3.5`}>
           <div className="flex flex-col gap-1">
             {eyebrow && (
               <span className="text-xs font-semibold uppercase tracking-[0.04em] text-(--ink-2)">
@@ -268,6 +288,7 @@ function ProductSheetContent({ product, onClose }: ProductSheetContentProps) {
               </span>
             )}
             <h1
+              ref={titleRef}
               className="m-0 text-2xl leading-[1.15] font-bold tracking-[-0.03em] text-(--ink)"
               style={{ fontFamily: 'var(--font-display)' }}
             >
@@ -361,7 +382,11 @@ function ProductSheetContent({ product, onClose }: ProductSheetContentProps) {
                     {pickedVariant ? 'Listo' : 'Obligatorio'}
                   </span>
                 </div>
-                <div role="radiogroup" aria-labelledby="variant-title" className="flex flex-col gap-2">
+                <div
+                  role="radiogroup"
+                  aria-labelledby="variant-title"
+                  className="flex flex-col gap-2"
+                >
                   {variants.map((v) => (
                     <VariantOption
                       key={v.id}
@@ -386,9 +411,7 @@ function ProductSheetContent({ product, onClose }: ProductSheetContentProps) {
               style={{ fontFamily: 'var(--font-display)' }}
             >
               Notas para la cocina{' '}
-              <span className="text-[13px] font-medium text-(--ink-2)">
-                · opcional
-              </span>
+              <span className="text-[13px] font-medium text-(--ink-2)">· opcional</span>
             </label>
             <textarea
               id="product-notes"
@@ -450,7 +473,9 @@ function ProductSheetContent({ product, onClose }: ProductSheetContentProps) {
         >
           <span>{ctaLabel}</span>
           {!ctaDisabled && unitPrice !== undefined && (
-            <span className="font-bold tracking-[-0.02em]">{formatPrice(unitPrice * effectiveQty)}</span>
+            <span className="font-bold tracking-[-0.02em]">
+              {formatPrice(unitPrice * effectiveQty)}
+            </span>
           )}
         </button>
       </div>
@@ -524,7 +549,9 @@ function VariantOption({ variant, selected, onSelect }: VariantOptionProps) {
         }`}
         aria-hidden="true"
       >
-        <span className={`w-2.5 h-2.5 rounded-full ${selected ? 'bg-(--accent)' : 'bg-transparent'}`} />
+        <span
+          className={`w-2.5 h-2.5 rounded-full ${selected ? 'bg-(--accent)' : 'bg-transparent'}`}
+        />
       </span>
       <span className="flex-1 flex flex-col gap-px min-w-0">
         <span className="text-[15px] font-semibold text-(--ink)">{variant.label}</span>

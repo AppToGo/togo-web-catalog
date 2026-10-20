@@ -237,6 +237,7 @@ export default async function BusinessCatalogPage({
               <ProductModal
                 token={effectiveToken || ""}
                 accentColor={catalog.business.primaryColor}
+                useProductImages={catalog.business.useProductImages ?? false}
               />
               <CartDrawer business={catalog.business} />
             </CartUIProvider>
