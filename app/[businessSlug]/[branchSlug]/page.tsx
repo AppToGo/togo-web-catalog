@@ -250,8 +250,7 @@ export default async function BranchCatalogPage({
 
               <FloatingCart accentColor={catalog.business.primaryColor} />
               <ProductModal
-                token={effectiveToken || ""}
-                accentColor={catalog.business.primaryColor}
+                useProductImages={catalog.business.useProductImages ?? false}
               />
               <CartDrawer business={catalog.business} />
             </CartUIProvider>
