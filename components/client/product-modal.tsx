@@ -11,6 +11,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
 import { Minus, Plus, ShoppingBag, X } from 'lucide-react';
+import { getInitials } from '@/components/ui/initials-avatar';
 import { useCart } from './cart-context';
 import { useCartUI } from './cart-ui-context';
 import { formatPrice } from '@/lib/utils';
@@ -23,14 +24,12 @@ import {
 } from '@/src/types/catalog.types';
 
 interface ProductModalProps {
-  token: string;
-  accentColor: string;
   /** Mismo ajuste del negocio que en la lista: sin fotos, la hoja tampoco las muestra */
   useProductImages: boolean;
 }
 
 export function ProductModal({ useProductImages }: ProductModalProps) {
-  const { selectedProduct, selectProduct } = useCartUI();
+  const { selectedProduct, selectProduct, isCartOpen } = useCartUI();
   const [shownProduct, setShownProduct] = useState<CatalogProduct | null>(selectedProduct);
   const sheetRef = useRef<HTMLDivElement>(null);
 
@@ -54,15 +53,16 @@ export function ProductModal({ useProductImages }: ProductModalProps) {
 
   useEffect(() => {
     if (!isOpen) return;
-    const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     document.addEventListener('keydown', handleKeyDown);
     sheetRef.current?.focus({ preventScroll: true });
     return () => {
-      document.body.style.overflow = previousOverflow;
+      if (!isCartOpen) {
+        document.body.style.overflow = '';
+      }
       document.removeEventListener('keydown', handleKeyDown);
     };
-  }, [isOpen, handleKeyDown]);
+  }, [isOpen, isCartOpen, handleKeyDown]);
 
   return (
     <div
@@ -116,13 +116,19 @@ function ProductSheetContent({ product, showPhoto, onClose }: ProductSheetConten
   const variants = product.variants ?? [];
   const hasVariants = variants.length > 1;
   const singleVariant = variants.length === 1 ? variants[0] : null;
+  const defaultVariant = hasVariants
+    ? (variants.find((v) => v.isDefault && v.isAvailable !== false) ?? null)
+    : singleVariant;
 
   const [qty, setQty] = useState(1);
-  const [pickedVariantId, setPickedVariantId] = useState<string | null>(null);
+  const [pickedVariantId, setPickedVariantId] = useState<string | null>(
+    defaultVariant?.id ?? null,
+  );
   const [notes, setNotes] = useState('');
   const [descExpanded, setDescExpanded] = useState(false);
   const [descOverflows, setDescOverflows] = useState(false);
   const [compactHeader, setCompactHeader] = useState(false);
+  const [imageError, setImageError] = useState(false);
 
   const photoRef = useRef<HTMLDivElement>(null);
   const titleRef = useRef<HTMLHeadingElement>(null);
@@ -241,13 +247,14 @@ function ProductSheetContent({ product, showPhoto, onClose }: ProductSheetConten
       >
         {showPhoto ? (
           <div ref={photoRef} className="relative aspect-3/2 bg-(--accent-soft)">
-            {product.image ? (
+            {product.image && !imageError ? (
               <Image
                 src={product.image}
                 alt={product.name}
                 fill
                 className="object-cover"
                 sizes="100vw"
+                onError={() => setImageError(true)}
               />
             ) : (
               <PhotoPlaceholder name={product.name} />
@@ -504,11 +511,7 @@ function SectionTitle({ id, children }: { id?: string; children: React.ReactNode
 }
 
 function PhotoPlaceholder({ name }: { name: string }) {
-  const words = name.split(/\s+/).filter(Boolean);
-  const initials =
-    words.length > 1
-      ? (words[0][0] + words[1][0]).toUpperCase()
-      : (words[0] ?? '').slice(0, 2).toUpperCase();
+  const initials = getInitials(name);
   return (
     <div className="absolute inset-0 flex items-center justify-center select-none">
       <span

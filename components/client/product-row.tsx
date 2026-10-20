@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Image from "next/image";
 import { Plus, Minus } from "lucide-react";
 import { InitialsAvatar } from "@/components/ui/initials-avatar";
@@ -19,8 +20,9 @@ export function ProductRow({
   subcatId,
   useProductImages,
 }: ProductRowProps) {
-  const { cart, addItem, updateItem } = useCart();
+  const { cart, addItem, updateItem, getStockForProduct } = useCart();
   const { selectProduct } = useCartUI();
+  const [failedImageSrc, setFailedImageSrc] = useState<string | null>(null);
 
   const variants = product.variants ?? [];
   const hasVariants = variants.length > 1;
@@ -33,6 +35,23 @@ export function ProductRow({
   const displayPrice =
     selectedVariant?.price ?? product.priceFrom ?? product.price;
 
+  const remainingStock = getStockForProduct(
+    product.id,
+    product.stock,
+    selectedVariant?.id,
+  );
+  const isOutOfStock =
+    !hasVariants && product.stock !== undefined && product.stock <= 0;
+  const isUnavailable =
+    !product.isAvailable ||
+    !product.active ||
+    (selectedVariant !== null && selectedVariant.isAvailable === false) ||
+    isOutOfStock;
+  const canAddMore = !isUnavailable && remainingStock > 0;
+  const showImage = Boolean(
+    product.image && failedImageSrc !== product.image,
+  );
+
   const openDetail = () => selectProduct(product);
 
   const handleAdd = (e: React.MouseEvent) => {
@@ -41,6 +60,7 @@ export function ProductRow({
       openDetail();
       return;
     }
+    if (!canAddMore) return;
     addItem({
       productId: product.id,
       name: product.name,
@@ -62,13 +82,9 @@ export function ProductRow({
 
   const handlePlus = (e: React.MouseEvent) => {
     e.stopPropagation();
+    if (!canAddMore) return;
     updateItem(product.id, 1, selectedVariant?.id);
   };
-
-  const isUnavailable =
-    !product.isAvailable ||
-    !product.active ||
-    (selectedVariant !== null && selectedVariant.isAvailable === false);
 
   return (
     <div
@@ -81,7 +97,7 @@ export function ProductRow({
         aria-label={`Ver detalle de ${product.name}`}
       >
         {useProductImages &&
-          (product.image ? (
+          (showImage && product.image ? (
             <div className="w-13 h-13 rounded-lg shrink-0 relative overflow-hidden">
               <Image
                 src={product.image}
@@ -89,6 +105,7 @@ export function ProductRow({
                 fill
                 className="object-cover"
                 sizes="52px"
+                onError={() => setFailedImageSrc(product.image ?? null)}
               />
             </div>
           ) : (
@@ -139,7 +156,7 @@ export function ProductRow({
           <button
             className="w-9 h-9 rounded-full bg-(--accent) text-(--accent-ink) flex items-center justify-center shrink-0 transition-[opacity,transform] shadow-[0_1px_2px_rgba(20,20,15,0.04)] text-xl font-light leading-none hover:opacity-[0.88] active:scale-[0.92] disabled:opacity-50 disabled:cursor-not-allowed"
             onClick={handleAdd}
-            disabled={isUnavailable}
+            disabled={!canAddMore}
             aria-label={`Agregar ${product.name}`}
           >
             <Plus size={18} />
@@ -163,7 +180,7 @@ export function ProductRow({
             <button
               className="w-7 h-7 rounded-full flex items-center justify-center bg-(--accent) text-(--accent-ink) hover:opacity-[0.88] transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
               onClick={handlePlus}
-              disabled={isUnavailable}
+              disabled={!canAddMore}
               aria-label="Agregar uno"
             >
               <Plus size={14} />
