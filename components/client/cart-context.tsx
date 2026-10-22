@@ -308,9 +308,12 @@ export function CartProvider({
     pendingOps.current += 1;
     setIsSyncing(true);
 
-    if (!previousCart.items.some(i => i.productId === item.productId)) {
-      setLastAdded({ productId: item.productId, at: Date.now() });
-    }
+    // La hoja de recomendados escucha `lastAdded`: se avisa recién cuando el
+    // servidor confirmó el agregado, nunca si el carrito vuelve atrás.
+    const isNewProduct = !previousCart.items.some(i => i.productId === item.productId);
+    const notifyAdded = () => {
+      if (isNewProduct) setLastAdded({ productId: item.productId, at: Date.now() });
+    };
 
     // Optimista
     setCart(prev => {
@@ -346,10 +349,12 @@ export function CartProvider({
           ? await addToCartPublicAction(businessSlug, { ...item, branchId }, { sessionId })
           : await addToCartAction(businessSlug, item, { sessionId });
         if (!fallback.success) throw new Error(fallback.error);
+        notifyAdded();
         return;
       }
 
       if (!result.success) throw new Error(result.error);
+      notifyAdded();
     } catch (error) {
       setCart(previousCart);
       throw error;

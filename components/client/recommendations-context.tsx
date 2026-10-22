@@ -97,9 +97,12 @@ export function RecommendationsProvider({ products, children }: RecommendationsP
       const variant = defaultVariant(product);
       if (!variant) return;
       addedFromRecommendation.current.add(product.id);
+      // Mismo nombre de línea que el detalle: con varias presentaciones,
+      // "Gaseosa - 400 ml".
+      const hasVariants = (product.variants?.length ?? 0) > 1;
       addItem({
         productId: product.id,
-        name: product.name,
+        name: hasVariants ? `${product.name} - ${variant.label}` : product.name,
         price: variant.price ?? product.priceFrom ?? product.price,
         quantity: 1,
         image: product.image,
