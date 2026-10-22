@@ -18,6 +18,9 @@ import { CatalogContent } from "@/components/server/catalog-content";
 import { CatalogSkeleton } from "@/components/ui/skeleton";
 import { CartProvider } from "@/components/client/cart-context";
 import { CartUIProvider } from "@/components/client/cart-ui-context";
+import { RecommendationsSheet } from "@/components/client/recommendations-sheet";
+import { RecommendationsProvider } from "@/components/client/recommendations-context";
+import { productsForRecommendations } from "@/lib/recommendations";
 import { CartDrawer } from "@/components/client/cart-drawer";
 import { ProductModal } from "@/components/client/product-modal";
 import { FloatingCart } from "@/components/client/floating-cart";
@@ -229,15 +232,22 @@ export default async function BusinessCatalogPage({
             initialCart={initialCart}
           >
             <CartUIProvider>
-              <Suspense fallback={<CatalogSkeleton />}>
-                <CatalogContent catalog={catalog} businessSlug={businessSlug} />
-              </Suspense>
+              <RecommendationsProvider
+                products={productsForRecommendations(catalog.products)}
+              >
+                <Suspense fallback={<CatalogSkeleton />}>
+                  <CatalogContent catalog={catalog} businessSlug={businessSlug} />
+                </Suspense>
 
-              <FloatingCart accentColor={catalog.business.primaryColor} />
-              <ProductModal
-                useProductImages={catalog.business.useProductImages ?? false}
-              />
-              <CartDrawer business={catalog.business} />
+                <FloatingCart accentColor={catalog.business.primaryColor} />
+                <ProductModal
+                  useProductImages={catalog.business.useProductImages ?? false}
+                />
+                <CartDrawer business={catalog.business} />
+                <RecommendationsSheet
+                  useProductImages={catalog.business.useProductImages ?? false}
+                />
+              </RecommendationsProvider>
             </CartUIProvider>
           </CartProvider>
         </div>

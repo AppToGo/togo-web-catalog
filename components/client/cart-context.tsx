@@ -60,6 +60,11 @@ interface CartContextType {
   setCustomerName: (name: string) => void;
   // Stock validation
   getStockForProduct: (productId: string, availableStock?: number, variantId?: string) => number;
+  /**
+   * Último producto que entró al carrito por primera vez (no las unidades
+   * extra de uno que ya estaba). Lo escucha la hoja de recomendados.
+   */
+  lastAdded: { productId: string; at: number } | null;
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -141,6 +146,8 @@ export function CartProvider({
     isIdentified: isAuthenticated || !!initialPhone,
   });
   
+  const [lastAdded, setLastAdded] = useState<{ productId: string; at: number } | null>(null);
+
   // Refs
   const pendingOps = useRef(0);
 
@@ -301,6 +308,13 @@ export function CartProvider({
     pendingOps.current += 1;
     setIsSyncing(true);
 
+    // La hoja de recomendados escucha `lastAdded`: se avisa recién cuando el
+    // servidor confirmó el agregado, nunca si el carrito vuelve atrás.
+    const isNewProduct = !previousCart.items.some(i => i.productId === item.productId);
+    const notifyAdded = () => {
+      if (isNewProduct) setLastAdded({ productId: item.productId, at: Date.now() });
+    };
+
     // Optimista
     setCart(prev => {
       const existingIndex = prev.items.findIndex(
@@ -335,10 +349,12 @@ export function CartProvider({
           ? await addToCartPublicAction(businessSlug, { ...item, branchId }, { sessionId })
           : await addToCartAction(businessSlug, item, { sessionId });
         if (!fallback.success) throw new Error(fallback.error);
+        notifyAdded();
         return;
       }
 
       if (!result.success) throw new Error(result.error);
+      notifyAdded();
     } catch (error) {
       setCart(previousCart);
       throw error;
@@ -597,6 +613,7 @@ export function CartProvider({
       setCustomerPhone,
       setCustomerName,
       getStockForProduct,
+      lastAdded,
     }}>
       {children}
     </CartContext.Provider>

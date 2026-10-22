@@ -73,6 +73,13 @@ export interface CatalogProduct {
 
   /** Preparation steps: list, or a string with one step per line */
   preparation?: string[] | string;
+
+  /**
+   * Productos que se ofrecen al agregar este ("Va muy bien con"), en el
+   * orden del admin. El backend ya dejó solo los activos y con stock en la
+   * sede del catálogo.
+   */
+  recommendedProductIds?: string[];
 }
 
 /** Ingredientes normalizados: string separado por comas o saltos de línea, sin vacíos */
