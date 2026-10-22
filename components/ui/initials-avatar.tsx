@@ -12,6 +12,14 @@ function hashStr(s: string): number {
   return Math.abs(h);
 }
 
+export function getInitials(name: string): string {
+  const words = name.split(/\s+/).filter(Boolean);
+  if (words.length === 0) return '';
+  return words.length === 1
+    ? words[0].slice(0, 2).toUpperCase()
+    : (words[0][0] + words[1][0]).toUpperCase();
+}
+
 interface InitialsAvatarProps {
   name: string;
   subcatId: string;
@@ -19,11 +27,7 @@ interface InitialsAvatarProps {
 
 export function InitialsAvatar({ name, subcatId }: InitialsAvatarProps) {
   const color = AVATAR_PALETTE[hashStr(subcatId) % AVATAR_PALETTE.length];
-  const words = name.split(/\s+/).filter(Boolean);
-  const initials =
-    words.length === 1
-      ? words[0].slice(0, 2).toUpperCase()
-      : (words[0][0] + words[1][0]).toUpperCase();
+  const initials = getInitials(name);
 
   return (
     <div

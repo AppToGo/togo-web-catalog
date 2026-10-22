@@ -1,137 +1,78 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState } from "react";
 import Image from "next/image";
-import { ChevronDown, Plus, Minus } from "lucide-react";
+import { Plus, Minus } from "lucide-react";
 import { InitialsAvatar } from "@/components/ui/initials-avatar";
 import { useCart } from "./cart-context";
-import { VariantSelector } from "./variant-selector";
+import { useCartUI } from "./cart-ui-context";
 import { formatPrice } from "@/lib/utils";
-import type { CatalogProduct, CatalogVariant } from "@/src/types/catalog.types";
+import type { CatalogProduct } from "@/src/types/catalog.types";
 
 interface ProductRowProps {
   product: CatalogProduct;
   subcatId: string;
-  isExpanded: boolean;
-  onToggle: () => void;
   useProductImages: boolean;
 }
 
 export function ProductRow({
   product,
   subcatId,
-  isExpanded,
-  onToggle,
   useProductImages,
 }: ProductRowProps) {
-  const { cart, addItem, updateItem, updateItemNotes } = useCart();
+  const { cart, addItem, updateItem, getStockForProduct } = useCart();
+  const { selectProduct } = useCartUI();
+  const [failedImageSrc, setFailedImageSrc] = useState<string | null>(null);
 
   const variants = product.variants ?? [];
   const hasVariants = variants.length > 1;
-
-  const [notes, setNotes] = useState("");
-  const [clientQty, setClientQty] = useState(0);
   const selectedVariant = variants.length === 1 ? variants[0] : null;
 
-  useEffect(() => {
-    const item = cart.items.find(
+  const qty =
+    cart.items.find(
       (i) => i.productId === product.id && i.variantId === selectedVariant?.id,
-    );
-    setClientQty(item?.quantity ?? 0);
-  }, [cart.items, product.id, selectedVariant?.id]);
-
-  const notesInitializedRef = useRef(false);
-
-  useEffect(() => {
-    if (isExpanded && !hasVariants && !notesInitializedRef.current) {
-      notesInitializedRef.current = true;
-      const cartItem = cart.items.find(
-        (i) =>
-          i.productId === product.id && i.variantId === selectedVariant?.id,
-      );
-      setNotes(cartItem?.notes ?? "");
-    } else if (!isExpanded) {
-      notesInitializedRef.current = false;
-    }
-  }, [isExpanded, hasVariants, cart.items, product.id, selectedVariant?.id]);
-
-  const qty = clientQty;
+    )?.quantity ?? 0;
   const displayPrice =
     selectedVariant?.price ?? product.priceFrom ?? product.price;
 
-  const handleRowClick = (e: React.MouseEvent) => {
-    const target = e.target as HTMLElement;
-    if (target.closest("[data-stepper]")) return;
-    onToggle();
-  };
+  const remainingStock = getStockForProduct(
+    product.id,
+    product.stock,
+    selectedVariant?.id,
+  );
+  const isOutOfStock =
+    !hasVariants && product.stock !== undefined && product.stock <= 0;
+  const isUnavailable =
+    !product.isAvailable ||
+    !product.active ||
+    (selectedVariant !== null && selectedVariant.isAvailable === false) ||
+    isOutOfStock;
+  const canAddMore = !isUnavailable && remainingStock > 0;
+  const showImage = Boolean(
+    product.image && failedImageSrc !== product.image,
+  );
+
+  const openDetail = () => selectProduct(product);
 
   const handleAdd = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (hasVariants) {
-      onToggle();
+      openDetail();
       return;
     }
-    if (qty === 0) {
-      const price =
-        selectedVariant?.price ?? product.priceFrom ?? product.price;
-      addItem({
-        productId: product.id,
-        name: product.name,
-        price,
-        quantity: 1,
-        image: product.image,
-        variantId: selectedVariant?.id,
-        variantLabel: selectedVariant?.label,
-        ...(selectedVariant?.attributes
-          ? { variantAttributes: selectedVariant.attributes }
-          : {}),
-      });
-    } else {
-      onToggle();
-    }
-  };
-
-  const handleVariantAdd = (variantId: string) => {
-    const v = variants.find((v) => v.id === variantId);
-    if (!v) return;
+    if (!canAddMore) return;
     addItem({
       productId: product.id,
-      name: `${product.name} - ${v.label}`,
-      price: v.price,
+      name: product.name,
+      price: displayPrice,
       quantity: 1,
       image: product.image,
-      variantId: v.id,
-      variantLabel: v.label,
-      ...(v.attributes ? { variantAttributes: v.attributes } : {}),
+      variantId: selectedVariant?.id,
+      variantLabel: selectedVariant?.label,
+      ...(selectedVariant?.attributes
+        ? { variantAttributes: selectedVariant.attributes }
+        : {}),
     });
-  };
-
-  const handleVariantDelta = (variantId: string, delta: number) => {
-    updateItem(product.id, delta, variantId);
-  };
-
-  const handleExpandedAdd = () => {
-    const price = selectedVariant?.price ?? product.priceFrom ?? product.price;
-
-    if (clientQty > 0) {
-      updateItemNotes(product.id, notes.trim(), selectedVariant?.id);
-    } else {
-      addItem({
-        productId: product.id,
-        name: product.name,
-        price,
-        quantity: 1,
-        image: product.image,
-        notes: notes.trim() || undefined,
-        variantId: selectedVariant?.id,
-        variantLabel: selectedVariant?.label,
-        ...(selectedVariant?.attributes
-          ? { variantAttributes: selectedVariant.attributes }
-          : {}),
-      });
-    }
-    setNotes("");
-    onToggle();
   };
 
   const handleMinus = (e: React.MouseEvent) => {
@@ -141,81 +82,67 @@ export function ProductRow({
 
   const handlePlus = (e: React.MouseEvent) => {
     e.stopPropagation();
+    if (!canAddMore) return;
     updateItem(product.id, 1, selectedVariant?.id);
-  };
-
-  const isUnavailable =
-    !product.isAvailable ||
-    !product.active ||
-    (selectedVariant !== null && selectedVariant.isAvailable === false);
-  const stepperDisabled = isUnavailable || (hasVariants && !selectedVariant);
-
-  const getVariantQty = (variantId: string) =>
-    cart.items.find(
-      (i) => i.productId === product.id && i.variantId === variantId,
-    )?.quantity ?? 0;
-
-  const getVariantNotes = (variantId: string) =>
-    cart.items.find(
-      (i) => i.productId === product.id && i.variantId === variantId,
-    )?.notes;
-
-  const handleVariantNote = (variantId: string, note: string) => {
-    updateItemNotes(product.id, note, variantId);
   };
 
   return (
     <div
-      className={`grid ${useProductImages ? "grid-cols-[56px_1fr_auto]" : "grid-cols-[1fr_auto]"} items-center gap-3 px-4 py-3 border-b border-(--line) last:border-b-0 cursor-pointer transition-colors relative ${
-        isExpanded ? "bg-(--bg)" : "bg-(--surface) hover:bg-(--bg)"
-      } ${isUnavailable ? "opacity-50" : ""}`}
-      onClick={handleRowClick}
+      className={`grid grid-cols-[1fr_auto] items-center pr-4 border-b border-(--line) last:border-b-0 transition-colors relative bg-(--surface) hover:bg-(--bg) ${isUnavailable ? "opacity-50" : ""}`}
     >
-      {useProductImages &&
-        (product.image ? (
-          <div className="w-13 h-13 rounded-lg shrink-0 relative overflow-hidden">
-            <Image
-              src={product.image}
-              alt={product.name}
-              fill
-              className="object-cover"
-              sizes="52px"
-            />
-          </div>
-        ) : (
-          <InitialsAvatar name={product.name} subcatId={subcatId} />
-        ))}
+      <button
+        type="button"
+        className={`grid ${useProductImages ? "grid-cols-[56px_1fr]" : "grid-cols-1"} items-center gap-3 pl-4 pr-3 py-3 text-left cursor-pointer min-w-0`}
+        onClick={openDetail}
+        aria-label={`Ver detalle de ${product.name}`}
+      >
+        {useProductImages &&
+          (showImage && product.image ? (
+            <div className="w-13 h-13 rounded-lg shrink-0 relative overflow-hidden">
+              <Image
+                src={product.image}
+                alt={product.name}
+                fill
+                className="object-cover"
+                sizes="52px"
+                onError={() => setFailedImageSrc(product.image ?? null)}
+              />
+            </div>
+          ) : (
+            <InitialsAvatar name={product.name} subcatId={subcatId} />
+          ))}
 
-      <div className="flex flex-col gap-0.5 flex-1 min-w-0">
-        <div
-          className="text-[14px] font-semibold text-(--ink) leading-[1.35] truncate tracking-[-0.01em]"
-          style={{ fontFamily: "var(--font-display)" }}
-        >
-          {product.name}
-        </div>
-        {product.description && (
-          <div className="text-xs text-(--ink-3) leading-[1.4] line-clamp-1">
-            {product.description}
-          </div>
-        )}
-        <div className="flex items-center gap-1.5 mt-0.5">
-          <span
-            className="text-[15px] font-bold text-(--ink) tracking-[-0.03em]"
+        <div className="flex flex-col gap-0.5 flex-1 min-w-0">
+          <div
+            className="text-[14px] font-semibold text-(--ink) leading-[1.35] truncate tracking-[-0.01em]"
             style={{ fontFamily: "var(--font-display)" }}
           >
-            {hasVariants && product.priceFrom
-              ? `Desde ${formatPrice(product.priceFrom)}`
-              : formatPrice(displayPrice ?? 0)}
-          </span>
-          {isUnavailable && (
-            <span className="text-[10px] font-semibold text-(--ink-3) bg-(--line) px-1.5 py-0.5 rounded-sm">
-              Agotado
-            </span>
+            {product.name}
+          </div>
+          {product.description && (
+            <div className="text-xs text-(--ink-3) leading-[1.4] line-clamp-2">
+              {product.description}
+            </div>
           )}
+          <div className="flex items-center gap-1.5 mt-0.5">
+            <span
+              className="text-[15px] font-bold text-(--ink) tracking-[-0.03em]"
+              style={{ fontFamily: "var(--font-display)" }}
+            >
+              {hasVariants && product.priceFrom
+                ? `Desde ${formatPrice(product.priceFrom)}`
+                : formatPrice(displayPrice ?? 0)}
+            </span>
+            {isUnavailable && (
+              <span className="text-[10px] font-semibold text-(--ink-3) bg-(--line) px-1.5 py-0.5 rounded-sm">
+                Agotado
+              </span>
+            )}
+          </div>
         </div>
-      </div>
+      </button>
 
-      <div data-stepper onClick={(e) => e.stopPropagation()}>
+      <div>
         {hasVariants ? (
           <button
             className="w-9 h-9 rounded-full bg-(--accent) text-(--accent-ink) flex items-center justify-center shrink-0 transition-[opacity,transform] shadow-[0_1px_2px_rgba(20,20,15,0.04)] hover:opacity-[0.88] active:scale-[0.92] disabled:opacity-50 disabled:cursor-not-allowed"
@@ -223,16 +150,13 @@ export function ProductRow({
             disabled={isUnavailable}
             aria-label={`Ver opciones de ${product.name}`}
           >
-            <ChevronDown
-              size={18}
-              className={`transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`}
-            />
+            <Plus size={18} />
           </button>
         ) : qty === 0 ? (
           <button
             className="w-9 h-9 rounded-full bg-(--accent) text-(--accent-ink) flex items-center justify-center shrink-0 transition-[opacity,transform] shadow-[0_1px_2px_rgba(20,20,15,0.04)] text-xl font-light leading-none hover:opacity-[0.88] active:scale-[0.92] disabled:opacity-50 disabled:cursor-not-allowed"
             onClick={handleAdd}
-            disabled={isUnavailable}
+            disabled={!canAddMore}
             aria-label={`Agregar ${product.name}`}
           >
             <Plus size={18} />
@@ -242,7 +166,7 @@ export function ProductRow({
             <button
               className="w-7 h-7 rounded-full flex items-center justify-center transition-[background,color] text-(--ink-2) hover:bg-(--line) disabled:opacity-50 disabled:cursor-not-allowed"
               onClick={handleMinus}
-              disabled={stepperDisabled}
+              disabled={isUnavailable}
               aria-label="Quitar uno"
             >
               <Minus size={14} />
@@ -256,7 +180,7 @@ export function ProductRow({
             <button
               className="w-7 h-7 rounded-full flex items-center justify-center bg-(--accent) text-(--accent-ink) hover:opacity-[0.88] transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
               onClick={handlePlus}
-              disabled={stepperDisabled}
+              disabled={!canAddMore}
               aria-label="Agregar uno"
             >
               <Plus size={14} />
@@ -264,45 +188,6 @@ export function ProductRow({
           </div>
         )}
       </div>
-
-      {isExpanded && (
-        <div
-          className={`${useProductImages ? "col-span-3" : "col-span-2"} pt-3 pb-1 animate-[slide-down_0.18s_ease-out]`}
-          onClick={(e) => e.stopPropagation()}
-        >
-          {hasVariants ? (
-            <VariantSelector
-              variants={variants}
-              getQty={getVariantQty}
-              getNotes={getVariantNotes}
-              onAdd={handleVariantAdd}
-              onDelta={handleVariantDelta}
-              onNote={handleVariantNote}
-            />
-          ) : (
-            <>
-              <textarea
-                className="w-full px-3 py-2.25 bg-(--surface) border-[1.5px] border-(--line) rounded-lg text-[13px] text-(--ink) resize-none outline-none transition-[border-color] leading-normal placeholder:text-(--ink-3) focus:border-(--accent)"
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="Notas para este producto (opcional)..."
-                rows={2}
-                maxLength={500}
-              />
-              <button
-                className="w-full py-2.75 mt-3 rounded-lg bg-(--accent) text-(--accent-ink) text-[14px] font-semibold tracking-[-0.01em] transition-opacity hover:opacity-[0.88] active:opacity-[0.76]"
-                style={{ fontFamily: "var(--font-display)" }}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleExpandedAdd();
-                }}
-              >
-                {qty > 0 ? "Actualizar pedido" : "Agregar al pedido"}
-              </button>
-            </>
-          )}
-        </div>
-      )}
     </div>
   );
 }

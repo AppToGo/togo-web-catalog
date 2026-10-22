@@ -68,12 +68,37 @@ export interface CatalogProduct {
   /** Maximum price across active variants */
   priceTo?: number;
 
+  /** Ingredients: list, or a string separated by commas or line breaks */
+  ingredients?: string[] | string;
+
+  /** Preparation steps: list, or a string with one step per line */
+  preparation?: string[] | string;
+
   /**
    * Productos que se ofrecen al agregar este ("Va muy bien con"), en el
    * orden del admin. El backend ya dejó solo los activos y con stock en la
    * sede del catálogo.
    */
   recommendedProductIds?: string[];
+}
+
+/** Ingredientes normalizados: string separado por comas o saltos de línea, sin vacíos */
+export function getProductIngredients(product: Pick<CatalogProduct, 'ingredients'>): string[] {
+  return normalizeTextList(product.ingredients, /[,\n]/);
+}
+
+/** Pasos de preparación normalizados: string con un paso por línea, sin vacíos */
+export function getProductPreparation(product: Pick<CatalogProduct, 'preparation'>): string[] {
+  return normalizeTextList(product.preparation, /\n/);
+}
+
+function normalizeTextList(value: string[] | string | undefined, separator: RegExp): string[] {
+  if (!value) return [];
+  const items = Array.isArray(value) ? value : value.split(separator);
+  return items
+    .filter((item): item is string => typeof item === 'string')
+    .map((item) => item.trim())
+    .filter(Boolean);
 }
 
 // ═══════════════════════════════════════════════════════════
