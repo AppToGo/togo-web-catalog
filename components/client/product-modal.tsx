@@ -10,10 +10,11 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
-import { Minus, Plus, ShoppingBag, X } from 'lucide-react';
+import { Check, Minus, Plus, ShoppingBag, X } from 'lucide-react';
 import { getInitials } from '@/components/ui/initials-avatar';
 import { useCart } from './cart-context';
 import { useCartUI } from './cart-ui-context';
+import { useRecommendations } from './recommendations-context';
 import { formatPrice } from '@/lib/utils';
 import { getProductRowKey } from '@/lib/expand-template-products';
 import {
@@ -410,6 +411,8 @@ function ProductSheetContent({ product, showPhoto, onClose }: ProductSheetConten
             </>
           )}
 
+          <GoesWellWith productId={product.id} />
+
           <Separator />
           <section className="flex flex-col gap-2">
             <label
@@ -493,6 +496,69 @@ function ProductSheetContent({ product, showPhoto, onClose }: ProductSheetConten
 // ═══════════════════════════════════════════════════════════
 // PIEZAS
 // ═══════════════════════════════════════════════════════════
+
+/**
+ * "Va muy bien con": los recomendados del producto, para sumarlos con un
+ * toque sin salir del detalle. Se eligen al abrir el detalle (orden al azar)
+ * y quedan fijos mientras está abierto: lo agregado pasa a "Agregado" en vez
+ * de desaparecer. Mostrarlos acá cuenta como ofrecidos, así que al agregar
+ * el producto ya no sube la hoja de recomendados.
+ */
+function GoesWellWith({ productId }: { productId: string }) {
+  const { pickFor, isInCart, toggle, markShown } = useRecommendations();
+  const [items] = useState(() => pickFor(productId));
+
+  useEffect(() => {
+    if (items.length > 0) markShown(productId);
+  }, [items, productId, markShown]);
+
+  if (items.length === 0) return null;
+
+  return (
+    <>
+      <Separator />
+      <section className="flex flex-col gap-2.5" aria-labelledby="goes-well-with-title">
+        <SectionTitle id="goes-well-with-title">Va muy bien con</SectionTitle>
+        <ul className="m-0 p-0 list-none grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-2.5">
+          {items.map((item) => {
+            const added = isInCart(item);
+            return (
+              <li
+                key={item.id}
+                className="flex flex-col gap-2 p-2.5 rounded-xl border-[1.5px] border-(--line-2) bg-(--surface)"
+              >
+                <span className="text-sm font-semibold text-(--ink) line-clamp-2 min-h-10">
+                  {item.name}
+                </span>
+                <div className="flex items-center justify-between gap-2">
+                  <span
+                    className="text-[15px] font-bold tracking-[-0.02em] text-(--ink)"
+                    style={{ fontFamily: 'var(--font-display)' }}
+                  >
+                    {formatPrice(item.priceFrom ?? item.price)}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => toggle(item)}
+                    aria-pressed={added}
+                    aria-label={`${added ? 'Quitar' : 'Agregar'} ${item.name}`}
+                    className={`w-11 h-11 rounded-full flex items-center justify-center shrink-0 transition-colors border-[1.5px] border-(--accent) ${
+                      added
+                        ? 'bg-(--accent) text-(--accent-ink)'
+                        : 'bg-(--surface) text-(--accent) hover:bg-(--accent-softer)'
+                    }`}
+                  >
+                    {added ? <Check size={18} strokeWidth={2.4} /> : <Plus size={18} strokeWidth={2.4} />}
+                  </button>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      </section>
+    </>
+  );
+}
 
 function Separator() {
   return <div className="h-px bg-(--line)" aria-hidden="true" />;

@@ -7,16 +7,16 @@
  * toque.
  *
  * Reglas:
- * - Sale una sola vez por producto en la visita, y solo cuando el producto
- *   entra al carrito (no al sumar otra unidad).
- * - Lo que se agrega desde la hoja no abre otra hoja (sin cadenas).
+ * - Sale solo cuando el producto entra al carrito (no al sumar otra
+ *   unidad), y no si el detalle del producto ya mostró sus recomendados.
+ * - Reglas compartidas con el detalle: ver recommendations-context.
  * - El pedido armado acá ya lleva sus recomendados: el bot no los vuelve a
  *   ofrecer al confirmarlo por WhatsApp.
  */
 
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
 import { Check, X } from 'lucide-react';
 import type { CatalogProduct } from '@/src/types/catalog.types';
@@ -24,16 +24,9 @@ import { formatPrice } from '@/lib/utils';
 import { InitialsAvatar } from '@/components/ui/initials-avatar';
 import { useCart } from './cart-context';
 import { useCartUI } from './cart-ui-context';
-
-/** Cuántos recomendados entran en la hoja. */
-const MAX_ITEMS = 3;
+import { defaultVariant, useRecommendations } from './recommendations-context';
 
 interface RecommendationsSheetProps {
-  /**
-   * Productos que tienen recomendados y los recomendados mismos — solo
-   * esos, no el catálogo entero, para no inflar la página.
-   */
-  products: CatalogProduct[];
   useProductImages: boolean;
 }
 
@@ -42,42 +35,13 @@ interface OpenSheet {
   items: CatalogProduct[];
 }
 
-// Mismo criterio que add-to-cart-button / product-row: el carrito espera la
-// variante, y el backend solo recomienda productos con una predeterminada o
-// una sola.
-function defaultVariant(product: CatalogProduct) {
-  return (
-    product.variants?.find((v) => v.isDefault) ??
-    (product.variants?.length === 1 ? product.variants[0] : undefined)
-  );
-}
-
-function shuffle<T>(items: T[]): T[] {
-  const copy = [...items];
-  for (let i = copy.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [copy[i], copy[j]] = [copy[j], copy[i]];
-  }
-  return copy;
-}
-
-export function RecommendationsSheet({
-  products,
-  useProductImages,
-}: RecommendationsSheetProps) {
-  const { cart, addItem, removeItem, lastAdded } = useCart();
+export function RecommendationsSheet({ useProductImages }: RecommendationsSheetProps) {
+  const { lastAdded } = useCart();
   const { isCartOpen, openCart } = useCartUI();
+  const { pickFor, getProduct, isInCart, toggle, markShown, shouldOffer } =
+    useRecommendations();
   const [sheet, setSheet] = useState<OpenSheet | null>(null);
   const [isClosing, setIsClosing] = useState(false);
-
-  const productsById = useMemo(
-    () => new Map(products.map((p) => [p.id, p])),
-    [products],
-  );
-  /** Productos que ya mostraron su hoja en esta visita. */
-  const shownFor = useRef(new Set<string>());
-  /** Agregados desde la hoja: no abren otra. */
-  const addedFromSheet = useRef(new Set<string>());
   const handledAt = useRef<number | null>(null);
 
   useEffect(() => {
@@ -85,32 +49,16 @@ export function RecommendationsSheet({
     handledAt.current = lastAdded.at;
 
     const { productId } = lastAdded;
-    if (
-      isCartOpen ||
-      addedFromSheet.current.has(productId) ||
-      shownFor.current.has(productId)
-    ) {
-      return;
-    }
-    const source = productsById.get(productId);
-    if (!source?.recommendedProductIds?.length) return;
-
-    const inCart = new Set(cart.items.map((i) => i.productId));
-    const items = shuffle(
-      source.recommendedProductIds
-        .filter((id) => !inCart.has(id))
-        .map((id) => productsById.get(id))
-        .filter(
-          (p): p is CatalogProduct =>
-            !!p && p.stock !== 0 && !!defaultVariant(p),
-        ),
-    ).slice(0, MAX_ITEMS);
+    if (isCartOpen || !shouldOffer(productId)) return;
+    const source = getProduct(productId);
+    if (!source) return;
+    const items = pickFor(productId);
     if (items.length === 0) return;
 
-    shownFor.current.add(productId);
+    markShown(productId);
     setIsClosing(false);
     setSheet({ source, items });
-  }, [lastAdded, isCartOpen, productsById, cart.items]);
+  }, [lastAdded, isCartOpen, shouldOffer, getProduct, pickFor, markShown]);
 
   const close = useCallback((then?: () => void) => {
     setIsClosing(true);
@@ -132,30 +80,7 @@ export function RecommendationsSheet({
 
   if (!sheet) return null;
 
-  const cartLine = (product: CatalogProduct) =>
-    cart.items.find((i) => i.productId === product.id);
-  const addedCount = sheet.items.filter((p) => !!cartLine(p)).length;
-
-  const toggle = (product: CatalogProduct) => {
-    const line = cartLine(product);
-    if (line) {
-      removeItem(product.id, line.variantId);
-      return;
-    }
-    const variant = defaultVariant(product);
-    if (!variant) return;
-    addedFromSheet.current.add(product.id);
-    addItem({
-      productId: product.id,
-      name: product.name,
-      price: variant.price ?? product.priceFrom ?? product.price,
-      quantity: 1,
-      image: product.image,
-      variantId: variant.id,
-      variantLabel: variant.label,
-      ...(variant.attributes ? { variantAttributes: variant.attributes } : {}),
-    });
-  };
+  const addedCount = sheet.items.filter(isInCart).length;
 
   return (
     <>
@@ -204,7 +129,7 @@ export function RecommendationsSheet({
 
         <ul className="m-0 p-0 list-none overflow-y-auto">
           {sheet.items.map((product) => {
-            const isAdded = !!cartLine(product);
+            const isAdded = isInCart(product);
             const variant = defaultVariant(product);
             const price = variant?.price ?? product.priceFrom ?? product.price;
             return (
