@@ -24,6 +24,8 @@ import { CatalogContent } from "@/components/server/catalog-content";
 import { CatalogSkeleton } from "@/components/ui/skeleton";
 import { CartProvider } from "@/components/client/cart-context";
 import { CartUIProvider } from "@/components/client/cart-ui-context";
+import { RecommendationsSheet } from "@/components/client/recommendations-sheet";
+import { productsForRecommendations } from "@/lib/recommendations";
 import { CartDrawer } from "@/components/client/cart-drawer";
 import { ProductModal } from "@/components/client/product-modal";
 import { FloatingCart } from "@/components/client/floating-cart";
@@ -254,6 +256,10 @@ export default async function BranchCatalogPage({
                 accentColor={catalog.business.primaryColor}
               />
               <CartDrawer business={catalog.business} />
+              <RecommendationsSheet
+                products={productsForRecommendations(catalog.products)}
+                useProductImages={catalog.business.useProductImages ?? false}
+              />
             </CartUIProvider>
           </CartProvider>
         </div>

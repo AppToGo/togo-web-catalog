@@ -67,6 +67,13 @@ export interface CatalogProduct {
 
   /** Maximum price across active variants */
   priceTo?: number;
+
+  /**
+   * Productos que se ofrecen al agregar este ("Va muy bien con"), en el
+   * orden del admin. El backend ya dejó solo los activos y con stock en la
+   * sede del catálogo.
+   */
+  recommendedProductIds?: string[];
 }
 
 // ═══════════════════════════════════════════════════════════

@@ -60,6 +60,11 @@ interface CartContextType {
   setCustomerName: (name: string) => void;
   // Stock validation
   getStockForProduct: (productId: string, availableStock?: number, variantId?: string) => number;
+  /**
+   * Último producto que entró al carrito por primera vez (no las unidades
+   * extra de uno que ya estaba). Lo escucha la hoja de recomendados.
+   */
+  lastAdded: { productId: string; at: number } | null;
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -141,6 +146,8 @@ export function CartProvider({
     isIdentified: isAuthenticated || !!initialPhone,
   });
   
+  const [lastAdded, setLastAdded] = useState<{ productId: string; at: number } | null>(null);
+
   // Refs
   const pendingOps = useRef(0);
 
@@ -300,6 +307,10 @@ export function CartProvider({
     const previousCart = cart;
     pendingOps.current += 1;
     setIsSyncing(true);
+
+    if (!previousCart.items.some(i => i.productId === item.productId)) {
+      setLastAdded({ productId: item.productId, at: Date.now() });
+    }
 
     // Optimista
     setCart(prev => {
@@ -597,6 +608,7 @@ export function CartProvider({
       setCustomerPhone,
       setCustomerName,
       getStockForProduct,
+      lastAdded,
     }}>
       {children}
     </CartContext.Provider>
