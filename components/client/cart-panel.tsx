@@ -60,6 +60,8 @@ interface OrderStatus {
  */
 /** Espera tras el último cambio del carrito antes de reconsultar el pedido. */
 const ORDER_RECHECK_DEBOUNCE_MS = 1500;
+/** Mínimo entre reconsultas de fondo (focus y visibilitychange llegan juntos). */
+const ORDER_RECHECK_MIN_INTERVAL_MS = 1000;
 
 export function CartPanel({ business, active, alwaysVisible = false, onClose }: CartPanelProps) {
   const router = useRouter();
@@ -80,9 +82,11 @@ export function CartPanel({ business, active, alwaysVisible = false, onClose }: 
   const [showAlert, setShowAlert] = useState<{ type: 'error' | 'success' | 'warning'; message: string } | null>(null);
   const [showPhoneModal, setShowPhoneModal] = useState(false);
 
-  const checkExistingOrder = useCallback(async () => {
+  // `silent`: reconsulta de fondo de la columna de escritorio. No bloquea el
+  // botón de envío ni pisa la nota que el cliente puede estar escribiendo.
+  const checkExistingOrder = useCallback(async ({ silent = false } = {}) => {
     if (!sessionId) return;
-    setIsCheckingOrder(true);
+    if (!silent) setIsCheckingOrder(true);
     try {
       // Caminos separados a propósito (no un solo orderKey compartido):
       // checkOrderAction pega al endpoint anónimo (/catalog/:businessSlug/order),
@@ -93,13 +97,23 @@ export function CartPanel({ business, active, alwaysVisible = false, onClose }: 
         ? await getOrderByTokenAction(whatsappToken)
         : await checkOrderAction(business.slug, { sessionId, branchId });
       setOrderStatus(data);
-      if (data.order?.notes) setNotes(data.order.notes);
+      if (!silent && data.order?.notes) setNotes(data.order.notes);
     } catch (error) {
       console.error('Error checking order:', error);
     } finally {
-      setIsCheckingOrder(false);
+      if (!silent) setIsCheckingOrder(false);
     }
   }, [business.slug, sessionId, whatsappToken, branchId]);
+
+  // Volver a la pestaña dispara `visibilitychange` y `focus` juntos: una
+  // sola reconsulta por vuelta.
+  const lastRecheckRef = useRef(0);
+  const recheckSilently = useCallback(() => {
+    const now = Date.now();
+    if (now - lastRecheckRef.current < ORDER_RECHECK_MIN_INTERVAL_MS) return;
+    lastRecheckRef.current = now;
+    checkExistingOrder({ silent: true });
+  }, [checkExistingOrder]);
 
   useEffect(() => {
     if (active) checkExistingOrder();
@@ -109,7 +123,7 @@ export function CartPanel({ business, active, alwaysVisible = false, onClose }: 
   useEffect(() => {
     if (!alwaysVisible) return;
     const onVisible = () => {
-      if (document.visibilityState === 'visible') checkExistingOrder();
+      if (document.visibilityState === 'visible') recheckSilently();
     };
     document.addEventListener('visibilitychange', onVisible);
     window.addEventListener('focus', onVisible);
@@ -117,7 +131,7 @@ export function CartPanel({ business, active, alwaysVisible = false, onClose }: 
       document.removeEventListener('visibilitychange', onVisible);
       window.removeEventListener('focus', onVisible);
     };
-  }, [alwaysVisible, checkExistingOrder]);
+  }, [alwaysVisible, recheckSilently]);
 
   // Columna de escritorio: reconsulta cuando el carrito deja de cambiar. El
   // primer render no cuenta: ya lo cubre el efecto de `active`.
@@ -128,9 +142,9 @@ export function CartPanel({ business, active, alwaysVisible = false, onClose }: 
       isFirstItemCountRef.current = false;
       return;
     }
-    const timer = setTimeout(checkExistingOrder, ORDER_RECHECK_DEBOUNCE_MS);
+    const timer = setTimeout(recheckSilently, ORDER_RECHECK_DEBOUNCE_MS);
     return () => clearTimeout(timer);
-  }, [alwaysVisible, itemCount, checkExistingOrder]);
+  }, [alwaysVisible, itemCount, recheckSilently]);
 
   const handleClose = useCallback(() => {
     onClose?.();
