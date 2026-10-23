@@ -33,6 +33,11 @@ interface CartPanelProps {
   /** Al pasar a true consulta si el cliente ya tiene un pedido (al abrir el
    *  drawer en móvil; al montar la columna en escritorio). */
   active: boolean;
+  /** Panel siempre visible (columna de escritorio): como no se abre y cierra,
+   *  vuelve a consultar el pedido al volver a la pestaña y al cambiar el
+   *  carrito, para no quedarse con un estado viejo (p. ej. el operador ya
+   *  confirmó el pedido mientras el cliente seguía en WhatsApp Web). */
+  alwaysVisible?: boolean;
   /** Cierra el contenedor (drawer). Sin él no hay botón de cerrar. */
   onClose?: () => void;
 }
@@ -53,7 +58,10 @@ interface OrderStatus {
  * Contenido del carrito: ítems, notas, resumen y envío del pedido. Lo usan
  * el drawer (móvil) y la columna lateral (escritorio).
  */
-export function CartPanel({ business, active, onClose }: CartPanelProps) {
+/** Espera tras el último cambio del carrito antes de reconsultar el pedido. */
+const ORDER_RECHECK_DEBOUNCE_MS = 1500;
+
+export function CartPanel({ business, active, alwaysVisible = false, onClose }: CartPanelProps) {
   const router = useRouter();
   const { cart, updateItem, updateItemNotes, clearCart, itemCount, isSyncing, syncCart, customer, isIdentified, sessionId, branchId, branchPhone, whatsappToken } = useCart();
 
@@ -96,6 +104,33 @@ export function CartPanel({ business, active, onClose }: CartPanelProps) {
   useEffect(() => {
     if (active) checkExistingOrder();
   }, [active, checkExistingOrder]);
+
+  // Columna de escritorio: reconsulta al volver a la pestaña.
+  useEffect(() => {
+    if (!alwaysVisible) return;
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') checkExistingOrder();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('focus', onVisible);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('focus', onVisible);
+    };
+  }, [alwaysVisible, checkExistingOrder]);
+
+  // Columna de escritorio: reconsulta cuando el carrito deja de cambiar. El
+  // primer render no cuenta: ya lo cubre el efecto de `active`.
+  const isFirstItemCountRef = useRef(true);
+  useEffect(() => {
+    if (!alwaysVisible) return;
+    if (isFirstItemCountRef.current) {
+      isFirstItemCountRef.current = false;
+      return;
+    }
+    const timer = setTimeout(checkExistingOrder, ORDER_RECHECK_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [alwaysVisible, itemCount, checkExistingOrder]);
 
   const handleClose = useCallback(() => {
     onClose?.();

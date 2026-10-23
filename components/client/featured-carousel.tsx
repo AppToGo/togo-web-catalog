@@ -18,6 +18,7 @@ import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
 import { useProductQuickAdd } from './product-row';
 import { useSearchContext } from './search-context';
 import { formatPrice } from '@/lib/utils';
+import { getInitials } from '@/components/ui/initials-avatar';
 import type { CatalogProduct } from '@/src/types/catalog.types';
 
 const DESKTOP_VISIBLE = 3;
@@ -124,6 +125,10 @@ export function FeaturedCarousel({ products }: FeaturedCarouselProps) {
 function FeaturedCard({ product, className = '' }: { product: CatalogProduct; className?: string }) {
   const { hasVariants, displayPrice, isUnavailable, canAddMore, openDetail, handleAdd } =
     useProductQuickAdd(product);
+  // Misma regla que ProductRow: si la URL se rompe, iniciales sobre el fondo
+  // del negocio en vez de una imagen rota.
+  const [failedImageSrc, setFailedImageSrc] = useState<string | null>(null);
+  const showImage = Boolean(product.image && failedImageSrc !== product.image);
 
   return (
     <div
@@ -137,14 +142,23 @@ function FeaturedCard({ product, className = '' }: { product: CatalogProduct; cl
         aria-label={`Ver detalle de ${product.name}`}
         className="relative block w-full aspect-[16/9] lg:aspect-auto lg:h-42 bg-(--accent-soft) cursor-pointer"
       >
-        {product.image && (
+        {showImage && product.image ? (
           <Image
             src={product.image}
             alt={product.name}
             fill
             className="object-cover"
             sizes="(min-width: 1024px) 300px, 280px"
+            onError={() => setFailedImageSrc(product.image ?? null)}
           />
+        ) : (
+          <span
+            aria-hidden="true"
+            className="absolute inset-0 flex items-center justify-center text-[32px] font-bold tracking-[-0.03em] text-(--accent)"
+            style={{ fontFamily: 'var(--font-display)' }}
+          >
+            {getInitials(product.name)}
+          </span>
         )}
         <span className="absolute top-2.5 left-2.5 text-[10px] lg:text-[11px] font-bold uppercase tracking-[0.04em] px-2.5 py-1 rounded-full bg-(--surface) text-(--accent)">
           Destacado

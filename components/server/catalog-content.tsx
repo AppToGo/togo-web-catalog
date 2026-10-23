@@ -14,7 +14,6 @@ import { expandTemplateProducts } from "@/lib/expand-template-products";
 
 interface CatalogContentProps {
   catalog: CatalogResponse;
-  businessSlug: string;
   /** Pantalla de selección de sede; solo si el negocio tiene varias */
   changeBranchHref?: string;
 }

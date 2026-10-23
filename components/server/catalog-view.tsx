@@ -89,7 +89,6 @@ export function CatalogView({
             <Suspense fallback={<CatalogSkeleton />}>
               <CatalogContent
                 catalog={catalog}
-                businessSlug={businessSlug}
                 changeBranchHref={catalogHref(`/${businessSlug}`, linkParams)}
               />
             </Suspense>

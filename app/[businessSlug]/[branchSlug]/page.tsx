@@ -209,7 +209,7 @@ export default async function BranchCatalogPage({
           table={table}
           token={effectiveToken}
           initialCart={initialCart}
-          linkParams={{ t: token, source, table }}
+          linkParams={{ t: effectiveToken, source, table }}
         />
       </>
     );

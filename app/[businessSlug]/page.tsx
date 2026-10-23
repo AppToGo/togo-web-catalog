@@ -188,7 +188,7 @@ export default async function BusinessCatalogPage({
         <BranchSelector
           catalog={catalog}
           businessSlug={businessSlug}
-          linkParams={{ t: token, source, table }}
+          linkParams={{ t: effectiveToken, source, table }}
         />
       );
     }
@@ -207,7 +207,7 @@ export default async function BusinessCatalogPage({
           table={table}
           token={effectiveToken}
           initialCart={initialCart}
-          linkParams={{ t: token, source, table }}
+          linkParams={{ t: effectiveToken, source, table }}
         />
       </>
     );

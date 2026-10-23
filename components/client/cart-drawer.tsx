@@ -100,7 +100,7 @@ export function CartSidebar({ business }: CartDrawerProps) {
       className="hidden lg:flex flex-none w-85 py-6 min-h-0"
     >
       <div className="flex-1 min-h-0 flex flex-col overflow-hidden bg-(--surface) border border-(--line) rounded-[18px] shadow-[0_4px_14px_rgba(20,20,15,0.06)]">
-        {isDesktop && <CartPanel business={business} active />}
+        {isDesktop && <CartPanel business={business} active alwaysVisible />}
       </div>
     </aside>
   );
