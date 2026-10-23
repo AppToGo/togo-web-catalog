@@ -1,9 +1,9 @@
 /**
  * ProductModal - Client Component
  *
- * Hoja inferior de detalle de producto (solo mobile). Siempre montada para
- * animar la entrada y la salida; conserva el último producto mostrado
- * mientras la hoja se cierra.
+ * Detalle de producto: hoja inferior en móvil y diálogo centrado en
+ * escritorio (lg). Siempre montada para animar la entrada y la salida;
+ * conserva el último producto mostrado mientras se cierra.
  */
 
 'use client';
@@ -27,9 +27,11 @@ import {
 interface ProductModalProps {
   /** Mismo ajuste del negocio que en la lista: sin fotos, la hoja tampoco las muestra */
   useProductImages: boolean;
+  /** Los destacados siempre llevan foto, aunque el catálogo no muestre imágenes */
+  featuredProductIds?: string[];
 }
 
-export function ProductModal({ useProductImages }: ProductModalProps) {
+export function ProductModal({ useProductImages, featuredProductIds }: ProductModalProps) {
   const { selectedProduct, selectProduct, isCartOpen } = useCartUI();
   const [shownProduct, setShownProduct] = useState<CatalogProduct | null>(selectedProduct);
   const sheetRef = useRef<HTMLDivElement>(null);
@@ -83,15 +85,17 @@ export function ProductModal({ useProductImages }: ProductModalProps) {
         aria-modal="true"
         aria-label={shownProduct ? `Detalle de ${shownProduct.name}` : 'Detalle de producto'}
         tabIndex={-1}
-        className={`absolute inset-x-0 bottom-0 h-[calc(100dvh-36px)] bg-(--surface) rounded-t-[20px] overflow-hidden flex flex-col outline-none shadow-[0_14px_40px_rgba(20,20,15,0.14)] transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] ${
-          isOpen ? 'translate-y-0' : 'translate-y-full'
+        className={`absolute inset-x-0 bottom-0 h-[calc(100dvh-36px)] bg-(--surface) rounded-t-[20px] overflow-hidden flex flex-col outline-none shadow-[0_14px_40px_rgba(20,20,15,0.14)] transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] lg:inset-auto lg:left-1/2 lg:top-1/2 lg:-translate-x-1/2 lg:w-[min(560px,calc(100vw-64px))] lg:h-[min(780px,calc(100dvh-64px))] lg:rounded-[20px] ${
+          isOpen ? 'translate-y-0 lg:-translate-y-1/2' : 'translate-y-full lg:-translate-y-[46%]'
         }`}
       >
         {shownProduct && (
           <ProductSheetContent
             key={getProductRowKey(shownProduct)}
             product={shownProduct}
-            showPhoto={useProductImages}
+            showPhoto={
+              useProductImages || !!featuredProductIds?.includes(shownProduct.id)
+            }
             onClose={handleClose}
           />
         )}
@@ -254,7 +258,7 @@ function ProductSheetContent({ product, showPhoto, onClose }: ProductSheetConten
                 alt={product.name}
                 fill
                 className="object-cover"
-                sizes="100vw"
+                sizes="(min-width: 1024px) 560px, 100vw"
                 onError={() => setImageError(true)}
               />
             ) : (
@@ -262,7 +266,7 @@ function ProductSheetContent({ product, showPhoto, onClose }: ProductSheetConten
             )}
             <span
               aria-hidden="true"
-              className="absolute top-2 left-1/2 -translate-x-1/2 w-9 h-1 rounded-full bg-(--surface)/90"
+              className="absolute top-2 left-1/2 -translate-x-1/2 w-9 h-1 rounded-full bg-(--surface)/90 lg:hidden"
             />
             <button
               className="absolute top-3.5 right-3.5 w-10 h-10 rounded-full bg-(--surface)/95 text-(--ink) flex items-center justify-center shadow-[0_1px_4px_rgba(0,0,0,0.12)] active:scale-95 transition-transform"
@@ -276,7 +280,7 @@ function ProductSheetContent({ product, showPhoto, onClose }: ProductSheetConten
           <div className="relative h-14">
             <span
               aria-hidden="true"
-              className="absolute top-2 left-1/2 -translate-x-1/2 w-9 h-1 rounded-full bg-(--line-2)"
+              className="absolute top-2 left-1/2 -translate-x-1/2 w-9 h-1 rounded-full bg-(--line-2) lg:hidden"
             />
             <button
               className="absolute top-3.5 right-3.5 w-10 h-10 rounded-full bg-(--bg) text-(--ink) flex items-center justify-center active:scale-95 transition-transform"

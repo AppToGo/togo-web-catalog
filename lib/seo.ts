@@ -23,7 +23,9 @@ export function generateCatalogMetadata(
   catalog: CatalogResponse,
   businessSlug: string
 ): Metadata {
-  const { business, products } = catalog;
+  const { business } = catalog;
+  // Sin sede elegida (requiresBranchSelection) la respuesta no trae productos
+  const products = catalog.products ?? [];
   const productCount = products.length;
   
   const title = `${business.name} | Catálogo Online`;
@@ -169,7 +171,8 @@ export function generateStructuredData(
   catalog: CatalogResponse,
   businessSlug: string
 ): StructuredData {
-  const { business, products } = catalog;
+  const { business } = catalog;
+  const products = catalog.products ?? [];
   const catalogUrl = `${APP_URL}/${businessSlug}`;
 
   // LocalBusiness o Store

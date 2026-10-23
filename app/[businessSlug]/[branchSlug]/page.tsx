@@ -8,7 +8,6 @@
  * Token (?t=) is optional — used only for customer identity (phone/name from WhatsApp).
  */
 
-import { Suspense } from "react";
 import { Metadata } from "next";
 import {
   fetchCatalogByBranch,
@@ -20,18 +19,8 @@ import {
 import type { Cart } from "@/src/types/catalog.types";
 import { generateCatalogMetadata, generateStructuredData } from "@/lib/seo";
 import { isValidSlug } from "@/lib/utils";
-import { CatalogContent } from "@/components/server/catalog-content";
-import { CatalogSkeleton } from "@/components/ui/skeleton";
-import { CartProvider } from "@/components/client/cart-context";
-import { CartUIProvider } from "@/components/client/cart-ui-context";
-import { RecommendationsSheet } from "@/components/client/recommendations-sheet";
-import { RecommendationsProvider } from "@/components/client/recommendations-context";
-import { productsForRecommendations } from "@/lib/recommendations";
-import { CartDrawer } from "@/components/client/cart-drawer";
-import { ProductModal } from "@/components/client/product-modal";
-import { FloatingCart } from "@/components/client/floating-cart";
+import { CatalogView } from "@/components/server/catalog-view";
 import type { CustomerOrigin } from "@/lib/types";
-import { getColorContrast } from "@/components/utils/getColorContrast";
 
 // Next.js exige un literal acá (no admite un valor importado en el build) —
 // debe coincidir con DEFAULT_REVALIDATE en lib/api.ts.
@@ -210,62 +199,18 @@ export default async function BranchCatalogPage({
       return <EmptyCatalog businessName={catalog.business.name} />;
     }
 
-    // branchId and branchPhone come from the backend response — needed for cart operations and wa.me redirect
-    const branchId = catalog.branchId ?? undefined;
-    const branchPhone = catalog.branchPhone;
-    const contrastAccentColor = getColorContrast(
-      catalog.business.accentColor || "#000000",
-    );
-    const contrastPrimaryColor = getColorContrast(
-      catalog.business.primaryColor || "#000000",
-    );
-
     return (
       <>
         <StructuredData catalog={catalog} businessSlug={businessSlug} />
-        <div
-          data-catalog-theme
-          style={
-            {
-              "--accent": catalog.business.primaryColor,
-              "--accent-2": catalog.business.accentColor,
-              "--accent-ink": contrastPrimaryColor,
-              "--accent-2-ink": contrastAccentColor,
-            } as React.CSSProperties
-          }
-        >
-          <CartProvider
-            businessSlug={businessSlug}
-            origin={origin}
-            tableNumber={table}
-            initialPhone={catalog.customerPhone}
-            initialName={catalog.customerName}
-            isAuthenticated={!!effectiveToken}
-            branchId={branchId}
-            branchPhone={branchPhone}
-            whatsappToken={effectiveToken}
-            initialCart={initialCart}
-          >
-            <CartUIProvider>
-              <RecommendationsProvider
-                products={productsForRecommendations(catalog.products)}
-              >
-                <Suspense fallback={<CatalogSkeleton />}>
-                  <CatalogContent catalog={catalog} businessSlug={businessSlug} />
-                </Suspense>
-
-                <FloatingCart accentColor={catalog.business.primaryColor} />
-                <ProductModal
-                  useProductImages={catalog.business.useProductImages ?? false}
-                />
-                <CartDrawer business={catalog.business} />
-                <RecommendationsSheet
-                  useProductImages={catalog.business.useProductImages ?? false}
-                />
-              </RecommendationsProvider>
-            </CartUIProvider>
-          </CartProvider>
-        </div>
+        <CatalogView
+          catalog={catalog}
+          businessSlug={businessSlug}
+          origin={origin}
+          table={table}
+          token={effectiveToken}
+          initialCart={initialCart}
+          linkParams={{ t: effectiveToken, source, table }}
+        />
       </>
     );
   } catch (error) {

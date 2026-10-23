@@ -28,7 +28,7 @@ export function IndustrySection({
     <section
       data-cat-id={catId}
       id={`cat-${catId}`}
-      className="scroll-mt-19.25"
+      className="scroll-mt-19.25 lg:scroll-mt-0"
     >
       {children}
     </section>

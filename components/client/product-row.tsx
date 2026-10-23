@@ -15,14 +15,14 @@ interface ProductRowProps {
   useProductImages: boolean;
 }
 
-export function ProductRow({
-  product,
-  subcatId,
-  useProductImages,
-}: ProductRowProps) {
+/**
+ * Estado y acciones para agregar un producto sin abrir su detalle: con una
+ * sola variante (o ninguna) se agrega directo; con varias abre el detalle
+ * para elegir. Lo comparten la fila del catálogo y el carrusel de destacados.
+ */
+export function useProductQuickAdd(product: CatalogProduct) {
   const { cart, addItem, updateItem, getStockForProduct } = useCart();
   const { selectProduct } = useCartUI();
-  const [failedImageSrc, setFailedImageSrc] = useState<string | null>(null);
 
   const variants = product.variants ?? [];
   const hasVariants = variants.length > 1;
@@ -48,9 +48,6 @@ export function ProductRow({
     (selectedVariant !== null && selectedVariant.isAvailable === false) ||
     isOutOfStock;
   const canAddMore = !isUnavailable && remainingStock > 0;
-  const showImage = Boolean(
-    product.image && failedImageSrc !== product.image,
-  );
 
   const openDetail = () => selectProduct(product);
 
@@ -86,25 +83,59 @@ export function ProductRow({
     updateItem(product.id, 1, selectedVariant?.id);
   };
 
+  return {
+    hasVariants,
+    qty,
+    displayPrice,
+    isUnavailable,
+    canAddMore,
+    openDetail,
+    handleAdd,
+    handleMinus,
+    handlePlus,
+  };
+}
+
+export function ProductRow({
+  product,
+  subcatId,
+  useProductImages,
+}: ProductRowProps) {
+  const [failedImageSrc, setFailedImageSrc] = useState<string | null>(null);
+  const {
+    hasVariants,
+    qty,
+    displayPrice,
+    isUnavailable,
+    canAddMore,
+    openDetail,
+    handleAdd,
+    handleMinus,
+    handlePlus,
+  } = useProductQuickAdd(product);
+  const showImage = Boolean(
+    product.image && failedImageSrc !== product.image,
+  );
+
   return (
     <div
-      className={`grid grid-cols-[1fr_auto] items-center pr-4 border-b border-(--line) last:border-b-0 transition-colors relative bg-(--surface) hover:bg-(--bg) ${isUnavailable ? "opacity-50" : ""}`}
+      className={`grid grid-cols-[1fr_auto] items-center pr-4 border-b border-(--line) last:border-b-0 transition-colors relative bg-(--surface) hover:bg-(--bg) lg:border lg:last:border-b lg:rounded-[18px] lg:pr-3.5 lg:transition-shadow lg:hover:bg-(--surface) lg:hover:shadow-[0_4px_14px_rgba(20,20,15,0.08)] ${isUnavailable ? "opacity-50" : ""}`}
     >
       <button
         type="button"
-        className={`grid ${useProductImages ? "grid-cols-[56px_1fr]" : "grid-cols-1"} items-center gap-3 pl-4 pr-3 py-3 text-left cursor-pointer min-w-0`}
+        className={`grid ${useProductImages ? "grid-cols-[56px_1fr] lg:grid-cols-[72px_1fr]" : "grid-cols-1"} items-center gap-3 pl-4 pr-3 py-3 lg:gap-3.5 lg:pl-3.5 lg:py-3.5 text-left cursor-pointer min-w-0`}
         onClick={openDetail}
         aria-label={`Ver detalle de ${product.name}`}
       >
         {useProductImages &&
           (showImage && product.image ? (
-            <div className="w-13 h-13 rounded-lg shrink-0 relative overflow-hidden">
+            <div className="w-13 h-13 lg:w-18 lg:h-18 rounded-lg lg:rounded-xl shrink-0 relative overflow-hidden">
               <Image
                 src={product.image}
                 alt={product.name}
                 fill
                 className="object-cover"
-                sizes="52px"
+                sizes="(min-width: 1024px) 72px, 52px"
                 onError={() => setFailedImageSrc(product.image ?? null)}
               />
             </div>

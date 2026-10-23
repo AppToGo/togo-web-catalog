@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState, useEffect, useCallback, useMemo } from "react";
-import { HighlightsRail, type HighlightItem } from "./highlights-rail";
+import { FeaturedCarousel } from "./featured-carousel";
 import { useSearchContext } from "./search-context";
 import type { Category, CatalogProduct } from "@/src/types/catalog.types";
 
@@ -13,7 +13,10 @@ interface CategoryProductGroup {
 interface CatalogShellProps {
   categories: Category[];
   categoryProductGroups: CategoryProductGroup[];
-  highlights?: HighlightItem[];
+  /** Destacados de la sede, ya con imagen; vacío oculta el carrusel */
+  featured: CatalogProduct[];
+  /** Columna derecha en escritorio (el carrito) */
+  aside?: React.ReactNode;
   children: React.ReactNode;
 }
 
@@ -37,7 +40,8 @@ function SearchEmptyState() {
 export function CatalogShell({
   categories,
   categoryProductGroups,
-  highlights,
+  featured,
+  aside,
   children,
 }: CatalogShellProps) {
   const [activeId, setActiveId] = useState<string>(categories[0]?.id ?? "");
@@ -123,10 +127,52 @@ export function CatalogShell({
     }, 800);
   }, []);
 
+  const productCounts = useMemo(
+    () =>
+      new Map(
+        categoryProductGroups.map(({ categoryId, products }) => [
+          categoryId,
+          isSearching ? products.filter(matches).length : products.length,
+        ]),
+      ),
+    [categoryProductGroups, matches, isSearching],
+  );
+
   return (
-    <>
+    // Escritorio: categorías | productos | carrito. Solo la columna de
+    // productos hace scroll; en móvil todo es un bloque y scrollea la página.
+    <div className="lg:flex-1 lg:min-h-0 lg:flex lg:gap-7 lg:w-full lg:max-w-352 lg:mx-auto lg:px-6">
       {visibleCategories.length > 0 && (
-        <div className="sticky top-19.25 z-30 bg-(--surface) border-b border-(--line)">
+        <nav
+          aria-label="Categorías"
+          className="hidden lg:flex flex-col flex-none w-52.5 py-6 gap-0.5 overflow-y-auto"
+        >
+          <div className="px-3 pb-2.5 text-xs font-semibold uppercase tracking-[0.04em] text-(--ink-2)">
+            Categorías
+          </div>
+          {visibleCategories.map((cat) => (
+            <button
+              key={cat.id}
+              type="button"
+              onClick={() => handleTabClick(cat.id)}
+              aria-current={activeId === cat.id}
+              className={`flex items-center justify-between gap-2 min-h-10 px-3 rounded-[10px] text-left text-[14px] cursor-pointer transition-colors ${
+                activeId === cat.id
+                  ? "bg-(--accent-soft) text-(--accent) font-semibold"
+                  : "text-(--ink) hover:bg-(--line)"
+              }`}
+            >
+              <span className="truncate">{cat.name}</span>
+              <span className="text-xs text-(--ink-2) font-normal">
+                {productCounts.get(cat.id) ?? 0}
+              </span>
+            </button>
+          ))}
+        </nav>
+      )}
+
+      {visibleCategories.length > 0 && (
+        <div className="sticky top-19.25 z-30 bg-(--surface) border-b border-(--line) lg:hidden">
           <div
             ref={tabsRef}
             className="flex gap-1 overflow-x-auto px-3 py-2 scrollbar-hide"
@@ -149,12 +195,17 @@ export function CatalogShell({
           </div>
         </div>
       )}
-      <HighlightsRail highlights={highlights} />
-      {isSearching && visibleCategories.length === 0 ? (
-        <SearchEmptyState />
-      ) : (
-        children
-      )}
-    </>
+
+      <main className="lg:flex-1 lg:min-w-0 lg:overflow-y-auto lg:py-6 lg:px-1">
+        <FeaturedCarousel products={featured} />
+        {isSearching && visibleCategories.length === 0 ? (
+          <SearchEmptyState />
+        ) : (
+          children
+        )}
+      </main>
+
+      {aside}
+    </div>
   );
 }
