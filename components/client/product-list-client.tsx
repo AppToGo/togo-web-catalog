@@ -12,7 +12,7 @@ interface ProductListClientProps {
 
 export function ProductListClient({ products, categoryId, useProductImages }: ProductListClientProps) {
   return (
-    <div className="flex flex-col">
+    <div className="flex flex-col lg:grid lg:grid-cols-2 lg:gap-3.5">
       {products.map((product) => (
         <ProductRow
           key={getProductRowKey(product)}

@@ -246,6 +246,35 @@ export interface CatalogResponse {
    *  Only returned by the backend when the branch has a dedicated phone.
    *  Absent when the business uses a single shared number across all branches. */
   branchPhone?: string;
+
+  /** Negocio multi-sede pedido sin sede: no trae productos, solo `branches`
+   *  para que el cliente elija una. */
+  requiresBranchSelection?: boolean;
+
+  /** Sedes activas del negocio — solo cuando `requiresBranchSelection`. */
+  branches?: CatalogBranch[];
+
+  /** Sede resuelta del catálogo. */
+  selectedBranch?: { id: string; name: string; code: string };
+
+  /** Cantidad de sedes activas del negocio (para ofrecer "Cambiar" sede). */
+  branchCount?: number;
+
+  /** Productos destacados de la sede, en el orden del carrusel. */
+  featuredProductIds?: string[];
+}
+
+/**
+ * Sede ofrecida en la pantalla de selección (negocio multi-sede sin sede)
+ */
+export interface CatalogBranch {
+  id: string;
+  name: string;
+  code: string;
+  slug: string;
+  address?: string;
+  city?: string;
+  isMainBranch: boolean;
 }
 
 /**
