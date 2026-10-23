@@ -30,9 +30,9 @@ export function CategorySection({
   return (
     <div className="pb-2">
       {title && (
-        <div className="sticky top-31 z-20 bg-(--surface) flex items-baseline gap-2 px-4 pt-3 pb-2 border-b border-[var(--line)]">
+        <div className="sticky top-31 z-20 bg-(--surface) flex items-baseline gap-2 px-4 pt-3 pb-2 border-b border-[var(--line)] lg:static lg:bg-transparent lg:border-b-0 lg:px-0 lg:pt-6 lg:pb-3.5">
           <div
-            className="text-[17px] font-bold text-(--ink) tracking-[-0.03em] leading-[1.2]"
+            className="text-[17px] lg:text-[20px] font-bold text-(--ink) tracking-[-0.03em] leading-[1.2]"
             style={{ fontFamily: "var(--font-display)" }}
           >
             {title}

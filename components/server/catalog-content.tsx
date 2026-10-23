@@ -9,12 +9,24 @@ import { CategorySection } from "@/components/client/category-section";
 import { IndustrySection } from "@/components/client/industry-section";
 import { CatalogShell } from "@/components/client/catalog-shell";
 import { SearchProvider } from "@/components/client/search-context";
-import type { HighlightItem } from "@/components/client/highlights-rail";
+import { CartSidebar } from "@/components/client/cart-drawer";
 import { expandTemplateProducts } from "@/lib/expand-template-products";
 
 interface CatalogContentProps {
   catalog: CatalogResponse;
-  businessSlug: string;
+  /** Pantalla de selección de sede; solo si el negocio tiene varias */
+  changeBranchHref?: string;
+}
+
+/**
+ * Destacados de la sede en el orden del admin. Siempre van con foto (aunque
+ * el catálogo no muestre imágenes): el que no tenga imagen no se muestra.
+ */
+function getFeaturedProducts(catalog: CatalogResponse): CatalogProduct[] {
+  const byId = new Map(catalog.products.map((p) => [p.id, p]));
+  return (catalog.featuredProductIds ?? [])
+    .map((id) => byId.get(id))
+    .filter((p): p is CatalogProduct => !!p?.image);
 }
 
 // ─── Two-level catalog grouping ───────────────────────────────────────────────
@@ -157,7 +169,7 @@ function buildCatalogGroups(
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export function CatalogContent({ catalog, businessSlug }: CatalogContentProps) {
+export function CatalogContent({ catalog, changeBranchHref }: CatalogContentProps) {
   const { business, categories, products, subCategories } = catalog;
 
   const expandedProducts = expandTemplateProducts(products);
@@ -172,27 +184,23 @@ export function CatalogContent({ catalog, businessSlug }: CatalogContentProps) {
     products: g.subGroups.flatMap((sg) => sg.products),
   }));
 
-  const highlights = (
-    catalog as CatalogResponse & { highlights?: HighlightItem[] }
-  ).highlights;
+  const showBranch = (catalog.branchCount ?? 0) > 1 && !!catalog.selectedBranch;
 
   return (
     <SearchProvider>
-      <div
-        style={
-          {
-            minHeight: "100dvh",
-            background: "var(--bg)",
-            paddingBottom: 96,
-          } as React.CSSProperties
-        }
-      >
-        <CatalogHeader business={business} />
+      {/* Escritorio: la página no scrollea, solo la columna de productos */}
+      <div className="min-h-dvh bg-(--bg) pb-24 lg:h-dvh lg:min-h-0 lg:pb-0 lg:flex lg:flex-col lg:overflow-hidden">
+        <CatalogHeader
+          business={business}
+          branchName={showBranch ? catalog.selectedBranch?.name : undefined}
+          changeBranchHref={showBranch ? changeBranchHref : undefined}
+        />
 
         <CatalogShell
           categories={tabCategories}
           categoryProductGroups={categoryProductGroups}
-          highlights={highlights}
+          featured={getFeaturedProducts(catalog)}
+          aside={<CartSidebar business={business} />}
         >
           {catalogGroups.map(({ id: industryCatId, subGroups }) => (
             <IndustrySection

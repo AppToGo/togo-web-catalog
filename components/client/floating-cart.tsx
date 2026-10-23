@@ -25,7 +25,7 @@ export function FloatingCart({ accentColor }: FloatingCartProps) {
   const total = cart.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 px-3 pb-3 bg-[linear-gradient(to_top,var(--bg)_70%,transparent)] pointer-events-none">
+    <div className="lg:hidden fixed bottom-0 left-0 right-0 z-50 px-3 pb-3 bg-[linear-gradient(to_top,var(--bg)_70%,transparent)] pointer-events-none">
       <div
         className="flex items-center gap-[10px] rounded-[18px] px-4 py-3 shadow-[0_14px_40px_rgba(20,20,15,0.14)] cursor-pointer pointer-events-auto transition-[opacity,transform] animate-[drawer-up_0.22s_ease-out] hover:opacity-[0.93] active:scale-[0.98]"
         style={{ background: accentColor || 'var(--accent)', color: 'var(--accent-ink)' }}
