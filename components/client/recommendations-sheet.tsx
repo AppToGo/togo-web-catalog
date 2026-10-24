@@ -19,12 +19,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
 import { Check, X } from 'lucide-react';
-import type { CatalogProduct } from '@/src/types/catalog.types';
+import type { CatalogProduct, CatalogVariant } from '@/src/types/catalog.types';
 import { formatPrice } from '@/lib/utils';
 import { InitialsAvatar } from '@/components/ui/initials-avatar';
 import { useCart } from './cart-context';
 import { useCartUI } from './cart-ui-context';
-import { defaultVariant, useRecommendations } from './recommendations-context';
+import { useRecommendations, type RecommendedPick } from './recommendations-context';
 
 interface RecommendationsSheetProps {
   useProductImages: boolean;
@@ -32,7 +32,16 @@ interface RecommendationsSheetProps {
 
 interface OpenSheet {
   source: CatalogProduct;
-  items: CatalogProduct[];
+  items: RecommendedPick[];
+}
+
+/**
+ * Lo que ve el cliente: "Limonada · Coco" con varias presentaciones, solo
+ * el nombre cuando el recomendado tiene presentación única.
+ */
+function labelOf(product: CatalogProduct, variant: CatalogVariant) {
+  const hasVariants = (product.variants?.length ?? 0) > 1;
+  return hasVariants ? `${product.name} · ${variant.label}` : product.name;
 }
 
 export function RecommendationsSheet({ useProductImages }: RecommendationsSheetProps) {
@@ -80,7 +89,7 @@ export function RecommendationsSheet({ useProductImages }: RecommendationsSheetP
 
   if (!sheet) return null;
 
-  const addedCount = sheet.items.filter(isInCart).length;
+  const addedCount = sheet.items.filter((pick) => isInCart(pick)).length;
 
   return (
     <>
@@ -128,13 +137,13 @@ export function RecommendationsSheet({ useProductImages }: RecommendationsSheetP
         </h2>
 
         <ul className="m-0 p-0 list-none overflow-y-auto">
-          {sheet.items.map((product) => {
-            const isAdded = isInCart(product);
-            const variant = defaultVariant(product);
-            const price = variant?.price ?? product.priceFrom ?? product.price;
+          {sheet.items.map(({ product, variant }) => {
+            const isAdded = isInCart({ product, variant });
+            const price = variant.price ?? product.priceFrom ?? product.price;
+            const label = labelOf(product, variant);
             return (
               <li
-                key={product.id}
+                key={`${product.id}-${variant.id}`}
                 className={`grid ${useProductImages ? 'grid-cols-[52px_1fr_auto]' : 'grid-cols-[1fr_auto]'} items-center gap-3 px-4 py-3 border-b border-[var(--line)] last:border-b-0`}
               >
                 {useProductImages &&
@@ -156,7 +165,7 @@ export function RecommendationsSheet({ useProductImages }: RecommendationsSheetP
                   ))}
                 <div className="flex flex-col gap-0.5 min-w-0">
                   <span className="text-[14px] font-semibold text-[var(--ink)] truncate tracking-[-0.01em]">
-                    {product.name}
+                    {label}
                   </span>
                   <span className="text-[15px] font-bold text-[var(--ink)] tracking-[-0.03em]">
                     {formatPrice(price)}
@@ -164,9 +173,9 @@ export function RecommendationsSheet({ useProductImages }: RecommendationsSheetP
                 </div>
                 <button
                   type="button"
-                  onClick={() => toggle(product)}
+                  onClick={() => toggle({ product, variant })}
                   aria-pressed={isAdded}
-                  aria-label={`${isAdded ? 'Quitar' : 'Agregar'} ${product.name}`}
+                  aria-label={`${isAdded ? 'Quitar' : 'Agregar'} ${label}`}
                   className={`min-h-10 px-4 rounded-full border-[1.5px] border-[var(--accent)] text-[14px] font-bold transition-colors ${
                     isAdded
                       ? 'bg-[var(--accent)] text-[var(--accent-ink)]'

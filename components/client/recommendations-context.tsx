@@ -4,6 +4,8 @@
  * Recomendados del catálogo ("Va muy bien con"), compartidos por la hoja que
  * sube al agregar un producto y por el detalle del producto. Las reglas
  * viven acá para que las dos digan lo mismo:
+ * - cada recomendado es una presentación concreta (la que eligió el
+ *   negocio; predeterminada/única para filas legado);
  * - hasta 3, en orden al azar, sin los que ya están en el carrito ni los
  *   agotados (el backend ya dejó solo los activos y con stock en la sede);
  * - se ofrecen una sola vez por producto en la visita: si el detalle ya los
@@ -14,19 +16,28 @@
 'use client';
 
 import { createContext, useCallback, useContext, useMemo, useRef, type ReactNode } from 'react';
-import type { CatalogProduct } from '@/src/types/catalog.types';
+import type { CatalogProduct, CatalogVariant } from '@/src/types/catalog.types';
 import { useCart } from './cart-context';
 
 /** Cuántos recomendados se muestran a la vez. */
 const MAX_ITEMS = 3;
 
+/**
+ * Un recomendado con su presentación concreta: lo que se muestra ("Va muy
+ * bien con") y lo que entra al carrito con un toque.
+ */
+export interface RecommendedPick {
+  product: CatalogProduct;
+  variant: CatalogVariant;
+}
+
 interface RecommendationsContextType {
   /** Recomendados para mostrar al pedir `productId` (orden al azar). */
-  pickFor: (productId: string) => CatalogProduct[];
+  pickFor: (productId: string) => RecommendedPick[];
   getProduct: (productId: string) => CatalogProduct | undefined;
-  isInCart: (product: CatalogProduct) => boolean;
+  isInCart: (pick: RecommendedPick) => boolean;
   /** Agrega el recomendado, o lo quita si ya está en el carrito. */
-  toggle: (product: CatalogProduct) => void;
+  toggle: (pick: RecommendedPick) => void;
   /** Ya se le mostraron los recomendados de este producto. */
   markShown: (productId: string) => void;
   /** Si al agregar `productId` corresponde ofrecer sus recomendados. */
@@ -42,6 +53,20 @@ export function defaultVariant(product: CatalogProduct) {
     product.variants?.find((v) => v.isDefault) ??
     (product.variants?.length === 1 ? product.variants[0] : undefined)
   );
+}
+
+/**
+ * Presentación concreta del recomendado: la que indica el admin
+ * (`recommendedVariantIds`, en la misma posición que el producto) o la
+ * predeterminada/única para filas guardadas antes de las recomendaciones
+ * por variante. `undefined` si esa presentación ya no está en el catálogo.
+ */
+export function resolveRecommendedVariant(
+  product: CatalogProduct,
+  variantId?: string,
+): CatalogVariant | undefined {
+  if (variantId) return product.variants?.find((v) => v.id === variantId);
+  return defaultVariant(product);
 }
 
 function shuffle<T>(items: T[]): T[] {
@@ -70,32 +95,39 @@ export function RecommendationsProvider({ products, children }: RecommendationsP
   const addedFromRecommendation = useRef(new Set<string>());
 
   const cartLine = useCallback(
-    (productId: string) => cart.items.find((i) => i.productId === productId),
+    (productId: string, variantId?: string) =>
+      cart.items.find((i) => i.productId === productId && (!variantId || i.variantId === variantId)),
     [cart.items],
   );
 
   const pickFor = useCallback(
     (productId: string) => {
-      const ids = productsById.get(productId)?.recommendedProductIds ?? [];
+      const source = productsById.get(productId);
+      const ids = source?.recommendedProductIds ?? [];
+      const variantIds = source?.recommendedVariantIds ?? [];
       return shuffle(
         ids
-          .filter((id) => id !== productId && !cartLine(id))
-          .map((id) => productsById.get(id))
-          .filter((p): p is CatalogProduct => !!p && p.stock !== 0 && !!defaultVariant(p)),
+          .map((id, i) => {
+            if (id === productId) return undefined;
+            const product = productsById.get(id);
+            if (!product || product.stock === 0) return undefined;
+            const variant = resolveRecommendedVariant(product, variantIds[i]);
+            if (!variant || cartLine(id, variant.id)) return undefined;
+            return { product, variant };
+          })
+          .filter((p): p is RecommendedPick => !!p),
       ).slice(0, MAX_ITEMS);
     },
     [productsById, cartLine],
   );
 
   const toggle = useCallback(
-    (product: CatalogProduct) => {
-      const line = cartLine(product.id);
+    ({ product, variant }: RecommendedPick) => {
+      const line = cartLine(product.id, variant.id);
       if (line) {
         removeItem(product.id, line.variantId);
         return;
       }
-      const variant = defaultVariant(product);
-      if (!variant) return;
       addedFromRecommendation.current.add(product.id);
       // Mismo nombre de línea que el detalle: con varias presentaciones,
       // "Gaseosa - 400 ml".
@@ -118,7 +150,7 @@ export function RecommendationsProvider({ products, children }: RecommendationsP
     () => ({
       pickFor,
       getProduct: (productId) => productsById.get(productId),
-      isInCart: (product) => !!cartLine(product.id),
+      isInCart: ({ product, variant }) => !!cartLine(product.id, variant.id),
       toggle,
       markShown: (productId) => shownFor.current.add(productId),
       shouldOffer: (productId) =>

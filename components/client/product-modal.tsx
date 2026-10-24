@@ -524,28 +524,30 @@ function GoesWellWith({ productId }: { productId: string }) {
       <section className="flex flex-col gap-2.5" aria-labelledby="goes-well-with-title">
         <SectionTitle id="goes-well-with-title">Va muy bien con</SectionTitle>
         <ul className="m-0 p-0 list-none grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-2.5">
-          {items.map((item) => {
-            const added = isInCart(item);
+          {items.map(({ product, variant }) => {
+            const added = isInCart({ product, variant });
+            const hasVariants = (product.variants?.length ?? 0) > 1;
+            const label = hasVariants ? `${product.name} · ${variant.label}` : product.name;
             return (
               <li
-                key={item.id}
+                key={`${product.id}-${variant.id}`}
                 className="flex flex-col gap-2 p-2.5 rounded-xl border-[1.5px] border-(--line-2) bg-(--surface)"
               >
                 <span className="text-sm font-semibold text-(--ink) line-clamp-2 min-h-10">
-                  {item.name}
+                  {label}
                 </span>
                 <div className="flex items-center justify-between gap-2">
                   <span
                     className="text-[15px] font-bold tracking-[-0.02em] text-(--ink)"
                     style={{ fontFamily: 'var(--font-display)' }}
                   >
-                    {formatPrice(item.priceFrom ?? item.price)}
+                    {formatPrice(variant.price ?? product.priceFrom ?? product.price)}
                   </span>
                   <button
                     type="button"
-                    onClick={() => toggle(item)}
+                    onClick={() => toggle({ product, variant })}
                     aria-pressed={added}
-                    aria-label={`${added ? 'Quitar' : 'Agregar'} ${item.name}`}
+                    aria-label={`${added ? 'Quitar' : 'Agregar'} ${label}`}
                     className={`w-11 h-11 rounded-full flex items-center justify-center shrink-0 transition-colors border-[1.5px] border-(--accent) ${
                       added
                         ? 'bg-(--accent) text-(--accent-ink)'
