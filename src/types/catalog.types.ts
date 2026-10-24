@@ -80,6 +80,13 @@ export interface CatalogProduct {
    * sede del catálogo.
    */
   recommendedProductIds?: string[];
+  /**
+   * Presentación concreta de cada recomendado, en la misma posición que
+   * `recommendedProductIds`: la hoja agrega esa variante exacta con un
+   * toque. Ausente en filas guardadas antes de las recomendaciones por
+   * variante — ahí se usa la predeterminada o la única, como antes.
+   */
+  recommendedVariantIds?: string[];
 }
 
 /** Ingredientes normalizados: string separado por comas o saltos de línea, sin vacíos */
