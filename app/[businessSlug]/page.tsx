@@ -28,6 +28,7 @@ interface PageProps {
     t?: string; // token from WhatsApp (optional, for customer identity)
     source?: string;
     table?: string;
+    op?: string; // modo operador: sesión del mesero creada en el admin
   }>;
 }
 
@@ -147,7 +148,7 @@ export default async function BusinessCatalogPage({
   searchParams,
 }: PageProps) {
   const { businessSlug } = await params;
-  const { t: token, source, table } = await searchParams;
+  const { t: token, source, table, op } = await searchParams;
 
   if (!businessSlug || !isValidSlug(businessSlug)) {
     return <BusinessNotFound />;
@@ -207,6 +208,7 @@ export default async function BusinessCatalogPage({
           table={table}
           token={effectiveToken}
           initialCart={initialCart}
+          operatorToken={op}
           linkParams={{ t: effectiveToken, source, table }}
         />
       </>
