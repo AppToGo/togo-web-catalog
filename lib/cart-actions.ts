@@ -533,6 +533,8 @@ export async function createOrderPublicAction(
     sessionId: string;
     phoneNumber?: string;
     fromWhatsApp?: boolean;
+    /** El cliente llegó desde el directorio público (Order.source = DIRECTORY). */
+    fromDirectory?: boolean;
     /** Código de mesa (Fase 2) — ver docs/architecture/pedidos-en-mesa.md */
     tableCode?: string;
   },

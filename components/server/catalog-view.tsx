@@ -21,6 +21,8 @@ import { ProductModal } from "@/components/client/product-modal";
 import { FloatingCart } from "@/components/client/floating-cart";
 import type { CustomerOrigin } from "@/lib/types";
 import { getColorContrast } from "@/components/utils/getColorContrast";
+import Link from "next/link";
+import { TogoLogo } from "@/components/ui/togo-logo";
 
 /** Colores del negocio como variables CSS, para el wrapper `data-catalog-theme`. */
 export function catalogThemeStyle(business: BusinessInfo): React.CSSProperties {
@@ -102,6 +104,14 @@ export function CatalogView({
                 changeBranchHref={catalogHref(`/${businessSlug}`, linkParams)}
               />
             </Suspense>
+
+            {/* Firma discreta: el catálogo es del negocio, el directorio es de TOGO. */}
+            <footer className="flex items-center justify-center gap-1.5 pt-8 pb-28 text-[11px] text-(--ink-3)">
+              Pedidos con
+              <Link href="/" aria-label="Directorio de negocios TOGO">
+                <TogoLogo width={80} />
+              </Link>
+            </footer>
 
             <FloatingCart accentColor={catalog.business.primaryColor} />
             <ProductModal
