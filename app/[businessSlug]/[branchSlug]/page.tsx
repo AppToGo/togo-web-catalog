@@ -33,6 +33,7 @@ interface PageProps {
     t?: string; // token from WhatsApp (optional, for customer identity)
     source?: string;
     table?: string;
+    op?: string; // modo operador: sesión del mesero creada en el admin
   }>;
 }
 
@@ -153,7 +154,7 @@ export default async function BranchCatalogPage({
   searchParams,
 }: PageProps) {
   const { businessSlug, branchSlug } = await params;
-  const { t: token, source, table } = await searchParams;
+  const { t: token, source, table, op } = await searchParams;
 
   if (
     !businessSlug ||
@@ -209,6 +210,7 @@ export default async function BranchCatalogPage({
           table={table}
           token={effectiveToken}
           initialCart={initialCart}
+          operatorToken={op}
           linkParams={{ t: effectiveToken, source, table }}
         />
       </>

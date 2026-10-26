@@ -499,3 +499,40 @@ export interface BusinessTheme {
   borderRadius: string;
 }
 
+
+// ═══════════════════════════════════════════════════════════
+// MODO OPERADOR (mesero tomando pedidos en el local)
+// ═══════════════════════════════════════════════════════════
+
+export interface OperatorSessionTable {
+  id: string;
+  name: string;
+  code: string;
+  /** Tiene un pedido confirmado sin entregar: se muestra en gris */
+  hasOpenOrder: boolean;
+}
+
+export interface OperatorSessionInfo {
+  operatorName: string;
+  branch: { id: string; name: string; slug: string };
+  expiresAt: string;
+  /** La sede acepta pedidos en mesa de operadores */
+  dineInEnabled: boolean;
+  tables: OperatorSessionTable[];
+}
+
+export interface OperatorSessionOrder {
+  id: string;
+  orderNumber: string;
+  tableLabel: string | null;
+  status: string;
+  total: number;
+  createdAt: string;
+}
+
+export interface CreatedOperatorOrder {
+  orderId: string;
+  orderNumber: string;
+  total: number;
+  tableLabel: string | null;
+}

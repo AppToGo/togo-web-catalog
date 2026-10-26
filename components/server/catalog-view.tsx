@@ -11,6 +11,7 @@ import type { Cart, BusinessInfo, CatalogResponse } from "@/src/types/catalog.ty
 import { CatalogContent } from "@/components/server/catalog-content";
 import { CatalogSkeleton } from "@/components/ui/skeleton";
 import { CartProvider } from "@/components/client/cart-context";
+import { OperatorSessionProvider } from "@/components/client/operator-session-context";
 import { CartUIProvider } from "@/components/client/cart-ui-context";
 import { RecommendationsSheet } from "@/components/client/recommendations-sheet";
 import { RecommendationsProvider } from "@/components/client/recommendations-context";
@@ -38,6 +39,8 @@ interface CatalogViewProps {
   table?: string;
   token?: string;
   initialCart?: Cart;
+  /** `?op=`: token del modo operador (mesero tomando pedidos en el local) */
+  operatorToken?: string;
   /** Query params del enlace original, para que "Cambiar sede" no los pierda */
   linkParams: Record<string, string | undefined>;
 }
@@ -63,16 +66,23 @@ export function CatalogView({
   table,
   token,
   initialCart,
+  operatorToken,
   linkParams,
 }: CatalogViewProps) {
   const useProductImages = catalog.business.useProductImages ?? false;
 
   return (
     <div data-catalog-theme style={catalogThemeStyle(catalog.business)}>
+      <OperatorSessionProvider
+        businessSlug={businessSlug}
+        initialToken={operatorToken}
+        initialTableCode={operatorToken ? table : undefined}
+      >
       <CartProvider
         businessSlug={businessSlug}
         origin={origin}
-        tableNumber={table}
+        // En modo operador la mesa se elige en el carrito, no es la del QR.
+        tableNumber={operatorToken ? undefined : table}
         initialPhone={catalog.customerPhone}
         initialName={catalog.customerName}
         isAuthenticated={!!token}
@@ -103,6 +113,7 @@ export function CatalogView({
           </RecommendationsProvider>
         </CartUIProvider>
       </CartProvider>
+      </OperatorSessionProvider>
     </div>
   );
 }
