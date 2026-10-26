@@ -382,7 +382,7 @@ export interface OrderResponse {
 // CUSTOMER
 // ═══════════════════════════════════════════════════════════
 
-export type CustomerOrigin = 'whatsapp' | 'direct' | 'qr' | 'instagram' | 'facebook';
+export type CustomerOrigin = 'whatsapp' | 'direct' | 'qr' | 'instagram' | 'facebook' | 'directory';
 
 export interface CustomerData {
   origin: CustomerOrigin;
@@ -535,4 +535,74 @@ export interface CreatedOperatorOrder {
   orderNumber: string;
   total: number;
   tableLabel: string | null;
+}
+
+// ═══════════════════════════════════════════════════════════
+// DIRECTORIO PÚBLICO (GET /public/directory*)
+// ═══════════════════════════════════════════════════════════
+
+export interface DirectoryTaxon {
+  slug: string;
+  name: string;
+}
+
+export interface DirectoryFacet extends DirectoryTaxon {
+  count: number;
+}
+
+export interface DirectoryBranch {
+  slug: string;
+  name: string;
+  city: string | null;
+  citySlug: string | null;
+  address: string | null;
+  isOpen: boolean;
+}
+
+export interface DirectoryBusiness {
+  id: string;
+  name: string;
+  slug: string;
+  logo: string | null;
+  primaryColor: string | null;
+  description: string | null;
+  industry: DirectoryTaxon | null;
+  categories: DirectoryTaxon[];
+  branches: DirectoryBranch[];
+  isOpen: boolean;
+  /** Productos que explican el resultado de la búsqueda ("Coincide: …"). */
+  matches: string[];
+  /** Ruta del catálogo del negocio (o de su sede). */
+  path: string;
+}
+
+export interface DirectoryResult {
+  items: DirectoryBusiness[];
+  total: number;
+  page: number;
+  limit: number;
+  city: DirectoryTaxon | null;
+  query: string;
+}
+
+export interface DirectoryFacets {
+  industries: DirectoryFacet[];
+  categories: DirectoryFacet[];
+  cities: DirectoryFacet[];
+}
+
+export interface DirectorySitemap {
+  businesses: Array<{ slug: string }>;
+  landings: Array<{ city: string; category: string }>;
+  cities: string[];
+}
+
+export interface DirectoryFilters {
+  q?: string;
+  industry?: string;
+  category?: string;
+  city?: string;
+  openNow?: boolean;
+  page?: number;
+  limit?: number;
 }
