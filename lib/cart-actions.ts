@@ -32,7 +32,7 @@ import {
   getOrderByToken,
   InvalidTokenError,
 } from './api';
-import type { Cart, CartItem, CustomerOrigin } from '@/src/types/catalog.types';
+import type { Cart, CartItem, CustomerOrigin, TipRequest } from '@/src/types/catalog.types';
 import { checkRateLimit, getCartRateLimitKey, RATE_LIMITS } from './rate-limit';
 
 // ═══════════════════════════════════════════════════════════
@@ -537,6 +537,8 @@ export async function createOrderPublicAction(
     fromDirectory?: boolean;
     /** Código de mesa (Fase 2) — ver docs/architecture/pedidos-en-mesa.md */
     tableCode?: string;
+    /** Propina elegida en el carrito (solo aplica en pedidos de mesa). */
+    tip?: TipRequest;
   },
 ): Promise<OrderActionResult> {
   try {
