@@ -11,15 +11,18 @@
 
 import {
   createOperatorOrder,
+  getOperatorOrderDetail,
   getOperatorSession,
   getOperatorSessionOrders,
   InvalidTokenError,
   RateLimitError,
   revokeOperatorSession,
+  updateOperatorOrderItems,
 } from './api';
 import type {
   CartItem,
   CreatedOperatorOrder,
+  OperatorOrderDetail,
   OperatorSessionInfo,
   OperatorSessionOrder,
 } from '@/src/types/catalog.types';
@@ -66,6 +69,41 @@ export async function getOperatorOrdersAction(
     return { success: true, data: await getOperatorSessionOrders(businessSlug, token) };
   } catch (error) {
     return toFailure(error, 'No se pudieron cargar tus pedidos');
+  }
+}
+
+export async function getOperatorOrderDetailAction(
+  businessSlug: string,
+  token: string,
+  orderId: string,
+): Promise<OperatorActionResult<OperatorOrderDetail>> {
+  try {
+    return { success: true, data: await getOperatorOrderDetail(businessSlug, token, orderId) };
+  } catch (error) {
+    return toFailure(error, 'No se pudo cargar el pedido');
+  }
+}
+
+export async function updateOperatorOrderItemsAction(
+  businessSlug: string,
+  token: string,
+  orderId: string,
+  data: {
+    items: CartItem[];
+  },
+): Promise<OperatorActionResult<CreatedOperatorOrder>> {
+  try {
+    const order = await updateOperatorOrderItems(businessSlug, token, orderId, {
+      items: data.items.map(({ productId, variantId, quantity, notes }) => ({
+        productId,
+        variantId,
+        quantity,
+        notes: notes || undefined,
+      })),
+    });
+    return { success: true, data: order };
+  } catch (error) {
+    return toFailure(error, 'No se pudo actualizar el pedido');
   }
 }
 
