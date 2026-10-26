@@ -1,12 +1,12 @@
 'use client';
 
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { X, Loader2, AlertCircle, CheckCircle, UserCheck } from 'lucide-react';
 import { useCart } from './cart-context';
 import { useOperatorSession } from './operator-session-context';
 import { CartItemRow } from './cart-item-row';
 import { OperatorOrdersList } from './operator-orders-list';
-import { createOperatorOrderAction } from '@/lib/operator-actions';
+import { createOperatorOrderAction, updateOperatorOrderItemsAction } from '@/lib/operator-actions';
 import type { BusinessInfo } from '@/src/types/catalog.types';
 import { formatPrice } from '@/lib/utils';
 
@@ -21,7 +21,7 @@ interface OperatorCartPanelProps {
  * carrito queda vacío para la siguiente mesa.
  */
 export function OperatorCartPanel({ business, onClose }: OperatorCartPanelProps) {
-  const { cart, updateItem, updateItemNotes, clearCart, itemCount, syncCart, isSyncing } = useCart();
+  const { cart, addItem, updateItem, updateItemNotes, clearCart, itemCount, syncCart, isSyncing } = useCart();
   const {
     token,
     info,
@@ -30,8 +30,20 @@ export function OperatorCartPanel({ business, onClose }: OperatorCartPanelProps)
     lastOrder,
     dismissLastOrder,
     onOrderCreated,
+    onOrderUpdated,
     invalidate,
+    pendingLoad,
+    clearCartLoad,
   } = useOperatorSession();
+  // Pedido del turno que se está ampliando (null = orden nueva).
+  const [editingOrderId, setEditingOrderId] = useState<string | null>(null);
+  const consumingLoadRef = useRef(false);
+
+  // Si el mesero vacía el carrito a mano, lo que arme después es una orden
+  // nueva, no una edición del pedido anterior.
+  useEffect(() => {
+    if (editingOrderId && cart.items.length === 0) setEditingOrderId(null);
+  }, [editingOrderId, cart.items.length]);
 
   const [notes, setNotes] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
@@ -62,6 +74,38 @@ export function OperatorCartPanel({ business, onClose }: OperatorCartPanelProps)
   const selectedTable = tables.find((t) => t.id === selectedTableId);
   const total = cart.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
+  // "Sumar productos" desde Mis pedidos: trae las líneas al carrito para
+  // seguir agregando. Con carrito ocupado no se pisa nada: se avisa y el
+  // mesero termina o vacía primero.
+  useEffect(() => {
+    if (!pendingLoad || consumingLoadRef.current) return;
+    consumingLoadRef.current = true;
+    (async () => {
+      if (cart.items.length > 0) {
+        setError('Termina o vacía el pedido actual antes de cargar otro');
+        clearCartLoad();
+        consumingLoadRef.current = false;
+        return;
+      }
+      setError(null);
+      if (pendingLoad.tableId) selectTable(pendingLoad.tableId);
+      await clearCart();
+      for (const item of pendingLoad.items) {
+        await addItem({
+          productId: item.productId,
+          variantId: item.variantId,
+          name: item.name,
+          price: item.price,
+          quantity: item.quantity,
+          notes: item.notes,
+        });
+      }
+      setEditingOrderId(pendingLoad.orderId);
+      clearCartLoad();
+      consumingLoadRef.current = false;
+    })();
+  }, [pendingLoad, cart.items.length, clearCart, addItem, selectTable, clearCartLoad]);
+
   const handleSubmit = useCallback(async () => {
     if (!token || cart.items.length === 0) return;
     if (!selectedTableId) {
@@ -71,6 +115,28 @@ export function OperatorCartPanel({ business, onClose }: OperatorCartPanelProps)
 
     setIsProcessing(true);
     setError(null);
+
+    // Ampliación de un pedido del turno: el juego completo de líneas va al
+    // backend, que valida (agregar o editar según el estado) y audita.
+    if (editingOrderId) {
+      const result = await updateOperatorOrderItemsAction(business.slug, token, editingOrderId, {
+        items: cart.items,
+      });
+      setIsProcessing(false);
+
+      if (!result.success) {
+        if (result.errorCode === 'INVALID_SESSION') invalidate(result.error);
+        else setError(result.error);
+        return;
+      }
+
+      setEditingOrderId(null);
+      setNotes('');
+      clearCart();
+      onOrderUpdated(result.data);
+      return;
+    }
+
     await syncCart();
     if (idempotencyKeyRef.current?.fingerprint !== orderFingerprint) {
       idempotencyKeyRef.current = {
@@ -97,11 +163,13 @@ export function OperatorCartPanel({ business, onClose }: OperatorCartPanelProps)
     setNotes('');
     clearCart();
     onOrderCreated(result.data);
-  }, [token, cart.items, selectedTableId, notes, orderFingerprint, business.slug, syncCart, clearCart, onOrderCreated, invalidate]);
+  }, [token, cart.items, selectedTableId, notes, orderFingerprint, editingOrderId, business.slug, syncCart, clearCart, onOrderCreated, onOrderUpdated, invalidate]);
 
-  const submitLabel = selectedTable
-    ? `Enviar a cocina · ${selectedTable.name}`
-    : 'Elige una mesa';
+  const submitLabel = editingOrderId
+    ? 'Actualizar pedido'
+    : selectedTable
+      ? `Enviar a cocina · ${selectedTable.name}`
+      : 'Elige una mesa';
 
   return (
     <>

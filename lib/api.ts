@@ -26,6 +26,7 @@ import type {
   CustomerOrigin,
   OperatorSessionInfo,
   OperatorSessionOrder,
+  OperatorOrderDetail,
   CreatedOperatorOrder,
   DirectoryFacets,
   DirectoryFilters,
@@ -743,6 +744,38 @@ export async function getOperatorSessionOrders(
     { headers: operatorHeaders(token), cache: "no-store" },
   );
   return handleOperatorResponse<OperatorSessionOrder[]>(response);
+}
+
+export async function getOperatorOrderDetail(
+  businessSlug: string,
+  token: string,
+  orderId: string,
+): Promise<OperatorOrderDetail> {
+  const response = await fetch(
+    buildPublicCatalogUrl(businessSlug, `/operator-session/orders/${orderId}`),
+    { headers: operatorHeaders(token), cache: "no-store" },
+  );
+  return handleOperatorResponse<OperatorOrderDetail>(response);
+}
+
+export async function updateOperatorOrderItems(
+  businessSlug: string,
+  token: string,
+  orderId: string,
+  data: {
+    items: Pick<CartItem, "productId" | "variantId" | "quantity" | "notes">[];
+  },
+): Promise<CreatedOperatorOrder> {
+  const response = await fetch(
+    buildPublicCatalogUrl(businessSlug, `/operator-session/orders/${orderId}/items`),
+    {
+      method: "PATCH",
+      headers: { ...operatorHeaders(token), "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+      cache: "no-store",
+    },
+  );
+  return handleOperatorResponse<CreatedOperatorOrder>(response);
 }
 
 export async function createOperatorOrder(
