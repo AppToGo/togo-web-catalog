@@ -24,6 +24,9 @@ import type {
   CartItem,
   OrderResponse,
   CustomerOrigin,
+  OperatorSessionInfo,
+  OperatorSessionOrder,
+  CreatedOperatorOrder,
 } from "@/src/types/catalog.types";
 
 // Re-export legacy types for backward compatibility during migration
@@ -683,6 +686,61 @@ export async function createOrderPublic(
     cache: "no-store",
   });
   return handleResponse<OrderResponse>(response);
+}
+
+// ═══════════════════════════════════════════════════════════
+// MODO OPERADOR — header X-Operator-Session
+// ═══════════════════════════════════════════════════════════
+
+function operatorHeaders(token: string): HeadersInit {
+  return {
+    "Content-Type": "application/json",
+    "X-Operator-Session": token,
+  };
+}
+
+export async function getOperatorSession(
+  businessSlug: string,
+  token: string,
+): Promise<OperatorSessionInfo> {
+  const response = await fetch(
+    buildPublicCatalogUrl(businessSlug, "/operator-session"),
+    { headers: operatorHeaders(token), cache: "no-store" },
+  );
+  return handleResponse<OperatorSessionInfo>(response);
+}
+
+export async function getOperatorSessionOrders(
+  businessSlug: string,
+  token: string,
+): Promise<OperatorSessionOrder[]> {
+  const response = await fetch(
+    buildPublicCatalogUrl(businessSlug, "/operator-session/orders"),
+    { headers: operatorHeaders(token), cache: "no-store" },
+  );
+  return handleResponse<OperatorSessionOrder[]>(response);
+}
+
+export async function createOperatorOrder(
+  businessSlug: string,
+  token: string,
+  data: {
+    items: Pick<CartItem, "productId" | "variantId" | "quantity" | "notes">[];
+    tableId: string;
+    notes?: string;
+    idempotencyKey: string;
+  },
+): Promise<CreatedOperatorOrder> {
+  const response = await fetch(
+    buildPublicCatalogUrl(businessSlug, "/operator-order"),
+    {
+      method: "POST",
+      headers: operatorHeaders(token),
+      body: JSON.stringify(data),
+      cache: "no-store",
+    },
+  );
+  return handleResponse<CreatedOperatorOrder>(response);
 }
 
 // ═══════════════════════════════════════════════════════════

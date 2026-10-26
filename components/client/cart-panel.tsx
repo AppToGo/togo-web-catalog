@@ -2,9 +2,11 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { X, Minus, Plus, Loader2, AlertCircle, CheckCircle, Phone, Utensils } from 'lucide-react';
+import { X, Loader2, AlertCircle, CheckCircle, Phone, Utensils } from 'lucide-react';
 import { useCart } from './cart-context';
-import { CartItemNotes } from './cart-item-notes';
+import { CartItemRow } from './cart-item-row';
+import { OperatorCartPanel } from './operator-cart-panel';
+import { useOperatorSession } from './operator-session-context';
 import { createOrderAction, createOrderPublicAction, updateOrderAction, updateOrderByTokenAction, checkOrderAction, getOrderByTokenAction } from '@/lib/cart-actions';
 import { PhoneCaptureModal } from './phone-capture-modal';
 import type { BusinessInfo } from '@/src/types/catalog.types';
@@ -63,7 +65,17 @@ const ORDER_RECHECK_DEBOUNCE_MS = 1500;
 /** Mínimo entre reconsultas de fondo (focus y visibilitychange llegan juntos). */
 const ORDER_RECHECK_MIN_INTERVAL_MS = 1000;
 
-export function CartPanel({ business, active, alwaysVisible = false, onClose }: CartPanelProps) {
+export function CartPanel(props: CartPanelProps) {
+  const { isOperatorMode } = useOperatorSession();
+  // Modo operador: otro flujo (mesa, sin teléfono ni WhatsApp). Va en un
+  // componente aparte para no mezclar sus hooks con los del cliente.
+  if (isOperatorMode) {
+    return <OperatorCartPanel business={props.business} onClose={props.onClose} />;
+  }
+  return <CustomerCartPanel {...props} />;
+}
+
+function CustomerCartPanel({ business, active, alwaysVisible = false, onClose }: CartPanelProps) {
   const router = useRouter();
   const { cart, updateItem, updateItemNotes, clearCart, itemCount, isSyncing, syncCart, customer, isIdentified, sessionId, branchId, branchPhone, whatsappToken } = useCart();
 
@@ -413,59 +425,13 @@ export function CartPanel({ business, active, alwaysVisible = false, onClose }: 
         ) : (
           <>
             {cart.items.map((item) => (
-              <div key={item.variantId ? `${item.productId}:${item.variantId}` : item.productId} className="flex items-center gap-[10px] px-4 py-[10px] border-b border-[var(--line)] last:border-b-0">
-                <div className="flex-1 min-w-0">
-                  <div
-                    className="text-[14px] font-semibold text-[var(--ink)] truncate tracking-[-0.01em]"
-                    style={{ fontFamily: 'var(--font-display)' }}
-                  >
-                    {item.name}
-                  </div>
-                  <CartItemNotes
-                    productId={item.productId}
-                    variantId={item.variantId}
-                    notes={item.notes}
-                    disabled={isLocked}
-                    onSave={updateItemNotes}
-                  />
-                  <div className="flex items-center gap-[6px] mt-0.5">
-                    <span className="text-xs text-[var(--ink-3)]">{formatPrice(item.price)} c/u</span>
-                  </div>
-                </div>
-
-                {/* Stepper */}
-                <div className="flex items-center gap-0.5 bg-[var(--bg)] border-[1.5px] border-[var(--line)] rounded-[20px] p-0.5 shrink-0">
-                  <button
-                    className="w-7 h-7 rounded-full flex items-center justify-center transition-[background] text-[var(--ink-2)] hover:bg-[var(--line)] disabled:opacity-40"
-                    onClick={() => updateItem(item.productId, -1, item.variantId)}
-                    disabled={isLocked}
-                    aria-label="Quitar uno"
-                  >
-                    <Minus size={11} />
-                  </button>
-                  <span
-                    className="min-w-6 text-center text-[13px] font-bold text-[var(--ink)]"
-                    style={{ fontFamily: 'var(--font-display)' }}
-                  >
-                    {item.quantity}
-                  </span>
-                  <button
-                    className="w-7 h-7 rounded-full flex items-center justify-center bg-[var(--accent)] text-[var(--accent-ink)] hover:opacity-[0.88] transition-opacity disabled:opacity-40"
-                    onClick={() => updateItem(item.productId, 1, item.variantId)}
-                    disabled={isLocked}
-                    aria-label="Agregar uno"
-                  >
-                    <Plus size={11} />
-                  </button>
-                </div>
-
-                <div
-                  className="text-[14px] font-bold text-[var(--ink)] tracking-[-0.03em] min-w-[70px] text-right"
-                  style={{ fontFamily: 'var(--font-display)' }}
-                >
-                  {formatPrice(item.price * item.quantity)}
-                </div>
-              </div>
+              <CartItemRow
+                key={item.variantId ? `${item.productId}:${item.variantId}` : item.productId}
+                item={item}
+                disabled={isLocked}
+                onChangeQuantity={updateItem}
+                onSaveNotes={updateItemNotes}
+              />
             ))}
 
             {/* Notes */}

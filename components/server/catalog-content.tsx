@@ -1,3 +1,4 @@
+import { OperatorBar } from "@/components/client/operator-bar";
 import type {
   CatalogResponse,
   CatalogProduct,
@@ -190,6 +191,7 @@ export function CatalogContent({ catalog, changeBranchHref }: CatalogContentProp
     <SearchProvider>
       {/* Escritorio: la página no scrollea, solo la columna de productos */}
       <div className="min-h-dvh bg-(--bg) pb-24 lg:h-dvh lg:min-h-0 lg:pb-0 lg:flex lg:flex-col lg:overflow-hidden">
+        <OperatorBar />
         <CatalogHeader
           business={business}
           branchName={showBranch ? catalog.selectedBranch?.name : undefined}

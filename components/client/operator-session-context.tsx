@@ -1,0 +1,230 @@
+'use client';
+
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
+import { usePathname, useRouter } from 'next/navigation';
+import {
+  getOperatorOrdersAction,
+  getOperatorSessionAction,
+} from '@/lib/operator-actions';
+import type {
+  CreatedOperatorOrder,
+  OperatorSessionInfo,
+  OperatorSessionOrder,
+} from '@/src/types/catalog.types';
+
+/**
+ * Modo operador del catálogo: un mesero toma pedidos de mesa con una sesión
+ * por turno creada en el admin. El token llega una sola vez en `?op=`; acá
+ * se guarda en sessionStorage (por pestaña y por negocio) y se quita de la
+ * barra de direcciones para que no quede en el historial ni se comparta.
+ */
+
+const storageKey = (businessSlug: string) => `togo:operator:${businessSlug}`;
+
+/** Refresco de "Mis pedidos de este turno" mientras está a la vista. */
+export const OPERATOR_ORDERS_REFRESH_MS = 30_000;
+
+function readStoredToken(businessSlug: string): string | null {
+  try {
+    return sessionStorage.getItem(storageKey(businessSlug));
+  } catch {
+    return null;
+  }
+}
+
+function writeStoredToken(businessSlug: string, token: string | null) {
+  try {
+    if (token) sessionStorage.setItem(storageKey(businessSlug), token);
+    else sessionStorage.removeItem(storageKey(businessSlug));
+  } catch {
+    // Sin storage (modo privado estricto): la sesión dura lo que la página.
+  }
+}
+
+/**
+ * Query sin `op` ni `table` (la mesa ya quedó preseleccionada en el carrito).
+ * Va por el router y no por `history.replaceState`: Next restaura su propia
+ * URL en la siguiente server action y el token volvía a la barra.
+ */
+function queryWithoutOperatorParams(): string {
+  const params = new URLSearchParams(window.location.search);
+  params.delete('op');
+  params.delete('table');
+  const query = params.toString();
+  return query ? `?${query}` : '';
+}
+
+type OperatorStatus = 'none' | 'loading' | 'active' | 'invalid';
+
+interface OperatorSessionContextValue {
+  status: OperatorStatus;
+  isOperatorMode: boolean;
+  token: string | null;
+  info: OperatorSessionInfo | null;
+  /** Mensaje cuando la sesión venció o fue revocada */
+  error: string | null;
+  selectedTableId: string | null;
+  selectTable: (tableId: string) => void;
+  /** Último pedido enviado, para la confirmación */
+  lastOrder: CreatedOperatorOrder | null;
+  dismissLastOrder: () => void;
+  orders: OperatorSessionOrder[];
+  /** Tras un envío: guarda la confirmación y refresca mesas y pedidos */
+  onOrderCreated: (order: CreatedOperatorOrder) => void;
+  /** La API respondió que la sesión ya no vale */
+  invalidate: (message: string) => void;
+  refreshOrders: () => Promise<void>;
+  exit: () => void;
+}
+
+const OperatorSessionContext = createContext<OperatorSessionContextValue | null>(null);
+
+interface OperatorSessionProviderProps {
+  businessSlug: string;
+  /** `?op=` del link generado en el admin */
+  initialToken?: string;
+  /** `?table=` del link (código de mesa a preseleccionar) */
+  initialTableCode?: string;
+  children: ReactNode;
+}
+
+export function OperatorSessionProvider({
+  businessSlug,
+  initialToken,
+  initialTableCode,
+  children,
+}: OperatorSessionProviderProps) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const initializedRef = useRef(false);
+  const [status, setStatus] = useState<OperatorStatus>(initialToken ? 'loading' : 'none');
+  const [token, setToken] = useState<string | null>(initialToken ?? null);
+  const [info, setInfo] = useState<OperatorSessionInfo | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [selectedTableId, setSelectedTableId] = useState<string | null>(null);
+  const [lastOrder, setLastOrder] = useState<CreatedOperatorOrder | null>(null);
+  const [orders, setOrders] = useState<OperatorSessionOrder[]>([]);
+
+  const invalidate = useCallback(
+    (message: string) => {
+      writeStoredToken(businessSlug, null);
+      setToken(null);
+      setInfo(null);
+      setStatus('invalid');
+      setError(message);
+    },
+    [businessSlug],
+  );
+
+  const loadInfo = useCallback(
+    async (sessionToken: string) => {
+      const result = await getOperatorSessionAction(businessSlug, sessionToken);
+      if (!result.success) {
+        if (result.errorCode === 'INVALID_SESSION') invalidate(result.error);
+        else setError(result.error);
+        return null;
+      }
+      setInfo(result.data);
+      setStatus('active');
+      setError(null);
+      return result.data;
+    },
+    [businessSlug, invalidate],
+  );
+
+  const refreshOrders = useCallback(async () => {
+    if (!token) return;
+    const result = await getOperatorOrdersAction(businessSlug, token);
+    if (result.success) setOrders(result.data);
+    else if (result.errorCode === 'INVALID_SESSION') invalidate(result.error);
+  }, [businessSlug, token, invalidate]);
+
+  // Al montar: token del link (se guarda y se quita de la URL) o el de la
+  // pestaña si el operador recargó o navegó dentro del catálogo. Una sola
+  // vez: al quitar `op` de la URL la página se re-renderiza sin él.
+  useEffect(() => {
+    if (initializedRef.current) return;
+    initializedRef.current = true;
+
+    const sessionToken = initialToken ?? readStoredToken(businessSlug);
+    if (initialToken) {
+      writeStoredToken(businessSlug, initialToken);
+      router.replace(`${pathname}${queryWithoutOperatorParams()}`, { scroll: false });
+    }
+    if (!sessionToken) return;
+
+    setToken(sessionToken);
+    setStatus('loading');
+    loadInfo(sessionToken).then((loaded) => {
+      if (!loaded || !initialTableCode) return;
+      const table = loaded.tables.find((t) => t.code === initialTableCode);
+      if (table) setSelectedTableId(table.id);
+    });
+  }, [businessSlug, initialToken, initialTableCode, loadInfo, router, pathname]);
+
+  useEffect(() => {
+    if (status === 'active') refreshOrders();
+  }, [status, refreshOrders]);
+
+  const onOrderCreated = useCallback(
+    (order: CreatedOperatorOrder) => {
+      setLastOrder(order);
+      setSelectedTableId(null);
+      if (token) loadInfo(token);
+      refreshOrders();
+    },
+    [token, loadInfo, refreshOrders],
+  );
+
+  const exit = useCallback(() => {
+    writeStoredToken(businessSlug, null);
+    setToken(null);
+    setInfo(null);
+    setOrders([]);
+    setLastOrder(null);
+    setSelectedTableId(null);
+    setError(null);
+    setStatus('none');
+  }, [businessSlug]);
+
+  const value = useMemo<OperatorSessionContextValue>(
+    () => ({
+      status,
+      isOperatorMode: status === 'active' || status === 'loading',
+      token,
+      info,
+      error,
+      selectedTableId,
+      selectTable: setSelectedTableId,
+      lastOrder,
+      dismissLastOrder: () => setLastOrder(null),
+      orders,
+      onOrderCreated,
+      invalidate,
+      refreshOrders,
+      exit,
+    }),
+    [status, token, info, error, selectedTableId, lastOrder, orders, onOrderCreated, invalidate, refreshOrders, exit],
+  );
+
+  return (
+    <OperatorSessionContext.Provider value={value}>{children}</OperatorSessionContext.Provider>
+  );
+}
+
+export function useOperatorSession(): OperatorSessionContextValue {
+  const context = useContext(OperatorSessionContext);
+  if (!context) {
+    throw new Error('useOperatorSession debe usarse dentro de OperatorSessionProvider');
+  }
+  return context;
+}
