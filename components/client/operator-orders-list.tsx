@@ -99,6 +99,10 @@ export function OperatorOrdersList({ className = '' }: OperatorOrdersListProps) 
       label: viewing.status,
       className: 'text-[var(--ink-2)]',
     };
+    // Misma regla que la API (operatorEditMode): pagado o cerrado no se amplía.
+    const closed = viewing.status === 'CANCELLED' || viewing.status === 'ABANDONED';
+    const canAddMore =
+      !closed && viewing.status !== 'PAID' && viewing.paymentStatus !== 'PAID';
     return (
       <section className={className} aria-labelledby="operator-order-detail-title">
         <div className="flex items-center justify-between mb-[6px]">
@@ -140,13 +144,22 @@ export function OperatorOrdersList({ className = '' }: OperatorOrdersListProps) 
           >
             Volver
           </button>
-          <button
-            onClick={handleAddMore}
-            className="flex-1 rounded-lg bg-[var(--accent)] px-3 py-2 text-[13px] font-semibold text-white"
-          >
-            Sumar productos
-          </button>
+          {canAddMore && (
+            <button
+              onClick={handleAddMore}
+              className="flex-1 rounded-lg bg-[var(--accent)] px-3 py-2 text-[13px] font-semibold text-white"
+            >
+              Sumar productos
+            </button>
+          )}
         </div>
+        {!canAddMore && (
+          <p className="text-[12px] text-[var(--ink-3)] m-0 mt-[6px]">
+            {closed
+              ? 'Este pedido está cerrado: para sumar productos toma una orden nueva.'
+              : 'Este pedido ya está pagado: para sumar productos toma una orden nueva.'}
+          </p>
+        )}
       </section>
     );
   }

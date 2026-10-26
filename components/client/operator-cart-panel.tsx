@@ -35,14 +35,19 @@ export function OperatorCartPanel({ business, onClose }: OperatorCartPanelProps)
     pendingLoad,
     clearCartLoad,
   } = useOperatorSession();
-  // Pedido del turno que se está ampliando (null = orden nueva).
+  // Pedido del turno que se está ampliando (null = orden nueva). Su mesa
+  // no cambia al ampliarlo: la API solo recibe las líneas.
   const [editingOrderId, setEditingOrderId] = useState<string | null>(null);
+  const [editingTableId, setEditingTableId] = useState<string | null>(null);
   const consumingLoadRef = useRef(false);
 
   // Si el mesero vacía el carrito a mano, lo que arme después es una orden
   // nueva, no una edición del pedido anterior.
   useEffect(() => {
-    if (editingOrderId && cart.items.length === 0) setEditingOrderId(null);
+    if (editingOrderId && cart.items.length === 0) {
+      setEditingOrderId(null);
+      setEditingTableId(null);
+    }
   }, [editingOrderId, cart.items.length]);
 
   const [notes, setNotes] = useState('');
@@ -72,6 +77,7 @@ export function OperatorCartPanel({ business, onClose }: OperatorCartPanelProps)
 
   const tables = info?.tables ?? [];
   const selectedTable = tables.find((t) => t.id === selectedTableId);
+  const editingTable = tables.find((t) => t.id === editingTableId);
   const total = cart.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
   // "Sumar productos" desde Mis pedidos: trae las líneas al carrito para
@@ -101,6 +107,7 @@ export function OperatorCartPanel({ business, onClose }: OperatorCartPanelProps)
         });
       }
       setEditingOrderId(pendingLoad.orderId);
+      setEditingTableId(pendingLoad.tableId);
       clearCartLoad();
       consumingLoadRef.current = false;
     })();
@@ -108,7 +115,7 @@ export function OperatorCartPanel({ business, onClose }: OperatorCartPanelProps)
 
   const handleSubmit = useCallback(async () => {
     if (!token || cart.items.length === 0) return;
-    if (!selectedTableId) {
+    if (!editingOrderId && !selectedTableId) {
       setError('Elige la mesa del pedido');
       return;
     }
@@ -131,12 +138,14 @@ export function OperatorCartPanel({ business, onClose }: OperatorCartPanelProps)
       }
 
       setEditingOrderId(null);
+      setEditingTableId(null);
       setNotes('');
       clearCart();
       onOrderUpdated(result.data);
       return;
     }
 
+    if (!selectedTableId) return;
     await syncCart();
     if (idempotencyKeyRef.current?.fingerprint !== orderFingerprint) {
       idempotencyKeyRef.current = {
@@ -246,7 +255,12 @@ export function OperatorCartPanel({ business, onClose }: OperatorCartPanelProps)
             {/* Mesa */}
             <div className="px-4 pt-3 pb-1">
               <div className="text-xs font-semibold text-[var(--ink-3)] mb-[6px]">Mesa</div>
-              {!info ? (
+              {editingOrderId ? (
+                <p className="text-[13px] text-[var(--ink-2)] m-0">
+                  Ampliando el pedido de {editingTable?.name ?? 'esta mesa'}. La mesa no cambia; para
+                  otra mesa, vacía el carrito y toma una orden nueva.
+                </p>
+              ) : !info ? (
                 <p className="text-[13px] text-[var(--ink-3)] m-0">
                   Cargando las mesas de la sede...
                 </p>
@@ -300,22 +314,24 @@ export function OperatorCartPanel({ business, onClose }: OperatorCartPanelProps)
               ))}
             </div>
 
-            {/* Notas */}
-            <div className="px-4 py-3">
-              <label htmlFor="operator-order-notes" className="text-xs font-semibold text-[var(--ink-3)] block mb-[6px]">
-                Notas para cocina
-              </label>
-              <textarea
-                id="operator-order-notes"
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="Ej: Churrasco término medio"
-                rows={2}
-                maxLength={500}
-                disabled={isProcessing}
-                className="w-full px-3 py-[9px] bg-[var(--surface)] border-[1.5px] border-[var(--line)] rounded-lg text-[13px] text-[var(--ink)] resize-none outline-none transition-[border-color] leading-[1.5] placeholder:text-[var(--ink-3)] focus:border-[var(--accent)] disabled:opacity-50"
-              />
-            </div>
+            {/* Notas (solo al crear: al ampliar viajan las notas de cada línea) */}
+            {!editingOrderId && (
+              <div className="px-4 py-3">
+                <label htmlFor="operator-order-notes" className="text-xs font-semibold text-[var(--ink-3)] block mb-[6px]">
+                  Notas para cocina
+                </label>
+                <textarea
+                  id="operator-order-notes"
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder="Ej: Churrasco término medio"
+                  rows={2}
+                  maxLength={500}
+                  disabled={isProcessing}
+                  className="w-full px-3 py-[9px] bg-[var(--surface)] border-[1.5px] border-[var(--line)] rounded-lg text-[13px] text-[var(--ink)] resize-none outline-none transition-[border-color] leading-[1.5] placeholder:text-[var(--ink-3)] focus:border-[var(--accent)] disabled:opacity-50"
+                />
+              </div>
+            )}
           </>
         )}
       </div>
