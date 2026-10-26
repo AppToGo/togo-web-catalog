@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { X, Loader2, AlertCircle, CheckCircle, UserCheck } from 'lucide-react';
 import { useCart } from './cart-context';
 import { useOperatorSession } from './operator-session-context';
@@ -39,6 +39,13 @@ export function OperatorCartPanel({ business, onClose }: OperatorCartPanelProps)
   // Una clave por intento: si la respuesta se pierde y el mesero reintenta
   // el mismo carrito, el backend devuelve el pedido ya creado.
   const idempotencyKeyRef = useRef<string | null>(null);
+
+  // La clave solo cubre reintentos del MISMO pedido: si cambia la mesa, el
+  // carrito o las notas, es otro pedido y necesita otra clave (si no, el
+  // backend devolvería el anterior como si fuera este).
+  useEffect(() => {
+    idempotencyKeyRef.current = null;
+  }, [cart.items, selectedTableId, notes]);
 
   const tables = info?.tables ?? [];
   const selectedTable = tables.find((t) => t.id === selectedTableId);
@@ -155,7 +162,11 @@ export function OperatorCartPanel({ business, onClose }: OperatorCartPanelProps)
             {/* Mesa */}
             <div className="px-4 pt-3 pb-1">
               <div className="text-xs font-semibold text-[var(--ink-3)] mb-[6px]">Mesa</div>
-              {info?.dineInEnabled && tables.length > 0 ? (
+              {!info ? (
+                <p className="text-[13px] text-[var(--ink-3)] m-0">
+                  Cargando las mesas de la sede...
+                </p>
+              ) : info.dineInEnabled && tables.length > 0 ? (
                 <>
                   <div className="grid grid-cols-4 gap-[6px]" aria-label="Mesa del pedido">
                     {tables.map((table) => {

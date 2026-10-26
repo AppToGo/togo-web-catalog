@@ -14,6 +14,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import {
   getOperatorOrdersAction,
   getOperatorSessionAction,
+  revokeOperatorSessionAction,
 } from '@/lib/operator-actions';
 import type {
   CreatedOperatorOrder,
@@ -63,15 +64,22 @@ function queryWithoutOperatorParams(): string {
   return query ? `?${query}` : '';
 }
 
-type OperatorStatus = 'none' | 'loading' | 'active' | 'invalid';
+/**
+ * - `error`: no se pudo validar (red, 5xx, 429); la sesión puede seguir
+ *   viva, así que se conserva el token y se ofrece reintentar.
+ * - `invalid`: la API dijo que la sesión ya no sirve (401).
+ */
+type OperatorStatus = 'none' | 'loading' | 'active' | 'error' | 'invalid';
 
 interface OperatorSessionContextValue {
   status: OperatorStatus;
   isOperatorMode: boolean;
   token: string | null;
   info: OperatorSessionInfo | null;
-  /** Mensaje cuando la sesión venció o fue revocada */
+  /** Mensaje cuando la sesión venció, fue revocada o no se pudo validar */
   error: string | null;
+  /** Vuelve a validar la sesión tras un error de red */
+  retry: () => void;
   selectedTableId: string | null;
   selectTable: (tableId: string) => void;
   /** Último pedido enviado, para la confirmación */
@@ -129,8 +137,14 @@ export function OperatorSessionProvider({
     async (sessionToken: string) => {
       const result = await getOperatorSessionAction(businessSlug, sessionToken);
       if (!result.success) {
-        if (result.errorCode === 'INVALID_SESSION') invalidate(result.error);
-        else setError(result.error);
+        if (result.errorCode === 'INVALID_SESSION') {
+          invalidate(result.error);
+        } else {
+          setError(result.error);
+          // Si ya estaba activa (refresco tras un pedido) sigue con las
+          // mesas que tenía; si nunca cargó, queda en error con reintento.
+          setStatus((current) => (current === 'active' ? 'active' : 'error'));
+        }
         return null;
       }
       setInfo(result.data);
@@ -185,7 +199,17 @@ export function OperatorSessionProvider({
     [token, loadInfo, refreshOrders],
   );
 
+  const retry = useCallback(() => {
+    if (!token) return;
+    setStatus('loading');
+    setError(null);
+    loadInfo(token);
+  }, [token, loadInfo]);
+
+  // "Salir" cierra la sesión en el backend, no solo en esta pestaña: si el
+  // link quedó en otro equipo, deja de servir. Si la red falla, igual sale.
   const exit = useCallback(() => {
+    if (token) revokeOperatorSessionAction(businessSlug, token);
     writeStoredToken(businessSlug, null);
     setToken(null);
     setInfo(null);
@@ -194,15 +218,16 @@ export function OperatorSessionProvider({
     setSelectedTableId(null);
     setError(null);
     setStatus('none');
-  }, [businessSlug]);
+  }, [businessSlug, token]);
 
   const value = useMemo<OperatorSessionContextValue>(
     () => ({
       status,
-      isOperatorMode: status === 'active' || status === 'loading',
+      isOperatorMode: status === 'active' || status === 'loading' || status === 'error',
       token,
       info,
       error,
+      retry,
       selectedTableId,
       selectTable: setSelectedTableId,
       lastOrder,
@@ -213,7 +238,7 @@ export function OperatorSessionProvider({
       refreshOrders,
       exit,
     }),
-    [status, token, info, error, selectedTableId, lastOrder, orders, onOrderCreated, invalidate, refreshOrders, exit],
+    [status, token, info, error, retry, selectedTableId, lastOrder, orders, onOrderCreated, invalidate, refreshOrders, exit],
   );
 
   return (

@@ -11,7 +11,7 @@ import { OperatorOrdersList } from './operator-orders-list';
  * catálogo vuelve al modo cliente.
  */
 export function OperatorBar() {
-  const { status, info, error, exit } = useOperatorSession();
+  const { status, info, error, retry, exit } = useOperatorSession();
   const [showOrders, setShowOrders] = useState(false);
 
   if (status === 'invalid' && error) {
@@ -29,13 +29,22 @@ export function OperatorBar() {
     );
   }
 
-  if (status !== 'active' && status !== 'loading') return null;
+  if (status !== 'active' && status !== 'loading' && status !== 'error') return null;
 
   return (
     <div className="shrink-0 bg-[var(--ink)] text-[var(--surface)]">
       <div className="px-4 py-2 lg:max-w-352 lg:mx-auto lg:px-6 flex items-center gap-2 text-[13px]">
         <UtensilsCrossed size={15} className="shrink-0" aria-hidden="true" />
-        {status === 'loading' || !info ? (
+        {status === 'error' ? (
+          <>
+            <span role="alert" className="flex-1 min-w-0 truncate">
+              {error ?? 'No se pudo validar la sesión de operador'}
+            </span>
+            <button onClick={retry} className="shrink-0 inline-flex items-center gap-1 min-h-9 px-2 -mx-1 rounded-lg underline underline-offset-2 hover:opacity-80 focus-visible:outline-[var(--surface)]">
+              Reintentar
+            </button>
+          </>
+        ) : status === 'loading' || !info ? (
           <span className="flex-1 flex items-center gap-2">
             <Loader2 size={14} className="animate-spin" />
             Validando sesión de operador...

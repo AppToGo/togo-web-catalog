@@ -14,6 +14,8 @@ import {
   getOperatorSession,
   getOperatorSessionOrders,
   InvalidTokenError,
+  RateLimitError,
+  revokeOperatorSession,
 } from './api';
 import type {
   CartItem,
@@ -38,6 +40,9 @@ function toFailure(error: unknown, fallback: string): OperatorActionResult<never
       error: 'Tu sesión de operador venció o fue cerrada. Pide un link nuevo en el admin.',
       errorCode: 'INVALID_SESSION',
     };
+  }
+  if (error instanceof RateLimitError) {
+    return { success: false, error: 'Demasiadas solicitudes. Espera unos segundos e intenta de nuevo.' };
   }
   return { success: false, error: error instanceof Error ? error.message : fallback };
 }
@@ -88,5 +93,18 @@ export async function createOperatorOrderAction(
     return { success: true, data: order };
   } catch (error) {
     return toFailure(error, 'No se pudo enviar el pedido');
+  }
+}
+
+/** "Salir": cierra la sesión en el backend. Si falla, el catálogo sale igual. */
+export async function revokeOperatorSessionAction(
+  businessSlug: string,
+  token: string,
+): Promise<OperatorActionResult<null>> {
+  try {
+    await revokeOperatorSession(businessSlug, token);
+    return { success: true, data: null };
+  } catch (error) {
+    return toFailure(error, 'No se pudo cerrar la sesión');
   }
 }

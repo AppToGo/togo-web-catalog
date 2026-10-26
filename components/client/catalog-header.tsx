@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Search, ArrowLeft, MapPin } from "lucide-react";
 import { SearchInput } from "@/components/client/search-input";
 import { useSearchContext } from "@/components/client/search-context";
+import { useOperatorSession } from "@/components/client/operator-session-context";
 import type { BusinessInfo } from "@/src/types/catalog.types";
 
 interface CatalogHeaderProps {
@@ -30,7 +31,10 @@ export function CatalogHeader({
     .join("")
     .toUpperCase();
 
-  const showBranch = Boolean(branchName && changeBranchHref);
+  // Modo operador: la sesión es de una sede, así que no se ofrece cambiarla
+  // (el pedido se crearía en la sede de la sesión con precios de otra).
+  const { isOperatorMode } = useOperatorSession();
+  const showBranch = Boolean(branchName && changeBranchHref && !isOperatorMode);
 
   return (
     <>

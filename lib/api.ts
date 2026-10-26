@@ -692,6 +692,24 @@ export async function createOrderPublic(
 // MODO OPERADOR — header X-Operator-Session
 // ═══════════════════════════════════════════════════════════
 
+/**
+ * Solo un 401 significa "la sesión ya no sirve". Un 403 del pedido (ej. la
+ * suscripción del negocio) no debe borrar la sesión del mesero, así que acá
+ * no se usa `handleResponse`, que trata 401 y 403 igual.
+ */
+async function handleOperatorResponse<T>(response: Response): Promise<T> {
+  if (response.status === 401) {
+    const error = await response.json().catch(() => ({}));
+    throw new InvalidTokenError(error.message);
+  }
+  if (response.status === 429) throw new RateLimitError();
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.message || `Error ${response.status}`);
+  }
+  return response.status === 204 ? (undefined as T) : response.json();
+}
+
 function operatorHeaders(token: string): HeadersInit {
   return {
     "Content-Type": "application/json",
@@ -707,7 +725,7 @@ export async function getOperatorSession(
     buildPublicCatalogUrl(businessSlug, "/operator-session"),
     { headers: operatorHeaders(token), cache: "no-store" },
   );
-  return handleResponse<OperatorSessionInfo>(response);
+  return handleOperatorResponse<OperatorSessionInfo>(response);
 }
 
 export async function getOperatorSessionOrders(
@@ -718,7 +736,7 @@ export async function getOperatorSessionOrders(
     buildPublicCatalogUrl(businessSlug, "/operator-session/orders"),
     { headers: operatorHeaders(token), cache: "no-store" },
   );
-  return handleResponse<OperatorSessionOrder[]>(response);
+  return handleOperatorResponse<OperatorSessionOrder[]>(response);
 }
 
 export async function createOperatorOrder(
@@ -740,7 +758,18 @@ export async function createOperatorOrder(
       cache: "no-store",
     },
   );
-  return handleResponse<CreatedOperatorOrder>(response);
+  return handleOperatorResponse<CreatedOperatorOrder>(response);
+}
+
+export async function revokeOperatorSession(
+  businessSlug: string,
+  token: string,
+): Promise<void> {
+  const response = await fetch(
+    buildPublicCatalogUrl(businessSlug, "/operator-session"),
+    { method: "DELETE", headers: operatorHeaders(token), cache: "no-store" },
+  );
+  return handleOperatorResponse<void>(response);
 }
 
 // ═══════════════════════════════════════════════════════════
