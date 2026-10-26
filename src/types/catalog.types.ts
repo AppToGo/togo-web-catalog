@@ -368,8 +368,9 @@ export type OrderStatusType =
   | 'CANCELLED';
 
 /**
- * Propina voluntaria de la sede — espeja `TipConfigSchema` del backend.
- * `{}` o ausente = apagada.
+ * Propina voluntaria de la sede — misma forma que `TipConfigSchema` del
+ * backend. Llega ya resuelta por el API; ausente (sin sede) o
+ * `enabled: false` = apagada.
  */
 export interface TipConfig {
   enabled: boolean;
