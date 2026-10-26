@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { OPERATOR_ORDERS_REFRESH_MS, useOperatorSession } from './operator-session-context';
 import { formatPrice } from '@/lib/utils';
 
@@ -25,19 +25,33 @@ interface OperatorOrdersListProps {
  */
 export function OperatorOrdersList({ className = '' }: OperatorOrdersListProps) {
   const { orders, refreshOrders } = useOperatorSession();
+  const [stale, setStale] = useState(false);
+
+  const runRefresh = useCallback(async () => {
+    const ok = await refreshOrders();
+    setStale(!ok);
+  }, [refreshOrders]);
 
   useEffect(() => {
     const timer = setInterval(() => {
-      if (document.visibilityState === 'visible') refreshOrders();
+      if (document.visibilityState === 'visible') runRefresh();
     }, OPERATOR_ORDERS_REFRESH_MS);
     return () => clearInterval(timer);
-  }, [refreshOrders]);
+  }, [runRefresh]);
 
   return (
     <section className={className} aria-labelledby="operator-orders-title">
       <div id="operator-orders-title" className="text-xs font-semibold text-[var(--ink-3)] mb-[6px]">
         Mis pedidos de este turno
       </div>
+      {stale && (
+        <p className="text-[12px] text-amber-700 m-0 mb-[6px]">
+          No se pudo actualizar la lista.{' '}
+          <button onClick={runRefresh} className="underline underline-offset-2 font-medium">
+            Reintentar
+          </button>
+        </p>
+      )}
       {orders.length === 0 ? (
         <p className="text-[13px] text-[var(--ink-3)] m-0">Todavía no tomaste pedidos.</p>
       ) : (

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { X, Loader2, AlertCircle, CheckCircle, UserCheck } from 'lucide-react';
 import { useCart } from './cart-context';
 import { useOperatorSession } from './operator-session-context';
@@ -38,13 +38,24 @@ export function OperatorCartPanel({ business, onClose }: OperatorCartPanelProps)
   const [error, setError] = useState<string | null>(null);
   // Una clave por intento: si la respuesta se pierde y el mesero reintenta
   // el mismo carrito, el backend devuelve el pedido ya creado.
-  const idempotencyKeyRef = useRef<string | null>(null);
+  const idempotencyKeyRef = useRef<{ fingerprint: string; key: string } | null>(null);
 
   // La clave solo cubre reintentos del MISMO pedido: si cambia la mesa, el
   // carrito o las notas, es otro pedido y necesita otra clave (si no, el
-  // backend devolvería el anterior como si fuera este).
-  useEffect(() => {
-    idempotencyKeyRef.current = null;
+  // backend devolvería el anterior como si fuera este). Se compara por
+  // CONTENIDO, no por identidad del array: `syncCart()` antes de enviar
+  // puede devolver un array nuevo con lo mismo y rotar la clave justo
+  // cuando más se necesita (el reintento tras una respuesta perdida).
+  const orderFingerprint = useMemo(() => {
+    const items = cart.items.map((item) => [
+      item.productId,
+      item.variantId ?? '',
+      item.quantity,
+      item.price,
+      item.notes ?? '',
+    ]);
+    items.sort((a, b) => String(a[0]).localeCompare(String(b[0])));
+    return JSON.stringify({ items, table: selectedTableId, notes: notes.trim() });
   }, [cart.items, selectedTableId, notes]);
 
   const tables = info?.tables ?? [];
@@ -61,13 +72,18 @@ export function OperatorCartPanel({ business, onClose }: OperatorCartPanelProps)
     setIsProcessing(true);
     setError(null);
     await syncCart();
-    idempotencyKeyRef.current ??= crypto.randomUUID();
+    if (idempotencyKeyRef.current?.fingerprint !== orderFingerprint) {
+      idempotencyKeyRef.current = {
+        fingerprint: orderFingerprint,
+        key: crypto.randomUUID(),
+      };
+    }
 
     const result = await createOperatorOrderAction(business.slug, token, {
       items: cart.items,
       tableId: selectedTableId,
       notes: notes.trim(),
-      idempotencyKey: idempotencyKeyRef.current,
+      idempotencyKey: idempotencyKeyRef.current.key,
     });
     setIsProcessing(false);
 
@@ -81,7 +97,7 @@ export function OperatorCartPanel({ business, onClose }: OperatorCartPanelProps)
     setNotes('');
     clearCart();
     onOrderCreated(result.data);
-  }, [token, cart.items, selectedTableId, notes, business.slug, syncCart, clearCart, onOrderCreated, invalidate]);
+  }, [token, cart.items, selectedTableId, notes, orderFingerprint, business.slug, syncCart, clearCart, onOrderCreated, invalidate]);
 
   const submitLabel = selectedTable
     ? `Enviar a cocina · ${selectedTable.name}`

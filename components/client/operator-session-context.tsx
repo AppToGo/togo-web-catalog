@@ -52,14 +52,15 @@ function writeStoredToken(businessSlug: string, token: string | null) {
 }
 
 /**
- * Query sin `op` ni `table` (la mesa ya quedó preseleccionada en el carrito).
- * Va por el router y no por `history.replaceState`: Next restaura su propia
- * URL en la siguiente server action y el token volvía a la barra.
+ * Query sin un parámetro. Va por el router y no por `history.replaceState`:
+ * Next restaura su propia URL en la siguiente server action y el token
+ * volvía a la barra. `op` se quita al inicio; `table` solo tras validar la
+ * sesión y preseleccionar: si la sesión no sirve, la mesa sigue en la URL
+ * y una recarga entra en modo cliente con ella.
  */
-function queryWithoutOperatorParams(): string {
+function queryWithoutParam(param: string): string {
   const params = new URLSearchParams(window.location.search);
-  params.delete('op');
-  params.delete('table');
+  params.delete(param);
   const query = params.toString();
   return query ? `?${query}` : '';
 }
@@ -90,7 +91,11 @@ interface OperatorSessionContextValue {
   onOrderCreated: (order: CreatedOperatorOrder) => void;
   /** La API respondió que la sesión ya no vale */
   invalidate: (message: string) => void;
-  refreshOrders: () => Promise<void>;
+  /**
+   * Recarga los pedidos; `false` si falló sin invalidar la sesión (la lista
+   * puede estar rancia y quien llama decide si avisa).
+   */
+  refreshOrders: () => Promise<boolean>;
   exit: () => void;
 }
 
@@ -155,11 +160,15 @@ export function OperatorSessionProvider({
     [businessSlug, invalidate],
   );
 
-  const refreshOrders = useCallback(async () => {
-    if (!token) return;
+  const refreshOrders = useCallback(async (): Promise<boolean> => {
+    if (!token) return true;
     const result = await getOperatorOrdersAction(businessSlug, token);
-    if (result.success) setOrders(result.data);
-    else if (result.errorCode === 'INVALID_SESSION') invalidate(result.error);
+    if (result.success) {
+      setOrders(result.data);
+      return true;
+    }
+    if (result.errorCode === 'INVALID_SESSION') invalidate(result.error);
+    return false;
   }, [businessSlug, token, invalidate]);
 
   // Al montar: token del link (se guarda y se quita de la URL) o el de la
@@ -172,7 +181,7 @@ export function OperatorSessionProvider({
     const sessionToken = initialToken ?? readStoredToken(businessSlug);
     if (initialToken) {
       writeStoredToken(businessSlug, initialToken);
-      router.replace(`${pathname}${queryWithoutOperatorParams()}`, { scroll: false });
+      router.replace(`${pathname}${queryWithoutParam('op')}`, { scroll: false });
     }
     if (!sessionToken) return;
 
@@ -181,7 +190,9 @@ export function OperatorSessionProvider({
     loadInfo(sessionToken).then((loaded) => {
       if (!loaded || !initialTableCode) return;
       const table = loaded.tables.find((t) => t.code === initialTableCode);
-      if (table) setSelectedTableId(table.id);
+      if (!table) return;
+      setSelectedTableId(table.id);
+      router.replace(`${pathname}${queryWithoutParam('table')}`, { scroll: false });
     });
   }, [businessSlug, initialToken, initialTableCode, loadInfo, router, pathname]);
 
