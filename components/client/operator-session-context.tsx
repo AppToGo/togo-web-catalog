@@ -75,6 +75,7 @@ type OperatorStatus = 'none' | 'loading' | 'active' | 'error' | 'invalid';
 interface OperatorSessionContextValue {
   status: OperatorStatus;
   isOperatorMode: boolean;
+  businessSlug: string;
   token: string | null;
   info: OperatorSessionInfo | null;
   /** Mensaje cuando la sesión venció, fue revocada o no se pudo validar */
@@ -89,6 +90,20 @@ interface OperatorSessionContextValue {
   orders: OperatorSessionOrder[];
   /** Tras un envío: guarda la confirmación y refresca mesas y pedidos */
   onOrderCreated: (order: CreatedOperatorOrder) => void;
+  /** Tras ampliar un pedido: confirmación y refresco sin resetear la mesa */
+  onOrderUpdated: (order: CreatedOperatorOrder) => void;
+  /**
+   * Versión que sube con cada evento de pedido (socket o mutación local):
+   * la cuenta abierta del pedido la recarga sin refrescar.
+   */
+  orderVersion: number;
+  /**
+   * Líneas de un pedido del turno listas para cargar al carrito ("Sumar
+   * productos"). El panel del carrito las consume y limpia.
+   */
+  pendingLoad: OperatorCartLoad | null;
+  requestCartLoad: (load: OperatorCartLoad) => void;
+  clearCartLoad: () => void;
   /** La API respondió que la sesión ya no vale */
   invalidate: (message: string) => void;
   /**
@@ -97,6 +112,22 @@ interface OperatorSessionContextValue {
    */
   refreshOrders: () => Promise<boolean>;
   exit: () => void;
+}
+
+export interface OperatorCartLoadItem {
+  variantId?: string;
+  productId: string;
+  name: string;
+  price: number;
+  quantity: number;
+  notes?: string;
+}
+
+/** Recarga de un pedido del turno al carrito para seguir agregando. */
+export interface OperatorCartLoad {
+  orderId: string;
+  tableId: string | null;
+  items: OperatorCartLoadItem[];
 }
 
 const OperatorSessionContext = createContext<OperatorSessionContextValue | null>(null);
@@ -126,6 +157,8 @@ export function OperatorSessionProvider({
   const [selectedTableId, setSelectedTableId] = useState<string | null>(null);
   const [lastOrder, setLastOrder] = useState<CreatedOperatorOrder | null>(null);
   const [orders, setOrders] = useState<OperatorSessionOrder[]>([]);
+  const [orderVersion, setOrderVersion] = useState(0);
+  const [pendingLoad, setPendingLoad] = useState<OperatorCartLoad | null>(null);
 
   const invalidate = useCallback(
     (message: string) => {
@@ -200,12 +233,57 @@ export function OperatorSessionProvider({
     if (status === 'active') refreshOrders();
   }, [status, refreshOrders]);
 
+  // En vivo como el admin: el socket avisa de cambios en los pedidos del
+  // turno (estado, pago, items) y se refresca sin recargar la página. El
+  // intervalo de 30 s queda como red de seguridad.
+  useEffect(() => {
+    if (!token || status !== 'active') return;
+    let socket: { disconnect: () => void } | null = null;
+    let cancelled = false;
+    (async () => {
+      const { io } = await import('socket.io-client');
+      if (cancelled) return;
+      const wsBase =
+        process.env.NEXT_PUBLIC_WS_URL ||
+        process.env.NEXT_PUBLIC_API_URL?.replace(/\/v1\/?$/, '') ||
+        'http://localhost:3000';
+      const nextSocket = io(`${wsBase}/orders`, {
+        auth: { operatorToken: token, businessSlug },
+      });
+      socket = nextSocket;
+      const onOrderEvent = () => {
+        if (cancelled) return;
+        refreshOrders();
+        setOrderVersion((v) => v + 1);
+      };
+      nextSocket.on('order:updated', onOrderEvent);
+      nextSocket.on('order:paymentUpdated', onOrderEvent);
+      nextSocket.on('order:itemsChanged', onOrderEvent);
+      nextSocket.on('auth_error', () => nextSocket.disconnect());
+    })();
+    return () => {
+      cancelled = true;
+      socket?.disconnect();
+    };
+  }, [token, status, businessSlug, refreshOrders]);
+
   const onOrderCreated = useCallback(
     (order: CreatedOperatorOrder) => {
       setLastOrder(order);
       setSelectedTableId(null);
       if (token) loadInfo(token);
       refreshOrders();
+      setOrderVersion((v) => v + 1);
+    },
+    [token, loadInfo, refreshOrders],
+  );
+
+  const onOrderUpdated = useCallback(
+    (order: CreatedOperatorOrder) => {
+      setLastOrder(order);
+      if (token) loadInfo(token);
+      refreshOrders();
+      setOrderVersion((v) => v + 1);
     },
     [token, loadInfo, refreshOrders],
   );
@@ -216,6 +294,14 @@ export function OperatorSessionProvider({
     setError(null);
     loadInfo(token);
   }, [token, loadInfo]);
+
+  const requestCartLoad = useCallback((load: OperatorCartLoad) => {
+    setPendingLoad(load);
+  }, []);
+
+  const clearCartLoad = useCallback(() => {
+    setPendingLoad(null);
+  }, []);
 
   // "Salir" cierra la sesión en el backend, no solo en esta pestaña: si el
   // link quedó en otro equipo, deja de servir. Si la red falla, igual sale.
@@ -235,6 +321,7 @@ export function OperatorSessionProvider({
     () => ({
       status,
       isOperatorMode: status === 'active' || status === 'loading' || status === 'error',
+      businessSlug,
       token,
       info,
       error,
@@ -245,11 +332,16 @@ export function OperatorSessionProvider({
       dismissLastOrder: () => setLastOrder(null),
       orders,
       onOrderCreated,
+      onOrderUpdated,
       invalidate,
       refreshOrders,
       exit,
+      orderVersion,
+      pendingLoad,
+      requestCartLoad,
+      clearCartLoad,
     }),
-    [status, token, info, error, retry, selectedTableId, lastOrder, orders, onOrderCreated, invalidate, refreshOrders, exit],
+    [status, token, businessSlug, info, error, retry, selectedTableId, lastOrder, orders, onOrderCreated, onOrderUpdated, invalidate, refreshOrders, exit, orderVersion, pendingLoad, requestCartLoad, clearCartLoad],
   );
 
   return (

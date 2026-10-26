@@ -530,6 +530,28 @@ export interface OperatorSessionOrder {
   createdAt: string;
 }
 
+export interface OperatorOrderDetailItem {
+  productVariantId: string | null;
+  /** Variante; vacío cuando la línea es de un producto sin variantes */
+  productId: string;
+  productName: string;
+  quantity: number;
+  unitPrice: number;
+  notes: string | null;
+}
+
+export interface OperatorOrderDetail {
+  id: string;
+  orderNumber: string;
+  tableId: string | null;
+  tableLabel: string | null;
+  status: string;
+  paymentStatus: string;
+  total: number;
+  createdAt: string;
+  items: OperatorOrderDetailItem[];
+}
+
 export interface CreatedOperatorOrder {
   orderId: string;
   orderNumber: string;
