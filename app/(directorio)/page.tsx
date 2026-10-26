@@ -14,6 +14,7 @@ import {
   directoryHref,
   hasActiveFilters,
   parseDirectorySearchParams,
+  queryWithoutCity,
 } from "@/lib/directory";
 import { generateDirectoryMetadata } from "@/lib/seo";
 import type { DirectoryFacets, DirectoryFilters, DirectoryResult } from "@/src/types/catalog.types";
@@ -64,7 +65,11 @@ export default async function DirectoryPage({ searchParams }: { searchParams: Se
   if (hasActiveFilters(filters)) {
     // La ciudad pudo venir dentro del texto ("hamburguesas en Bogotá"): los
     // filtros y enlaces usan la ciudad detectada y el texto sin ella.
-    const effective = { ...filters, q: result.query || undefined, city: result.city?.slug };
+    const effective = {
+      ...filters,
+      q: queryWithoutCity(filters.q, result.city?.slug),
+      city: result.city?.slug,
+    };
     return (
       <DirectoryResults
         result={result}
@@ -107,7 +112,7 @@ export default async function DirectoryPage({ searchParams }: { searchParams: Se
                 Ver todos
               </Link>
             </div>
-            <ul className="grid gap-2.5 md:grid-cols-2 lg:grid-cols-3">
+            <ul className="grid grid-cols-1 gap-2.5 md:grid-cols-2 lg:grid-cols-3">
               {openNow.items.slice(0, 6).map((b) => (
                 <li key={b.id}>
                   <BusinessCard business={b} />
@@ -140,7 +145,7 @@ export default async function DirectoryPage({ searchParams }: { searchParams: Se
             Todos los negocios <span className="font-normal text-(--togo-ink-3)">{result.total}</span>
           </h2>
           {result.items.length > 0 ? (
-            <ul className="grid gap-2.5 md:grid-cols-2 lg:grid-cols-3">
+            <ul className="grid grid-cols-1 gap-2.5 md:grid-cols-2 lg:grid-cols-3">
               {result.items.map((b) => (
                 <li key={b.id}>
                   <BusinessCard business={b} />
@@ -170,7 +175,7 @@ export default async function DirectoryPage({ searchParams }: { searchParams: Se
 
 function resultsTitle(result: DirectoryResult, facets: DirectoryFacets, filters: DirectoryFilters): string {
   const what =
-    (result.query && result.query.charAt(0).toUpperCase() + result.query.slice(1)) ||
+    (filters.q && filters.q.charAt(0).toUpperCase() + filters.q.slice(1)) ||
     facets.categories.find((c) => c.slug === filters.category)?.name ||
     facets.industries.find((i) => i.slug === filters.industry)?.name ||
     (filters.openNow ? "Abiertos ahora" : "Negocios");

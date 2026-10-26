@@ -827,9 +827,9 @@ function directoryQuery(filters: DirectoryFilters): string {
   return query ? `?${query}` : "";
 }
 
-async function fetchDirectoryJson<T>(path: string): Promise<T> {
+async function fetchDirectoryJson<T>(path: string, revalidate = DIRECTORY_REVALIDATE): Promise<T> {
   const response = await fetch(`${API_BASE_URL}/public/${path}`, {
-    next: { tags: ["directory"], revalidate: DIRECTORY_REVALIDATE },
+    next: { tags: ["directory"], revalidate },
   });
   return handleResponse<T>(response);
 }
@@ -842,6 +842,7 @@ export function fetchDirectoryFacets(city?: string): Promise<DirectoryFacets> {
   return fetchDirectoryJson(`directory/facets${directoryQuery({ city })}`);
 }
 
+/** El sitemap se regenera cada hora (ver app/sitemap.ts); no necesita el refresco de 60 s. */
 export function fetchDirectorySitemap(): Promise<DirectorySitemap> {
-  return fetchDirectoryJson("directory/sitemap");
+  return fetchDirectoryJson("directory/sitemap", 3600);
 }

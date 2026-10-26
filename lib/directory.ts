@@ -67,3 +67,26 @@ export function directoryHref(filters: DirectoryFilters): string {
 export function businessHref(path: string): string {
   return `${path}?source=${DIRECTORY_SOURCE}`;
 }
+
+/** Mismo slug de ciudad que calcula el API ("Bogotá D.C." → "bogota-d-c"). */
+function slugifyCity(text: string): string {
+  return text
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+/**
+ * Texto de la búsqueda tal como lo escribió la persona (con tildes y
+ * mayúsculas), sin la ciudad que el API detectó al final ("… en Bogotá").
+ * Si la búsqueda era solo la ciudad, no queda texto.
+ */
+export function queryWithoutCity(q: string | undefined, citySlug: string | undefined): string | undefined {
+  const text = q?.trim();
+  if (!text || !citySlug) return text || undefined;
+  if (slugifyCity(text) === citySlug) return undefined;
+  const match = /^(.*\S)\s+en\s+(.+)$/i.exec(text);
+  return match && slugifyCity(match[2]) === citySlug ? match[1] : text;
+}

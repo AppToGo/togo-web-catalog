@@ -66,7 +66,7 @@ export function DirectoryResults({
         </div>
       )}
 
-      <main className="mx-auto grid max-w-6xl gap-6 px-4 py-5 md:grid-cols-[180px_minmax(0,1fr)]">
+      <main className="mx-auto grid max-w-6xl grid-cols-[minmax(0,1fr)] gap-6 px-4 py-5 md:grid-cols-[180px_minmax(0,1fr)]">
         <aside className="hidden md:block">
           <FilterSidebar facets={facets} filters={filters} />
         </aside>
@@ -84,7 +84,7 @@ export function DirectoryResults({
           )}
 
           {result.items.length > 0 ? (
-            <ul className="grid gap-2.5 lg:grid-cols-2">
+            <ul className="grid grid-cols-1 gap-2.5 lg:grid-cols-2">
               {result.items.map((b, i) => (
                 <li key={b.id}>
                   <BusinessCard business={b} rank={ranked ? offset + i + 1 : undefined} />
