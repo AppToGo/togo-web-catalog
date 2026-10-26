@@ -779,33 +779,6 @@ export async function revokeOperatorSession(
 }
 
 // ═══════════════════════════════════════════════════════════
-// STATIC GENERATION (Next.js)
-// ═══════════════════════════════════════════════════════════
-
-/**
- * Get all business slugs for static generation
- */
-export async function generateStaticParams() {
-  try {
-    const response = await fetch(`${API_BASE_URL}/public/businesses`, {
-      next: {
-        tags: ["businesses"],
-        revalidate: DEFAULT_REVALIDATE,
-      },
-    });
-
-    if (!response.ok) return [];
-
-    const businesses = await handleResponse<{ slug: string }[]>(response);
-    return businesses.map((b) => ({
-      businessSlug: b.slug,
-    }));
-  } catch {
-    return [];
-  }
-}
-
-// ═══════════════════════════════════════════════════════════
 // DIRECTORIO PÚBLICO
 // ═══════════════════════════════════════════════════════════
 

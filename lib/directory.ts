@@ -63,9 +63,14 @@ export function directoryHref(filters: DirectoryFilters): string {
   return query ? `/?${query}` : "/";
 }
 
-/** Enlace al catálogo de un negocio, marcado como visita desde el directorio. */
+/**
+ * Enlace al catálogo de un negocio, marcado como visita desde el directorio.
+ * Conserva los params que ya traiga la ruta (hoy el API no manda ninguno).
+ */
 export function businessHref(path: string): string {
-  return `${path}?source=${DIRECTORY_SOURCE}`;
+  const url = new URL(path, "http://directorio.local");
+  url.searchParams.set("source", DIRECTORY_SOURCE);
+  return `${url.pathname}${url.search}`;
 }
 
 /** Mismo slug de ciudad que calcula el API ("Bogotá D.C." → "bogota-d-c"). */
