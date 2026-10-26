@@ -262,7 +262,13 @@ export interface CatalogResponse {
   branches?: CatalogBranch[];
 
   /** Sede resuelta del catálogo. */
-  selectedBranch?: { id: string; name: string; code: string };
+  selectedBranch?: {
+    id: string;
+    name: string;
+    code: string;
+    /** Propina sugerida de la sede (solo se ofrece en pedidos de mesa). */
+    tipConfig?: TipConfig;
+  };
 
   /** Cantidad de sedes activas del negocio (para ofrecer "Cambiar" sede). */
   branchCount?: number;
@@ -360,6 +366,22 @@ export type OrderStatusType =
   | 'SHIPPED'
   | 'DELIVERED'
   | 'CANCELLED';
+
+/**
+ * Propina voluntaria de la sede — espeja `TipConfigSchema` del backend.
+ * `{}` o ausente = apagada.
+ */
+export interface TipConfig {
+  enabled: boolean;
+  suggestedPercent: number;
+  presets: number[];
+}
+
+/** Propina pedida al crear el pedido: `percent` sobre el subtotal o `amount`. */
+export interface TipRequest {
+  percent?: number;
+  amount?: number;
+}
 
 /**
  * Order response

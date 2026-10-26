@@ -12,7 +12,7 @@
 'use client';
 
 import { createContext, useContext, useState, useCallback, useEffect, useRef, ReactNode } from 'react';
-import type { Cart, CartItem, CustomerOrigin, CustomerData } from '@/src/types/catalog.types';
+import type { Cart, CartItem, CustomerOrigin, CustomerData, TipConfig } from '@/src/types/catalog.types';
 import {
   addToCartAction,
   updateCartItemAction,
@@ -49,6 +49,8 @@ interface CartContextType {
   branchPhone?: string;
   /** WhatsApp token from ?t= query param; used to authenticate web-catalog endpoints */
   whatsappToken?: string;
+  /** Propina sugerida de la sede (se ofrece solo en pedidos de mesa) */
+  tipConfig?: TipConfig;
   // Actions
   addItem: (item: CartItem) => void;
   updateItem: (productId: string, delta: number, variantId?: string) => void;
@@ -108,6 +110,8 @@ interface CartProviderProps {
   whatsappToken?: string;
   /** Cart pre-fetched server-side (e.g. from an existing DRAFT order); skips the initial empty state */
   initialCart?: Cart;
+  /** Propina sugerida de la sede (se ofrece solo en pedidos de mesa) */
+  tipConfig?: TipConfig;
 }
 
 export function CartProvider({
@@ -122,6 +126,7 @@ export function CartProvider({
   branchPhone,
   whatsappToken: initialWhatsappToken,
   initialCart,
+  tipConfig,
 }: CartProviderProps) {
   // Cart state — seed with server-prefetched cart when available
   const [cart, setCart] = useState<Cart>(initialCart ?? emptyCart);
@@ -603,6 +608,7 @@ export function CartProvider({
       sessionId,
       branchId,
       branchPhone,
+      tipConfig,
       whatsappToken: activeToken,
       addItem,
       updateItem,
