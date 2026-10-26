@@ -11,7 +11,7 @@
  */
 
 import { Metadata } from 'next';
-import type { CatalogResponse, CatalogProduct, BusinessInfo } from '@/src/types/catalog.types';
+import type { CatalogResponse, CatalogProduct, BusinessInfo, DirectoryBusiness } from '@/src/types/catalog.types';
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://catalogo.togoapp.co';
 
@@ -307,4 +307,62 @@ function formatPrice(price: number): string {
     currency: 'COP',
     minimumFractionDigits: 0,
   }).format(price);
+}
+
+// ═══════════════════════════════════════════════════════════
+// DIRECTORIO PÚBLICO
+// ═══════════════════════════════════════════════════════════
+
+export function generateDirectoryMetadata({
+  title,
+  description,
+  path,
+  index = true,
+}: {
+  title: string;
+  description: string;
+  /** Ruta canónica ("/", "/ciudad/madrid/hamburguesas"). */
+  path: string;
+  /** Las búsquedas libres no se indexan; las landings sí. */
+  index?: boolean;
+}): Metadata {
+  const url = `${APP_URL}${path === '/' ? '' : path}`;
+  return {
+    // absolute: el directorio no lleva el sufijo "| ToGo" del template
+    title: { absolute: title },
+    description,
+    alternates: { canonical: url },
+    robots: index ? { index: true, follow: true } : { index: false, follow: true },
+    openGraph: {
+      type: 'website',
+      locale: 'es_CO',
+      url,
+      siteName: 'TOGO',
+      title,
+      description,
+    },
+    twitter: { card: 'summary', title, description },
+  };
+}
+
+/** JSON-LD ItemList de las landings: cada negocio enlaza a su catálogo. */
+export function generateDirectoryStructuredData(items: DirectoryBusiness[], path: string, name: string) {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'ItemList',
+    name,
+    url: `${APP_URL}${path}`,
+    numberOfItems: items.length,
+    itemListElement: items.map((b, i) => ({
+      '@type': 'ListItem',
+      position: i + 1,
+      url: `${APP_URL}${b.path}`,
+      name: b.name,
+    })),
+  };
+}
+
+/** Serializa JSON-LD para <script>, sin permitir que un nombre cierre la etiqueta. */
+export function jsonLd(data: unknown): string {
+  return JSON.stringify(data).replace(/</g, '\\u003c');
 }

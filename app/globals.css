@@ -54,6 +54,32 @@
   --accent-2-softer: color-mix(in oklch, var(--accent-2) 6%, #fff);
 }
 
+/* Marca TOGO para el directorio público (raíz, búsqueda y /ciudad/**).
+   Va en su propio scope para no tocar los tokens --accent que cada negocio
+   configura en su catálogo. Valores del manual de marca
+   (docs/Marca/ManualTogo): Togo Indigo, Ink, Paper, Rule y DM Sans. */
+[data-togo-theme] {
+  --togo-indigo: #6366f1;
+  --togo-indigo-strong: #4f52e8;
+  --togo-indigo-soft: #eeeffe;
+  --togo-ink: #1e1e1e;
+  --togo-ink-2: #6b6b6b;
+  --togo-ink-3: #9a9aa2;
+  --togo-paper: #fafafa;
+  --togo-rule: #e8e8ea;
+  --togo-open: #047857;
+  --togo-open-soft: #ecfdf5;
+  background: var(--togo-paper);
+  color: var(--togo-ink);
+  font-family: var(--font-dm-sans), "DM Sans", ui-sans-serif, system-ui, sans-serif;
+}
+
+/* El anillo de foco global usa --accent (verde por defecto del catálogo);
+   dentro del directorio va con el índigo de la marca. */
+[data-togo-theme] :focus-visible {
+  outline-color: var(--togo-indigo);
+}
+
 * {
   box-sizing: border-box;
   -webkit-tap-highlight-color: transparent;

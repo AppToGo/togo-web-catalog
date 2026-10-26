@@ -27,6 +27,10 @@ import type {
   OperatorSessionInfo,
   OperatorSessionOrder,
   CreatedOperatorOrder,
+  DirectoryFacets,
+  DirectoryFilters,
+  DirectoryResult,
+  DirectorySitemap,
 } from "@/src/types/catalog.types";
 
 // Re-export legacy types for backward compatibility during migration
@@ -671,6 +675,8 @@ export async function createOrderPublic(
     // atribuye el pedido al cliente técnico del negocio si no hay teléfono.
     phoneNumber?: string;
     fromWhatsApp?: boolean;
+    /** El cliente llegó desde el directorio público (Order.source = DIRECTORY). */
+    fromDirectory?: boolean;
     /** Código de mesa (Fase 2) — ver docs/architecture/pedidos-en-mesa.md */
     tableCode?: string;
   },
@@ -797,4 +803,45 @@ export async function generateStaticParams() {
   } catch {
     return [];
   }
+}
+
+// ═══════════════════════════════════════════════════════════
+// DIRECTORIO PÚBLICO
+// ═══════════════════════════════════════════════════════════
+
+// El API reconstruye su índice de negocios listados cada 60 s; cachear más
+// aquí solo sumaría demora a que un negocio que activa (o desactiva)
+// "Aparecer en el directorio" se vea reflejado.
+const DIRECTORY_REVALIDATE = 60;
+
+function directoryQuery(filters: DirectoryFilters): string {
+  const params = new URLSearchParams();
+  if (filters.q) params.set("q", filters.q);
+  if (filters.industry) params.set("industry", filters.industry);
+  if (filters.category) params.set("category", filters.category);
+  if (filters.city) params.set("city", filters.city);
+  if (filters.openNow) params.set("openNow", "true");
+  if (filters.page && filters.page > 1) params.set("page", String(filters.page));
+  if (filters.limit) params.set("limit", String(filters.limit));
+  const query = params.toString();
+  return query ? `?${query}` : "";
+}
+
+async function fetchDirectoryJson<T>(path: string): Promise<T> {
+  const response = await fetch(`${API_BASE_URL}/public/${path}`, {
+    next: { tags: ["directory"], revalidate: DIRECTORY_REVALIDATE },
+  });
+  return handleResponse<T>(response);
+}
+
+export function fetchDirectory(filters: DirectoryFilters): Promise<DirectoryResult> {
+  return fetchDirectoryJson(`directory${directoryQuery(filters)}`);
+}
+
+export function fetchDirectoryFacets(city?: string): Promise<DirectoryFacets> {
+  return fetchDirectoryJson(`directory/facets${directoryQuery({ city })}`);
+}
+
+export function fetchDirectorySitemap(): Promise<DirectorySitemap> {
+  return fetchDirectoryJson("directory/sitemap");
 }

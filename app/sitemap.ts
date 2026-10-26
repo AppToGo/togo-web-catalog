@@ -1,36 +1,42 @@
 /**
- * Sitemap Dinámico
- * 
- * Genera sitemap.xml para SEO.
- * Incluye todas las páginas de catálogo disponibles.
- * 
- * NOTA: En producción, esto debería obtener los tokens
- * activos desde la base de datos o un endpoint.
+ * Sitemap: raíz del directorio, landings por ciudad y por ciudad + tipo de
+ * comida, y el catálogo de cada negocio listado en el directorio. Los
+ * catálogos que no optaron por el directorio no se publican aquí.
  */
 
-import { MetadataRoute } from 'next';
+import type { MetadataRoute } from "next";
+import { fetchDirectorySitemap } from "@/lib/api";
+import { directoryHref } from "@/lib/directory";
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://catalogo.togoapp.co';
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://catalogo.togoapp.co";
+
+export const revalidate = 3600;
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  // URLs estáticas
-  const staticUrls: MetadataRoute.Sitemap = [
-    {
-      url: APP_URL,
-      lastModified: new Date(),
-      changeFrequency: 'daily',
-      priority: 1,
-    },
-  ];
+  const root: MetadataRoute.Sitemap = [{ url: APP_URL, changeFrequency: "daily", priority: 1 }];
 
-  // En producción, aquí obtendrías los tokens activos desde la API
-  // const catalogs = await fetch(`${API_URL}/public/catalogs`).then(r => r.json());
-  // const catalogUrls = catalogs.map(c => ({
-  //   url: `${APP_URL}/catalog/${c.token}`,
-  //   lastModified: c.updatedAt,
-  //   changeFrequency: 'daily' as const,
-  //   priority: 0.9,
-  // }));
-
-  return [...staticUrls];
+  try {
+    const { businesses, landings, cities } = await fetchDirectorySitemap();
+    return [
+      ...root,
+      ...cities.map((city) => ({
+        url: `${APP_URL}${directoryHref({ city })}`,
+        changeFrequency: "daily" as const,
+        priority: 0.8,
+      })),
+      ...landings.map(({ city, category }) => ({
+        url: `${APP_URL}${directoryHref({ city, category })}`,
+        changeFrequency: "daily" as const,
+        priority: 0.7,
+      })),
+      ...businesses.map(({ slug }) => ({
+        url: `${APP_URL}/${slug}`,
+        changeFrequency: "daily" as const,
+        priority: 0.9,
+      })),
+    ];
+  } catch (error) {
+    console.error("[sitemap] No se pudo cargar el directorio:", error);
+    return root;
+  }
 }

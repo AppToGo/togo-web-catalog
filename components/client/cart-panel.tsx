@@ -275,6 +275,7 @@ function CustomerCartPanel({ business, active, alwaysVisible = false, onClose }:
             // perdería el mensaje de checkout por WhatsApp aunque el pedido
             // se cree bien por el camino público.
             fromWhatsApp: customer.origin === 'whatsapp',
+            fromDirectory: customer.origin === 'directory',
             tableCode: customer.tableNumber,
           })
         : await createOrderAction(whatsappToken!, {
