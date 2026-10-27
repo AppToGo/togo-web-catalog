@@ -268,6 +268,8 @@ export interface CatalogResponse {
     code: string;
     /** Propina sugerida de la sede (solo se ofrece en pedidos de mesa). */
     tipConfig?: TipConfig;
+    /** La sede acepta pedidos de mesa por QR (funcionalidad activa y configurada). */
+    dineInEnabled?: boolean;
   };
 
   /** Cantidad de sedes activas del negocio (para ofrecer "Cambiar" sede). */
@@ -399,6 +401,8 @@ export interface OrderResponse {
   branchPhone?: string;
   requiresWhatsAppConfirmation?: boolean;
   waMeUrl?: string;
+  /** Texto para prellenar el enlace a WhatsApp; lo arma la API y el bot lo reconoce. */
+  whatsappText?: string;
 }
 
 // ═══════════════════════════════════════════════════════════

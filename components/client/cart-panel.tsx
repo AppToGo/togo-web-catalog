@@ -17,10 +17,18 @@ import { formatPrice } from '@/lib/utils';
 // (#A1B2C3) y citarlo solo confunde — el cliente vería después otro número
 // distinto, el real. El bot identifica al cliente por su teléfono y le ofrece
 // su pedido en curso, que es más fiable que pedirle que copie un código.
-function buildWaMeUrl(phone: string | undefined, businessName: string): string | null {
+//
+// El texto lo arma la API (`whatsappText` en la respuesta del pedido) y el
+// bot lo reconoce al llegar: así no hay dos copias que puedan divergir. El
+// texto local solo cubre una API que todavía no lo devuelve.
+function buildWaMeUrl(
+  phone: string | undefined,
+  whatsappText: string | undefined,
+  businessName: string,
+): string | null {
   if (!phone) return null;
   const digits = phone.replace(/\D/g, '');
-  const text = `Hola, acabo de hacer un pedido en ${businessName} y quiero completarlo`;
+  const text = whatsappText ?? `Hola, acabo de hacer un pedido en ${businessName} y quiero completarlo`;
   return `https://wa.me/${digits}?text=${encodeURIComponent(text)}`;
 }
 
@@ -253,7 +261,7 @@ function CustomerCartPanel({ business, active, alwaysVisible = false, onClose }:
         const phoneForWaMe = branchPhone ?? business.phone;
         const waUrl = whatsappToken
           ? buildWaMeUrlSimple(phoneForWaMe)
-          : buildWaMeUrl(phoneForWaMe, business.name);
+          : buildWaMeUrl(phoneForWaMe, result.order?.whatsappText, business.name);
 
         if (customer.origin !== 'whatsapp' && waUrl) {
           window.open(waUrl, '_blank', 'noopener,noreferrer');
@@ -299,7 +307,7 @@ function CustomerCartPanel({ business, active, alwaysVisible = false, onClose }:
       const phoneForWaMe = result.order?.branchPhone ?? branchPhone ?? business.phone;
       const waUrl = whatsappToken
         ? buildWaMeUrlSimple(phoneForWaMe)
-        : buildWaMeUrl(phoneForWaMe, business.name);
+        : buildWaMeUrl(phoneForWaMe, result.order?.whatsappText, business.name);
 
       if (customer.origin !== 'whatsapp' && waUrl) {
         window.open(waUrl, '_blank', 'noopener,noreferrer');
