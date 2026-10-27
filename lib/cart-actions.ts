@@ -58,6 +58,8 @@ interface OrderActionResult {
     waMeUrl?: string;
     /** Branch WhatsApp phone returned by backend (E.164); undefined when branch has no dedicated number */
     branchPhone?: string;
+    /** Texto para prellenar el enlace a WhatsApp (lo arma la API). */
+    whatsappText?: string;
   };
   error?: string;
 }
@@ -298,6 +300,7 @@ export async function updateOrderAction(
         orderNumber: result.orderNumber,
         status: result.status,
         total: result.total,
+        whatsappText: result.whatsappText,
       }
     };
   } catch (error) {
@@ -557,6 +560,7 @@ export async function createOrderPublicAction(
         status: result.status,
         total: result.total,
         branchPhone: result.branchPhone ?? result.businessPhone,
+        whatsappText: result.whatsappText,
       },
     };
   } catch (error) {

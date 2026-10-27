@@ -401,6 +401,8 @@ export interface OrderResponse {
   branchPhone?: string;
   requiresWhatsAppConfirmation?: boolean;
   waMeUrl?: string;
+  /** Texto para prellenar el enlace a WhatsApp; lo arma la API y el bot lo reconoce. */
+  whatsappText?: string;
 }
 
 // ═══════════════════════════════════════════════════════════
