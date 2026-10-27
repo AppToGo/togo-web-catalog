@@ -72,6 +72,11 @@ export function CatalogView({
   linkParams,
 }: CatalogViewProps) {
   const useProductImages = catalog.business.useProductImages ?? false;
+  // La sede (o el negocio) no acepta pedidos de mesa: el `?table=` de un QR
+  // viejo se ignora y el pedido sigue el flujo normal. `undefined` = backend
+  // anterior sin el campo, se respeta la mesa como antes.
+  const customerTable =
+    catalog.selectedBranch?.dineInEnabled === false ? undefined : table;
 
   return (
     <div data-catalog-theme style={catalogThemeStyle(catalog.business)}>
@@ -84,7 +89,7 @@ export function CatalogView({
         businessSlug={businessSlug}
         origin={origin}
         // En modo operador la mesa se elige en el carrito, no es la del QR.
-        tableNumber={operatorToken ? undefined : table}
+        tableNumber={operatorToken ? undefined : customerTable}
         initialPhone={catalog.customerPhone}
         initialName={catalog.customerName}
         isAuthenticated={!!token}
