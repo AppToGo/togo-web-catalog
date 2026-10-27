@@ -91,6 +91,7 @@ export function CatalogView({
         // branchId and branchPhone come from the backend response — needed for cart operations and wa.me redirect
         branchId={catalog.branchId ?? undefined}
         branchPhone={catalog.branchPhone}
+        tipConfig={catalog.selectedBranch?.tipConfig}
         whatsappToken={token}
         initialCart={initialCart}
       >

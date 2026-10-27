@@ -32,6 +32,7 @@ import type {
   DirectoryFilters,
   DirectoryResult,
   DirectorySitemap,
+  TipRequest,
 } from "@/src/types/catalog.types";
 
 // Re-export legacy types for backward compatibility during migration
@@ -680,6 +681,8 @@ export async function createOrderPublic(
     fromDirectory?: boolean;
     /** Código de mesa (Fase 2) — ver docs/architecture/pedidos-en-mesa.md */
     tableCode?: string;
+    /** Propina elegida en el carrito (solo aplica en pedidos de mesa). */
+    tip?: TipRequest;
   },
 ): Promise<OrderResponse> {
   const sanitizedData = {

@@ -77,9 +77,11 @@ export function CartPanel(props: CartPanelProps) {
 
 function CustomerCartPanel({ business, active, alwaysVisible = false, onClose }: CartPanelProps) {
   const router = useRouter();
-  const { cart, updateItem, updateItemNotes, clearCart, itemCount, isSyncing, syncCart, customer, isIdentified, sessionId, branchId, branchPhone, whatsappToken } = useCart();
+  const { cart, updateItem, updateItemNotes, clearCart, itemCount, isSyncing, syncCart, customer, isIdentified, sessionId, branchId, branchPhone, whatsappToken, tipConfig } = useCart();
 
   const [notes, setNotes] = useState('');
+  // Propina elegida (%); `null` = la sugerida de la sede.
+  const [pickedTipPercent, setTipPercent] = useState<number | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const pendingSubmitRef = useRef(false);
   // Holds the latest handleSubmitOrder to avoid stale closures in the isIdentified effect
@@ -202,6 +204,15 @@ function CustomerCartPanel({ business, active, alwaysVisible = false, onClose }:
   const canEditExisting = existingStatus === 'DRAFT' || isConfirmedEdit;
   const isLocked = !!existingStatus && !canEditExisting;
 
+  const subtotal = cart.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  // Propina voluntaria: solo en un pedido de mesa nuevo con propina en la
+  // sede. Mismo cálculo que el backend (% sobre el subtotal, a pesos); el
+  // cajero puede ajustarla al cobrar.
+  const offersTip = isTableOrder && !!tipConfig?.enabled && !orderStatus?.hasOrder;
+  const tipPercent = pickedTipPercent ?? tipConfig?.suggestedPercent ?? 0;
+  const tip = offersTip ? Math.round((subtotal * tipPercent) / 100) : 0;
+  const total = subtotal + tip;
+
   const handleSubmitOrder = useCallback(async () => {
     if (cart.items.length === 0 || isCheckingOrder) return;
     if (!isTableOrder) {
@@ -277,6 +288,7 @@ function CustomerCartPanel({ business, active, alwaysVisible = false, onClose }:
             fromWhatsApp: customer.origin === 'whatsapp',
             fromDirectory: customer.origin === 'directory',
             tableCode: customer.tableNumber,
+            ...(offersTip && { tip: { percent: tipPercent } }),
           })
         : await createOrderAction(whatsappToken!, {
             items: cart.items, notes: notes.trim(), source: customer.origin, sessionId,
@@ -307,7 +319,7 @@ function CustomerCartPanel({ business, active, alwaysVisible = false, onClose }:
     } finally {
       setIsProcessing(false);
     }
-  }, [cart.items, customer, isTableOrder, notes, orderStatus, isLocked, canEditExisting, isCheckingOrder, sessionId, whatsappToken, branchId, requireResolvedSede, syncCart, checkExistingOrder, clearCart, handleClose, business, branchPhone, router]);
+  }, [cart.items, customer, isTableOrder, notes, orderStatus, isLocked, canEditExisting, isCheckingOrder, sessionId, whatsappToken, branchId, requireResolvedSede, syncCart, checkExistingOrder, clearCart, handleClose, business, branchPhone, router, offersTip, tipPercent]);
 
   // Keep ref current so the isIdentified effect always calls the latest version
   handleSubmitOrderRef.current = handleSubmitOrder;
@@ -341,7 +353,6 @@ function CustomerCartPanel({ business, active, alwaysVisible = false, onClose }:
     isLocked
   );
 
-  const total = cart.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
   return (
     <>
@@ -455,12 +466,47 @@ function CustomerCartPanel({ business, active, alwaysVisible = false, onClose }:
             <div className="px-4 py-3 border-t border-[var(--line)] mt-1">
               <div className="flex justify-between items-center py-1 text-[13px] text-[var(--ink-2)]">
                 <span>Subtotal</span>
-                <span>{formatPrice(total)}</span>
+                <span>{formatPrice(subtotal)}</span>
               </div>
-              <div className="flex justify-between items-center py-1 text-[13px] text-[var(--ink-2)]">
-                <span>Envío</span>
-                <span className="text-[var(--accent)] font-medium">A coordinar</span>
-              </div>
+              {isTableOrder ? (
+                offersTip && (
+                  <div className="py-1">
+                    <div className="flex justify-between items-center text-[13px] text-[var(--ink-2)]">
+                      <span>Propina</span>
+                      <span>{formatPrice(tip)}</span>
+                    </div>
+                    <div role="group" aria-label="Propina" className="flex flex-wrap gap-[6px] mt-2">
+                      {tipConfig!.presets.map((percent) => {
+                        const active = percent === tipPercent;
+                        return (
+                          <button
+                            key={percent}
+                            type="button"
+                            aria-pressed={active}
+                            disabled={isLocked}
+                            onClick={() => setTipPercent(percent)}
+                            className={`h-10 px-3 rounded-full border-[1.5px] text-xs font-semibold transition-colors disabled:opacity-50 ${
+                              active
+                                ? 'bg-[var(--accent)] border-[var(--accent)] text-[var(--accent-ink)]'
+                                : 'bg-[var(--surface)] border-[var(--line)] text-[var(--ink-2)] hover:bg-[var(--bg)]'
+                            }`}
+                          >
+                            {percent === 0 ? 'Sin propina' : `${percent}%`}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <p className="text-[11px] text-[var(--ink-3)] mt-[6px]">
+                      La propina es voluntaria.
+                    </p>
+                  </div>
+                )
+              ) : (
+                <div className="flex justify-between items-center py-1 text-[13px] text-[var(--ink-2)]">
+                  <span>Envío</span>
+                  <span className="text-[var(--accent)] font-medium">A coordinar</span>
+                </div>
+              )}
               <div
                 className="flex justify-between items-center pt-[10px] mt-1 border-t border-[var(--line)] text-[16px] font-bold text-[var(--ink)] tracking-[-0.02em]"
                 style={{ fontFamily: 'var(--font-display)' }}
