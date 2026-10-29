@@ -299,3 +299,20 @@ body {
     scroll-behavior: auto !important;
   }
 }
+
+/*
+ * iOS: sin zoom al enfocar controles en táctil.
+ * Safari hace zoom al enfocar un control con letra menor a 16px y no siempre
+ * vuelve al cerrar el teclado. En táctil los controles van a 16px (en
+ * escritorio se conserva el tamaño diseñado): sin zoom no hay nada que
+ * revertir. Va SIN @layer a propósito: en Tailwind v4 las utilities viven
+ * en una capa posterior y ganarían sobre @layer base. No se usa
+ * maximum-scale/user-scalable=no porque rompe la accesibilidad.
+ */
+@media (pointer: coarse) {
+  input,
+  textarea,
+  select {
+    font-size: 16px;
+  }
+}
