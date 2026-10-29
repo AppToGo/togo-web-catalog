@@ -18,6 +18,7 @@ import {
   RateLimitError,
   revokeOperatorSession,
   updateOperatorOrderItems,
+  verifyOperatorPassword,
 } from './api';
 import type {
   CartItem,
@@ -144,5 +145,86 @@ export async function revokeOperatorSessionAction(
     return { success: true, data: null };
   } catch (error) {
     return toFailure(error, 'No se pudo cerrar la sesión');
+  }
+}
+
+export type VerifyPasswordErrorCode =
+  | 'INVALID_SESSION'
+  | 'INVALID_PASSWORD'
+  | 'NO_PASSWORD_SET'
+  | 'TOO_MANY_ATTEMPTS';
+
+/**
+ * El mesero confirma su contraseña al ingresar. La clave incorrecta llega
+ * como 200 con `verified: false` (nunca 401): el token sigue vivo y la
+ * sesión no se invalida. Un 401 sí es token muerto. Si la clave es
+ * correcta la API devuelve un token nuevo: el del link deja de servir.
+ */
+export async function verifyOperatorPasswordAction(
+  businessSlug: string,
+  token: string,
+  password: string,
+): Promise<
+  | { success: true; token: string }
+  | { success: false; error: string; errorCode: VerifyPasswordErrorCode }
+> {
+  try {
+    const result = await verifyOperatorPassword(businessSlug, token, password);
+    if (result.verified) {
+      if (result.token) return { success: true, token: result.token };
+      return {
+        success: false,
+        error: 'No se pudo verificar la contraseña. Intenta de nuevo.',
+        errorCode: 'INVALID_PASSWORD',
+      };
+    }
+    if (result.reason === 'TOO_MANY_ATTEMPTS') {
+      return {
+        success: false,
+        error:
+          'Demasiados intentos con clave incorrecta: la sesión se cerró. Pide un link nuevo en el admin.',
+        errorCode: 'TOO_MANY_ATTEMPTS',
+      };
+    }
+    if (result.reason === 'NO_PASSWORD_SET') {
+      return {
+        success: false,
+        error:
+          'No tienes contraseña asignada. Pídele al dueño que te asigne una para tomar pedidos.',
+        errorCode: 'NO_PASSWORD_SET',
+      };
+    }
+    const left = result.attemptsLeft;
+    return {
+      success: false,
+      error:
+        left === 1
+          ? 'Contraseña incorrecta. Te queda 1 intento antes de que se cierre la sesión.'
+          : left
+            ? `Contraseña incorrecta. Te quedan ${left} intentos.`
+            : 'Contraseña incorrecta. Intenta de nuevo.',
+      errorCode: 'INVALID_PASSWORD',
+    };
+  } catch (error) {
+    if (error instanceof InvalidTokenError) {
+      return {
+        success: false,
+        error:
+          'Tu sesión de operador venció o fue cerrada. Pide un link nuevo en el admin.',
+        errorCode: 'INVALID_SESSION',
+      };
+    }
+    if (error instanceof RateLimitError) {
+      return {
+        success: false,
+        error: 'Demasiados intentos. Espera unos segundos e intenta de nuevo.',
+        errorCode: 'INVALID_PASSWORD',
+      };
+    }
+    return {
+      success: false,
+      error: 'No se pudo verificar la contraseña. Intenta de nuevo.',
+      errorCode: 'INVALID_PASSWORD',
+    };
   }
 }
