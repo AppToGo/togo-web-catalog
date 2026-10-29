@@ -15,6 +15,7 @@ import {
   getOperatorOrdersAction,
   getOperatorSessionAction,
   revokeOperatorSessionAction,
+  verifyOperatorPasswordAction,
 } from '@/lib/operator-actions';
 import type {
   CreatedOperatorOrder,
@@ -33,6 +34,31 @@ const storageKey = (businessSlug: string) => `togo:operator:${businessSlug}`;
 
 /** Refresco de "Mis pedidos de este turno" mientras está a la vista. */
 export const OPERATOR_ORDERS_REFRESH_MS = 30_000;
+
+/**
+ * Marca por pestaña de que ESTE navegador ya confirmó la clave para el
+ * token actual. sessionStorage (no localStorage): en un computador
+ * compartido cada pestaña pide la clave de nuevo.
+ */
+const verifiedKey = (businessSlug: string) =>
+  `togo:operator-verified:${businessSlug}`;
+
+function readVerifiedToken(businessSlug: string): string | null {
+  try {
+    return sessionStorage.getItem(verifiedKey(businessSlug));
+  } catch {
+    return null;
+  }
+}
+
+function writeVerifiedToken(businessSlug: string, token: string | null) {
+  try {
+    if (token) sessionStorage.setItem(verifiedKey(businessSlug), token);
+    else sessionStorage.removeItem(verifiedKey(businessSlug));
+  } catch {
+    // Sin storage: la marca dura lo que el estado en memoria.
+  }
+}
 
 function readStoredToken(businessSlug: string): string | null {
   try {
@@ -69,8 +95,13 @@ function queryWithoutParam(param: string): string {
  * - `error`: no se pudo validar (red, 5xx, 429); la sesión puede seguir
  *   viva, así que se conserva el token y se ofrece reintentar.
  * - `invalid`: la API dijo que la sesión ya no sirve (401).
+ * - `locked`: sesión válida pero sin identidad confirmada en ESTE
+ *   navegador: el mesero debe poner su contraseña para tomar pedidos.
  */
-type OperatorStatus = 'none' | 'loading' | 'active' | 'error' | 'invalid';
+type OperatorStatus = 'none' | 'loading' | 'active' | 'error' | 'invalid' | 'locked';
+
+/** Por qué pide clave: verificarla, o que el dueño asigne una. */
+export type OperatorLockReason = 'VERIFY' | 'NO_PASSWORD';
 
 interface OperatorSessionContextValue {
   status: OperatorStatus;
@@ -106,6 +137,13 @@ interface OperatorSessionContextValue {
   clearCartLoad: () => void;
   /** La API respondió que la sesión ya no vale */
   invalidate: (message: string) => void;
+  /** Por qué está bloqueado (`locked`): verificar clave o sin clave asignada */
+  lockReason: OperatorLockReason | null;
+  /**
+   * Confirma la contraseña del mesero. Devuelve el mensaje de error o null
+   * si quedó verificada (y activa la sesión).
+   */
+  verify: (password: string) => Promise<string | null>;
   /**
    * Recarga los pedidos; `false` si falló sin invalidar la sesión (la lista
    * puede estar rancia y quien llama decide si avisa).
@@ -159,12 +197,15 @@ export function OperatorSessionProvider({
   const [orders, setOrders] = useState<OperatorSessionOrder[]>([]);
   const [orderVersion, setOrderVersion] = useState(0);
   const [pendingLoad, setPendingLoad] = useState<OperatorCartLoad | null>(null);
+  const [lockReason, setLockReason] = useState<OperatorLockReason | null>(null);
 
   const invalidate = useCallback(
     (message: string) => {
       writeStoredToken(businessSlug, null);
+      writeVerifiedToken(businessSlug, null);
       setToken(null);
       setInfo(null);
+      setLockReason(null);
       setStatus('invalid');
       setError(message);
     },
@@ -186,11 +227,61 @@ export function OperatorSessionProvider({
         return null;
       }
       setInfo(result.data);
+      // Entrada con contraseña: si el dueño no le asignó clave al mesero
+      // no hay nada que verificar (se le dice que la pida); si nadie la
+      // confirmó en esta sesión o en ESTA pestaña, se bloquea hasta que
+      // el mesero ponga su clave. Sin esto, cualquiera con el link pide
+      // a nombre del mesero.
+      if (!result.data.hasPassword) {
+        setLockReason('NO_PASSWORD');
+        setStatus('locked');
+        setError(null);
+        return null;
+      }
+      if (
+        !result.data.passwordVerified ||
+        readVerifiedToken(businessSlug) !== sessionToken
+      ) {
+        setLockReason('VERIFY');
+        setStatus('locked');
+        setError(null);
+        return null;
+      }
+      setLockReason(null);
       setStatus('active');
       setError(null);
       return result.data;
     },
     [businessSlug, invalidate],
+  );
+
+  const verify = useCallback(
+    async (password: string): Promise<string | null> => {
+      if (!token) return 'No hay sesión de operador activa.';
+      const result = await verifyOperatorPasswordAction(
+        businessSlug,
+        token,
+        password,
+      );
+      if (!result.success) {
+        if (result.errorCode === 'INVALID_SESSION') {
+          invalidate(result.error);
+        }
+        return result.error;
+      }
+      writeVerifiedToken(businessSlug, token);
+      setLockReason(null);
+      setError(null);
+      const loaded = await loadInfo(token);
+      // La mesa del QR se preserva: al verificar después del bloqueo, la
+      // preselección del efecto inicial ya pasó de largo (retornó null).
+      if (loaded && initialTableCode) {
+        const table = loaded.tables.find((t) => t.code === initialTableCode);
+        if (table) setSelectedTableId(table.id);
+      }
+      return null;
+    },
+    [businessSlug, token, invalidate, loadInfo, initialTableCode],
   );
 
   const refreshOrders = useCallback(async (): Promise<boolean> => {
@@ -308,11 +399,13 @@ export function OperatorSessionProvider({
   const exit = useCallback(() => {
     if (token) revokeOperatorSessionAction(businessSlug, token);
     writeStoredToken(businessSlug, null);
+    writeVerifiedToken(businessSlug, null);
     setToken(null);
     setInfo(null);
     setOrders([]);
     setLastOrder(null);
     setSelectedTableId(null);
+    setLockReason(null);
     setError(null);
     setStatus('none');
   }, [businessSlug, token]);
@@ -340,8 +433,10 @@ export function OperatorSessionProvider({
       pendingLoad,
       requestCartLoad,
       clearCartLoad,
+      lockReason,
+      verify,
     }),
-    [status, token, businessSlug, info, error, retry, selectedTableId, lastOrder, orders, onOrderCreated, onOrderUpdated, invalidate, refreshOrders, exit, orderVersion, pendingLoad, requestCartLoad, clearCartLoad],
+    [status, token, businessSlug, info, error, retry, selectedTableId, lastOrder, orders, onOrderCreated, onOrderUpdated, invalidate, refreshOrders, exit, orderVersion, pendingLoad, requestCartLoad, clearCartLoad, lockReason, verify],
   );
 
   return (

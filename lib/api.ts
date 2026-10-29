@@ -814,6 +814,28 @@ export async function revokeOperatorSession(
   return handleOperatorResponse<void>(response);
 }
 
+export interface VerifyOperatorPasswordResult {
+  verified: boolean;
+  reason?: "INVALID_PASSWORD" | "NO_PASSWORD_SET";
+}
+
+export async function verifyOperatorPassword(
+  businessSlug: string,
+  token: string,
+  password: string,
+): Promise<VerifyOperatorPasswordResult> {
+  const response = await fetch(
+    buildPublicCatalogUrl(businessSlug, "/operator-session/verify-password"),
+    {
+      method: "POST",
+      headers: operatorHeaders(token),
+      cache: "no-store",
+      body: JSON.stringify({ password }),
+    },
+  );
+  return handleOperatorResponse<VerifyOperatorPasswordResult>(response);
+}
+
 // ═══════════════════════════════════════════════════════════
 // DIRECTORIO PÚBLICO
 // ═══════════════════════════════════════════════════════════
