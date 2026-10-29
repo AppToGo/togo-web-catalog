@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { AlertCircle, ChevronDown, ChevronUp, Loader2, UtensilsCrossed, X } from 'lucide-react';
 import { useOperatorSession } from './operator-session-context';
 import { OperatorOrdersList } from './operator-orders-list';
+import { OperatorPasswordGate } from './operator-password-gate';
 
 /**
  * Franja superior del modo operador: quién atiende, en qué sede, acceso a
@@ -28,6 +29,8 @@ export function OperatorBar() {
       </div>
     );
   }
+
+  if (status === 'locked') return <OperatorPasswordGate />;
 
   if (status !== 'active' && status !== 'loading' && status !== 'error') return null;
 

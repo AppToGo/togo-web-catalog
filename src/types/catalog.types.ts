@@ -546,6 +546,10 @@ export interface OperatorSessionInfo {
   /** La sede acepta pedidos en mesa de operadores */
   dineInEnabled: boolean;
   tables: OperatorSessionTable[];
+  /** El mesero ya confirmó su contraseña en esta sesión */
+  passwordVerified: boolean;
+  /** El operador tiene contraseña asignada */
+  hasPassword: boolean;
 }
 
 export interface OperatorSessionOrder {
