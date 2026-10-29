@@ -35,31 +35,6 @@ const storageKey = (businessSlug: string) => `togo:operator:${businessSlug}`;
 /** Refresco de "Mis pedidos de este turno" mientras está a la vista. */
 export const OPERATOR_ORDERS_REFRESH_MS = 30_000;
 
-/**
- * Marca por pestaña de que ESTE navegador ya confirmó la clave para el
- * token actual. sessionStorage (no localStorage): en un computador
- * compartido cada pestaña pide la clave de nuevo.
- */
-const verifiedKey = (businessSlug: string) =>
-  `togo:operator-verified:${businessSlug}`;
-
-function readVerifiedToken(businessSlug: string): string | null {
-  try {
-    return sessionStorage.getItem(verifiedKey(businessSlug));
-  } catch {
-    return null;
-  }
-}
-
-function writeVerifiedToken(businessSlug: string, token: string | null) {
-  try {
-    if (token) sessionStorage.setItem(verifiedKey(businessSlug), token);
-    else sessionStorage.removeItem(verifiedKey(businessSlug));
-  } catch {
-    // Sin storage: la marca dura lo que el estado en memoria.
-  }
-}
-
 function readStoredToken(businessSlug: string): string | null {
   try {
     return sessionStorage.getItem(storageKey(businessSlug));
@@ -95,8 +70,9 @@ function queryWithoutParam(param: string): string {
  * - `error`: no se pudo validar (red, 5xx, 429); la sesión puede seguir
  *   viva, así que se conserva el token y se ofrece reintentar.
  * - `invalid`: la API dijo que la sesión ya no sirve (401).
- * - `locked`: sesión válida pero sin identidad confirmada en ESTE
- *   navegador: el mesero debe poner su contraseña para tomar pedidos.
+ * - `locked`: sesión válida pero sin identidad confirmada: el mesero debe
+ *   poner su contraseña. Al confirmarla la API canjea el token del link por
+ *   uno nuevo que solo tiene esta pestaña; el link deja de servir.
  */
 type OperatorStatus = 'none' | 'loading' | 'active' | 'error' | 'invalid' | 'locked';
 
@@ -144,6 +120,11 @@ interface OperatorSessionContextValue {
    * si quedó verificada (y activa la sesión).
    */
   verify: (password: string) => Promise<string | null>;
+  /**
+   * Sale del modo operador solo en esta pestaña, sin revocar la sesión: el
+   * mesero puede volver a abrir el link y poner su clave.
+   */
+  leave: () => void;
   /**
    * Recarga los pedidos; `false` si falló sin invalidar la sesión (la lista
    * puede estar rancia y quien llama decide si avisa).
@@ -202,7 +183,6 @@ export function OperatorSessionProvider({
   const invalidate = useCallback(
     (message: string) => {
       writeStoredToken(businessSlug, null);
-      writeVerifiedToken(businessSlug, null);
       setToken(null);
       setInfo(null);
       setLockReason(null);
@@ -228,20 +208,17 @@ export function OperatorSessionProvider({
       }
       setInfo(result.data);
       // Entrada con contraseña: si el dueño no le asignó clave al mesero
-      // no hay nada que verificar (se le dice que la pida); si nadie la
-      // confirmó en esta sesión o en ESTA pestaña, se bloquea hasta que
-      // el mesero ponga su clave. Sin esto, cualquiera con el link pide
-      // a nombre del mesero.
+      // no hay nada que verificar (se le dice que la pida); si no la ha
+      // confirmado, se bloquea hasta que la ponga. Una sesión verificada
+      // solo responde al token canjeado, que únicamente tiene la pestaña
+      // que puso la clave: con el link original la API ya responde 401.
       if (!result.data.hasPassword) {
         setLockReason('NO_PASSWORD');
         setStatus('locked');
         setError(null);
         return null;
       }
-      if (
-        !result.data.passwordVerified ||
-        readVerifiedToken(businessSlug) !== sessionToken
-      ) {
+      if (!result.data.passwordVerified) {
         setLockReason('VERIFY');
         setStatus('locked');
         setError(null);
@@ -264,24 +241,32 @@ export function OperatorSessionProvider({
         password,
       );
       if (!result.success) {
-        if (result.errorCode === 'INVALID_SESSION') {
+        if (
+          result.errorCode === 'INVALID_SESSION' ||
+          result.errorCode === 'TOO_MANY_ATTEMPTS'
+        ) {
           invalidate(result.error);
         }
         return result.error;
       }
-      writeVerifiedToken(businessSlug, token);
+      // Token canjeado: el del link ya no sirve, desde aquí se usa este.
+      writeStoredToken(businessSlug, result.token);
+      setToken(result.token);
       setLockReason(null);
       setError(null);
-      const loaded = await loadInfo(token);
+      const loaded = await loadInfo(result.token);
       // La mesa del QR se preserva: al verificar después del bloqueo, la
       // preselección del efecto inicial ya pasó de largo (retornó null).
       if (loaded && initialTableCode) {
         const table = loaded.tables.find((t) => t.code === initialTableCode);
-        if (table) setSelectedTableId(table.id);
+        if (table) {
+          setSelectedTableId(table.id);
+          router.replace(`${pathname}${queryWithoutParam('table')}`, { scroll: false });
+        }
       }
       return null;
     },
-    [businessSlug, token, invalidate, loadInfo, initialTableCode],
+    [businessSlug, token, invalidate, loadInfo, initialTableCode, router, pathname],
   );
 
   const refreshOrders = useCallback(async (): Promise<boolean> => {
@@ -399,7 +384,6 @@ export function OperatorSessionProvider({
   const exit = useCallback(() => {
     if (token) revokeOperatorSessionAction(businessSlug, token);
     writeStoredToken(businessSlug, null);
-    writeVerifiedToken(businessSlug, null);
     setToken(null);
     setInfo(null);
     setOrders([]);
@@ -409,6 +393,16 @@ export function OperatorSessionProvider({
     setError(null);
     setStatus('none');
   }, [businessSlug, token]);
+
+  const leave = useCallback(() => {
+    writeStoredToken(businessSlug, null);
+    setToken(null);
+    setInfo(null);
+    setSelectedTableId(null);
+    setLockReason(null);
+    setError(null);
+    setStatus('none');
+  }, [businessSlug]);
 
   const value = useMemo<OperatorSessionContextValue>(
     () => ({
@@ -435,8 +429,9 @@ export function OperatorSessionProvider({
       clearCartLoad,
       lockReason,
       verify,
+      leave,
     }),
-    [status, token, businessSlug, info, error, retry, selectedTableId, lastOrder, orders, onOrderCreated, onOrderUpdated, invalidate, refreshOrders, exit, orderVersion, pendingLoad, requestCartLoad, clearCartLoad, lockReason, verify],
+    [status, token, businessSlug, info, error, retry, selectedTableId, lastOrder, orders, onOrderCreated, onOrderUpdated, invalidate, refreshOrders, exit, orderVersion, pendingLoad, requestCartLoad, clearCartLoad, lockReason, verify, leave],
   );
 
   return (

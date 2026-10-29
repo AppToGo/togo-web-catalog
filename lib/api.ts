@@ -816,7 +816,11 @@ export async function revokeOperatorSession(
 
 export interface VerifyOperatorPasswordResult {
   verified: boolean;
-  reason?: "INVALID_PASSWORD" | "NO_PASSWORD_SET";
+  reason?: "INVALID_PASSWORD" | "NO_PASSWORD_SET" | "TOO_MANY_ATTEMPTS";
+  /** Token canjeado (verified true): reemplaza al del link. */
+  token?: string;
+  /** Intentos antes de que se cierre la sesión (clave incorrecta). */
+  attemptsLeft?: number;
 }
 
 export async function verifyOperatorPassword(

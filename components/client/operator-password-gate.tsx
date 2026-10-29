@@ -9,10 +9,12 @@ import { useOperatorSession } from './operator-session-context';
  * confirma su contraseña (la sesión ya sabe quién es, no pide correo).
  * Sin esto cualquiera con el link pediría a nombre del mesero. Bloquea la
  * pantalla hasta verificar o salir: en `locked` el catálogo sigue en modo
- * cliente y el servidor además rechaza crear/editar pedidos.
+ * cliente y el servidor además rechaza crear/editar pedidos. "Salir" aquí
+ * no revoca la sesión (el link sigue sirviendo hasta que alguien ponga la
+ * clave): tocarlo por error no le cuesta el turno al mesero.
  */
 export function OperatorPasswordGate() {
-  const { status, info, lockReason, verify, exit } = useOperatorSession();
+  const { status, info, lockReason, verify, leave } = useOperatorSession();
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -89,7 +91,7 @@ export function OperatorPasswordGate() {
         )}
         <button
           type="button"
-          onClick={exit}
+          onClick={leave}
           className="mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-xl px-4 py-2 text-[13px] text-slate-500 underline underline-offset-2 hover:text-slate-700"
         >
           <LogOut size={14} aria-hidden="true" />
