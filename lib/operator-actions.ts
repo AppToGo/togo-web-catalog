@@ -2,7 +2,8 @@
  * Server Actions del modo operador del catálogo.
  *
  * Un mesero abre el catálogo con un link `?op=...` generado desde el admin
- * (sesión por turno). Cada llamada reenvía ese token en el header
+ * (sesión por turno) o entra con el login de operarios. Cada llamada
+ * reenvía ese token en el header
  * `X-Operator-Session`; el backend lo valida y revalida los permisos del
  * operador en cada pedido.
  */
@@ -15,6 +16,8 @@ import {
   getOperatorSession,
   getOperatorSessionOrders,
   InvalidTokenError,
+  operatorLogin,
+  OperatorLoginError,
   RateLimitError,
   revokeOperatorSession,
   updateOperatorOrderItems,
@@ -23,6 +26,7 @@ import {
 import type {
   CartItem,
   CreatedOperatorOrder,
+  OperatorLoginBranch,
   OperatorOrderDetail,
   OperatorSessionInfo,
   OperatorSessionOrder,
@@ -41,7 +45,8 @@ function toFailure(error: unknown, fallback: string): OperatorActionResult<never
   if (error instanceof InvalidTokenError) {
     return {
       success: false,
-      error: 'Tu sesión de operador venció o fue cerrada. Pide un link nuevo en el admin.',
+      error:
+        'Tu sesión de operador venció o fue cerrada. Pide un link nuevo en el admin o ingresa con tu usuario.',
       errorCode: 'INVALID_SESSION',
     };
   }
@@ -210,7 +215,7 @@ export async function verifyOperatorPasswordAction(
       return {
         success: false,
         error:
-          'Tu sesión de operador venció o fue cerrada. Pide un link nuevo en el admin.',
+          'Tu sesión de operador venció o fue cerrada. Pide un link nuevo en el admin o ingresa con tu usuario.',
         errorCode: 'INVALID_SESSION',
       };
     }
@@ -226,5 +231,56 @@ export async function verifyOperatorPasswordAction(
       error: 'No se pudo verificar la contraseña. Intenta de nuevo.',
       errorCode: 'INVALID_PASSWORD',
     };
+  }
+}
+
+export type OperatorLoginActionResult =
+  | { status: 'OK'; token: string; branch: OperatorLoginBranch }
+  | { status: 'BRANCH_REQUIRED'; branches: OperatorLoginBranch[] }
+  | {
+      status: 'ERROR';
+      error: string;
+      /** Credenciales erradas: hay que volver a escribirlas */
+      invalidCredentials?: boolean;
+    };
+
+/**
+ * Login de operarios: mismo usuario y contraseña del admin. Abre (o
+ * continúa) la sesión del turno en la sede; si puede atender en varias,
+ * devuelve la lista para que elija.
+ */
+export async function operatorLoginAction(
+  businessSlug: string,
+  data: { email: string; password: string; branchId?: string },
+): Promise<OperatorLoginActionResult> {
+  try {
+    return await operatorLogin(businessSlug, data);
+  } catch (error) {
+    if (error instanceof OperatorLoginError) {
+      switch (error.status) {
+        case 400:
+          // Sin turno abierto ni próximo en la sede: la API dice por qué.
+          return {
+            status: 'ERROR',
+            error: error.message.startsWith('Error ')
+              ? 'Revisa el correo y la contraseña.'
+              : error.message,
+          };
+        case 401:
+          return {
+            status: 'ERROR',
+            error: 'Correo o contraseña incorrectos.',
+            invalidCredentials: true,
+          };
+        case 403:
+          return { status: 'ERROR', error: error.message };
+        case 429:
+          return {
+            status: 'ERROR',
+            error: 'Demasiados intentos fallidos. Espera unos minutos e intenta de nuevo.',
+          };
+      }
+    }
+    return { status: 'ERROR', error: 'No se pudo ingresar. Intenta de nuevo.' };
   }
 }

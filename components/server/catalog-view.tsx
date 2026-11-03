@@ -12,6 +12,7 @@ import { CatalogContent } from "@/components/server/catalog-content";
 import { CatalogSkeleton } from "@/components/ui/skeleton";
 import { CartProvider } from "@/components/client/cart-context";
 import { OperatorSessionProvider } from "@/components/client/operator-session-context";
+import { OperatorLoginLink } from "@/components/client/operator-login";
 import { CartUIProvider } from "@/components/client/cart-ui-context";
 import { RecommendationsSheet } from "@/components/client/recommendations-sheet";
 import { RecommendationsProvider } from "@/components/client/recommendations-context";
@@ -22,7 +23,6 @@ import { FloatingCart } from "@/components/client/floating-cart";
 import type { CustomerOrigin } from "@/lib/types";
 import { getColorContrast } from "@/components/utils/getColorContrast";
 import Link from "next/link";
-import { TogoLogo } from "@/components/ui/togo-logo";
 
 /** Colores del negocio como variables CSS, para el wrapper `data-catalog-theme`. */
 export function catalogThemeStyle(business: BusinessInfo): React.CSSProperties {
@@ -79,7 +79,12 @@ export function CatalogView({
     catalog.selectedBranch?.dineInEnabled === false ? undefined : table;
 
   return (
-    <div data-catalog-theme style={catalogThemeStyle(catalog.business)}>
+    <div
+      data-catalog-theme
+      style={catalogThemeStyle(catalog.business)}
+      // Columna a toda la altura: el pie queda abajo aunque el menú sea corto.
+      className="min-h-dvh flex flex-col"
+    >
       <OperatorSessionProvider
         businessSlug={businessSlug}
         initialToken={operatorToken}
@@ -112,11 +117,15 @@ export function CatalogView({
             </Suspense>
 
             {/* Firma discreta: el catálogo es del negocio, el directorio es de TOGO. */}
-            <footer className="flex items-center justify-center gap-1.5 pt-8 pb-28 text-[11px] text-(--ink-3)">
-              Pedidos con
-              <Link href="/" aria-label="Directorio de negocios TOGO">
-                <TogoLogo width={80} />
+            <footer className="mt-auto flex items-center justify-center gap-1.5 pt-8 pb-3 text-[11px] text-(--ink-3)">
+              <Link
+                href="/"
+                aria-label="Directorio de negocios TOGO"
+                className="hover:text-(--ink-2)"
+              >
+                by TOGO
               </Link>
+              <OperatorLoginLink businessSlug={businessSlug} separated />
             </footer>
 
             <FloatingCart accentColor={catalog.business.primaryColor} />

@@ -5,7 +5,6 @@ import { X, Loader2, AlertCircle, CheckCircle, UserCheck } from 'lucide-react';
 import { useCart } from './cart-context';
 import { useOperatorSession } from './operator-session-context';
 import { CartItemRow } from './cart-item-row';
-import { OperatorOrdersList } from './operator-orders-list';
 import { createOperatorOrderAction, updateOperatorOrderItemsAction } from '@/lib/operator-actions';
 import type { BusinessInfo } from '@/src/types/catalog.types';
 import { formatPrice } from '@/lib/utils';
@@ -21,7 +20,7 @@ interface OperatorCartPanelProps {
  * carrito queda vacío para la siguiente mesa.
  */
 export function OperatorCartPanel({ business, onClose }: OperatorCartPanelProps) {
-  const { cart, addItem, updateItem, updateItemNotes, clearCart, itemCount, syncCart, isSyncing } = useCart();
+  const { cart, addItem, updateItem, updateItemNotes, clearCart, resetOperatorCart, itemCount, syncCart, isSyncing } = useCart();
   const {
     token,
     info,
@@ -34,6 +33,7 @@ export function OperatorCartPanel({ business, onClose }: OperatorCartPanelProps)
     invalidate,
     pendingLoad,
     clearCartLoad,
+    setView,
   } = useOperatorSession();
   // Pedido del turno que se está ampliando (null = orden nueva). Su mesa
   // no cambia al ampliarlo: la API solo recibe las líneas.
@@ -140,7 +140,7 @@ export function OperatorCartPanel({ business, onClose }: OperatorCartPanelProps)
       setEditingOrderId(null);
       setEditingTableId(null);
       setNotes('');
-      clearCart();
+      resetOperatorCart();
       onOrderUpdated(result.data);
       return;
     }
@@ -170,9 +170,9 @@ export function OperatorCartPanel({ business, onClose }: OperatorCartPanelProps)
 
     idempotencyKeyRef.current = null;
     setNotes('');
-    clearCart();
+    resetOperatorCart();
     onOrderCreated(result.data);
-  }, [token, cart.items, selectedTableId, notes, orderFingerprint, editingOrderId, business.slug, syncCart, clearCart, onOrderCreated, onOrderUpdated, invalidate]);
+  }, [token, cart.items, selectedTableId, notes, orderFingerprint, editingOrderId, business.slug, syncCart, resetOperatorCart, onOrderCreated, onOrderUpdated, invalidate]);
 
   const submitLabel = editingOrderId
     ? 'Actualizar pedido'
@@ -234,9 +234,18 @@ export function OperatorCartPanel({ business, onClose }: OperatorCartPanelProps)
             <p className="text-[13px] text-[var(--ink-2)] mt-3 mb-0">
               El carrito quedó vacío, listo para la siguiente mesa.
             </p>
-            <OperatorOrdersList className="mt-4" />
             <button
-              className="w-full mt-4 mb-4 py-3 rounded-xl border-[1.5px] border-[var(--line-2)] text-[14px] font-semibold text-[var(--ink)] hover:bg-[var(--bg)] transition-colors"
+              className="w-full mt-4 py-3 rounded-xl bg-[var(--accent-soft)] text-[14px] font-semibold text-[var(--accent)]"
+              onClick={() => {
+                dismissLastOrder();
+                onClose?.();
+                setView('orders');
+              }}
+            >
+              Ver mis pedidos
+            </button>
+            <button
+              className="w-full mt-2 mb-4 py-3 rounded-xl border-[1.5px] border-[var(--line-2)] text-[14px] font-semibold text-[var(--ink)] hover:bg-[var(--bg)] transition-colors"
               onClick={() => {
                 dismissLastOrder();
                 onClose?.();

@@ -10,6 +10,7 @@ function ChevronRight({ size = 14 }: { size?: number }) {
 
 import { useCart } from './cart-context';
 import { useCartUI } from './cart-ui-context';
+import { useOperatorSession } from './operator-session-context';
 import { formatPrice } from '@/lib/utils';
 
 interface FloatingCartProps {
@@ -19,13 +20,21 @@ interface FloatingCartProps {
 export function FloatingCart({ accentColor }: FloatingCartProps) {
   const { cart, itemCount, isHydrated } = useCart();
   const { openCart } = useCartUI();
+  const { isOperatorMode, view } = useOperatorSession();
 
   if (!isHydrated || itemCount === 0) return null;
+  // Modo operador: en "Mis pedidos" no va; en el catálogo, sobre la barra
+  // inferior. Para el cliente no cambia nada.
+  if (isOperatorMode && view === 'orders') return null;
 
   const total = cart.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
   return (
-    <div className="lg:hidden fixed bottom-0 left-0 right-0 z-50 px-3 pb-3 bg-[linear-gradient(to_top,var(--bg)_70%,transparent)] pointer-events-none">
+    <>
+    {/* Despeje al final de la página: sin él, el carrito fijo tapa el pie
+        (y "Acceso operarios") mientras haya productos. */}
+    <div aria-hidden="true" className="lg:hidden h-24 shrink-0" />
+    <div className={`lg:hidden fixed ${isOperatorMode ? 'bottom-16' : 'bottom-0'} left-0 right-0 z-50 px-3 pb-3 bg-[linear-gradient(to_top,var(--bg)_70%,transparent)] pointer-events-none`}>
       <div
         className="flex items-center gap-[10px] rounded-[18px] px-4 py-3 shadow-[0_14px_40px_rgba(20,20,15,0.14)] cursor-pointer pointer-events-auto transition-[opacity,transform] animate-[drawer-up_0.22s_ease-out] hover:opacity-[0.93] active:scale-[0.98]"
         style={{ background: accentColor || 'var(--accent)', color: 'var(--accent-ink)' }}
@@ -53,5 +62,6 @@ export function FloatingCart({ accentColor }: FloatingCartProps) {
         </div>
       </div>
     </div>
+    </>
   );
 }

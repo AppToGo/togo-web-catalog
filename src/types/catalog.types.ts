@@ -552,12 +552,34 @@ export interface OperatorSessionInfo {
   hasPassword: boolean;
 }
 
+/** Sede donde el operario puede atender (login de operarios). */
+export interface OperatorLoginBranch {
+  id: string;
+  name: string;
+  slug: string;
+}
+
+/**
+ * Respuesta del login de operarios: sesión abierta (o continuada) con su
+ * token, o la lista de sedes si puede atender en varias y falta elegir.
+ */
+export type OperatorLoginResult =
+  | { status: 'OK'; token: string; branch: OperatorLoginBranch }
+  | { status: 'BRANCH_REQUIRED'; branches: OperatorLoginBranch[] };
+
 export interface OperatorSessionOrder {
   id: string;
   orderNumber: string;
   tableLabel: string | null;
   status: string;
+  /**
+   * PENDING / FAILED cuentan en "Por cobrar". Opcional mientras la API
+   * anterior (sin el campo) siga desplegada.
+   */
+  paymentStatus?: string;
   total: number;
+  /** Unidades del pedido (suma de cantidades); opcional por la misma razón */
+  itemCount?: number;
   createdAt: string;
 }
 
