@@ -572,7 +572,11 @@ export interface OperatorSessionOrder {
   orderNumber: string;
   tableLabel: string | null;
   status: string;
+  /** PAID = cobrado; el resto cuenta en "Por cobrar" */
+  paymentStatus: string;
   total: number;
+  /** Unidades del pedido (suma de cantidades) */
+  itemCount: number;
   createdAt: string;
 }
 

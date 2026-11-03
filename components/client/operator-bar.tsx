@@ -1,19 +1,18 @@
 'use client';
 
-import { useState } from 'react';
-import { AlertCircle, ChevronDown, ChevronUp, Loader2, UtensilsCrossed, X } from 'lucide-react';
+import { AlertCircle, Loader2, UtensilsCrossed, X } from 'lucide-react';
 import { useOperatorSession } from './operator-session-context';
-import { OperatorOrdersList } from './operator-orders-list';
 import { OperatorPasswordGate } from './operator-password-gate';
+import { OperatorViewTabs } from './operator-nav';
 
 /**
- * Franja superior del modo operador: quién atiende, en qué sede, acceso a
- * "Mis pedidos de este turno" y salida. Si la sesión venció, avisa y el
+ * Franja superior del modo operador: quién atiende, en qué sede y salida.
+ * En escritorio lleva además las pestañas Tomar pedido / Mis pedidos (en el
+ * celular van en la barra inferior). Si la sesión venció, avisa y el
  * catálogo vuelve al modo cliente.
  */
 export function OperatorBar() {
   const { status, info, error, retry, exit } = useOperatorSession();
-  const [showOrders, setShowOrders] = useState(false);
 
   if (status === 'invalid' && error) {
     return (
@@ -57,25 +56,13 @@ export function OperatorBar() {
             <span className="flex-1 min-w-0 truncate">
               Modo operador · {info.operatorName} · {info.branch.name}
             </span>
-            <button
-              onClick={() => setShowOrders((open) => !open)}
-              aria-expanded={showOrders}
-              className="shrink-0 inline-flex items-center gap-1 min-h-9 px-2 -mx-1 rounded-lg underline underline-offset-2 hover:opacity-80 focus-visible:outline-[var(--surface)]"
-            >
-              Mis pedidos
-              {showOrders ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-            </button>
+            <OperatorViewTabs className="hidden lg:flex" />
           </>
         )}
         <button onClick={exit} className="shrink-0 inline-flex items-center gap-1 min-h-9 px-2 -mx-1 rounded-lg underline underline-offset-2 hover:opacity-80 focus-visible:outline-[var(--surface)]">
           Salir
         </button>
       </div>
-      {showOrders && info && (
-        <div className="bg-[var(--surface)] text-[var(--ink)] border-b border-[var(--line)] max-h-[40dvh] overflow-y-auto">
-          <OperatorOrdersList className="px-4 py-3 lg:max-w-352 lg:mx-auto lg:px-6" />
-        </div>
-      )}
     </div>
   );
 }
