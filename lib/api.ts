@@ -28,6 +28,7 @@ import type {
   OperatorSessionOrder,
   OperatorOrderDetail,
   CreatedOperatorOrder,
+  OperatorLoginResult,
   DirectoryFacets,
   DirectoryFilters,
   DirectoryResult,
@@ -880,4 +881,42 @@ export function fetchDirectoryFacets(city?: string): Promise<DirectoryFacets> {
 /** El sitemap se regenera cada hora (ver app/sitemap.ts); no necesita el refresco de 60 s. */
 export function fetchDirectorySitemap(): Promise<DirectorySitemap> {
   return fetchDirectoryJson("directory/sitemap", 3600);
+}
+
+/** Fallo del login de operarios, con el status para elegir el mensaje. */
+export class OperatorLoginError extends Error {
+  constructor(
+    readonly status: number,
+    message?: string,
+  ) {
+    super(message || `Error ${status}`);
+    this.name = 'OperatorLoginError';
+  }
+}
+
+/**
+ * Login de operarios desde el catálogo (sin QR), con el usuario del admin.
+ * No pasa por `handleOperatorResponse`: acá un 401 es "credenciales
+ * inválidas", no "sesión muerta".
+ */
+export async function operatorLogin(
+  businessSlug: string,
+  data: { email: string; password: string; branchId?: string },
+): Promise<OperatorLoginResult> {
+  const response = await fetch(
+    buildPublicCatalogUrl(businessSlug, "/operator-session/login"),
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+      cache: "no-store",
+    },
+  );
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    // La validación del DTO responde un arreglo de mensajes.
+    const message = typeof error.message === "string" ? error.message : undefined;
+    throw new OperatorLoginError(response.status, message);
+  }
+  return response.json();
 }

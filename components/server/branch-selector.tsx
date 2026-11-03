@@ -14,6 +14,7 @@ import { ArrowRight, ChevronRight, MapPin } from "lucide-react";
 import type { CatalogBranch, CatalogResponse } from "@/src/types/catalog.types";
 import { getInitials } from "@/components/ui/initials-avatar";
 import { catalogHref, catalogThemeStyle } from "@/components/server/catalog-view";
+import { OperatorLoginLink } from "@/components/client/operator-login";
 
 interface BranchSelectorProps {
   catalog: CatalogResponse;
@@ -143,6 +144,11 @@ export function BranchSelector({ catalog, businessSlug, linkParams }: BranchSele
           })}
         </ul>
       </main>
+
+      {/* Solo para el personal del negocio: entra a tomar pedidos sin QR. */}
+      <footer className="flex justify-center px-4 pb-10">
+        <OperatorLoginLink businessSlug={businessSlug} />
+      </footer>
     </div>
   );
 }

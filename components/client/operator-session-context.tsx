@@ -25,9 +25,13 @@ import type {
 
 /**
  * Modo operador del catálogo: un mesero toma pedidos de mesa con una sesión
- * por turno creada en el admin. El token llega una sola vez en `?op=`; acá
- * se guarda en sessionStorage (por pestaña y por negocio) y se quita de la
- * barra de direcciones para que no quede en el historial ni se comparta.
+ * por turno, creada en el admin (el token llega una sola vez en `?op=` y se
+ * quita de la barra para que no quede en el historial ni se comparta) o con
+ * el login de operarios del catálogo.
+ *
+ * El token se guarda en localStorage por negocio: sobrevive a cerrar el
+ * navegador, así el mesero no pierde su turno. La sesión vence sola al
+ * cierre del turno y "Salir" la revoca.
  */
 
 const storageKey = (businessSlug: string) => `togo:operator:${businessSlug}`;
@@ -37,7 +41,7 @@ export const OPERATOR_ORDERS_REFRESH_MS = 30_000;
 
 function readStoredToken(businessSlug: string): string | null {
   try {
-    return sessionStorage.getItem(storageKey(businessSlug));
+    return localStorage.getItem(storageKey(businessSlug));
   } catch {
     return null;
   }
@@ -45,11 +49,25 @@ function readStoredToken(businessSlug: string): string | null {
 
 function writeStoredToken(businessSlug: string, token: string | null) {
   try {
-    if (token) sessionStorage.setItem(storageKey(businessSlug), token);
-    else sessionStorage.removeItem(storageKey(businessSlug));
+    if (token) localStorage.setItem(storageKey(businessSlug), token);
+    else localStorage.removeItem(storageKey(businessSlug));
   } catch {
     // Sin storage (modo privado estricto): la sesión dura lo que la página.
   }
+}
+
+/**
+ * Login de operarios: deja el token donde el provider lo busca al montar.
+ * `false` si el navegador no permite guardarlo.
+ */
+export function storeOperatorToken(businessSlug: string, token: string): boolean {
+  writeStoredToken(businessSlug, token);
+  return readStoredToken(businessSlug) === token;
+}
+
+/** Hay una sesión de operador guardada en este navegador. */
+export function hasStoredOperatorToken(businessSlug: string): boolean {
+  return readStoredToken(businessSlug) !== null;
 }
 
 /**
@@ -72,7 +90,7 @@ function queryWithoutParam(param: string): string {
  * - `invalid`: la API dijo que la sesión ya no sirve (401).
  * - `locked`: sesión válida pero sin identidad confirmada: el mesero debe
  *   poner su contraseña. Al confirmarla la API canjea el token del link por
- *   uno nuevo que solo tiene esta pestaña; el link deja de servir.
+ *   uno nuevo que solo tiene este navegador; el link deja de servir.
  */
 type OperatorStatus = 'none' | 'loading' | 'active' | 'error' | 'invalid' | 'locked';
 
@@ -121,7 +139,7 @@ interface OperatorSessionContextValue {
    */
   verify: (password: string) => Promise<string | null>;
   /**
-   * Sale del modo operador solo en esta pestaña, sin revocar la sesión: el
+   * Sale del modo operador solo en este navegador, sin revocar la sesión: el
    * mesero puede volver a abrir el link y poner su clave.
    */
   leave: () => void;
@@ -210,7 +228,7 @@ export function OperatorSessionProvider({
       // Entrada con contraseña: si el dueño no le asignó clave al mesero
       // no hay nada que verificar (se le dice que la pida); si no la ha
       // confirmado, se bloquea hasta que la ponga. Una sesión verificada
-      // solo responde al token canjeado, que únicamente tiene la pestaña
+      // solo responde al token canjeado, que únicamente tiene el navegador
       // que puso la clave: con el link original la API ya responde 401.
       if (!result.data.hasPassword) {
         setLockReason('NO_PASSWORD');
@@ -280,8 +298,9 @@ export function OperatorSessionProvider({
     return false;
   }, [businessSlug, token, invalidate]);
 
-  // Al montar: token del link (se guarda y se quita de la URL) o el de la
-  // pestaña si el operador recargó o navegó dentro del catálogo. Una sola
+  // Al montar: token del link (se guarda y se quita de la URL) o el
+  // guardado (recargó, navegó, volvió a abrir el navegador o entró con el
+  // login de operarios). Una sola
   // vez: al quitar `op` de la URL la página se re-renderiza sin él.
   useEffect(() => {
     if (initializedRef.current) return;
@@ -379,7 +398,7 @@ export function OperatorSessionProvider({
     setPendingLoad(null);
   }, []);
 
-  // "Salir" cierra la sesión en el backend, no solo en esta pestaña: si el
+  // "Salir" cierra la sesión en el backend, no solo en este navegador: si el
   // link quedó en otro equipo, deja de servir. Si la red falla, igual sale.
   const exit = useCallback(() => {
     if (token) revokeOperatorSessionAction(businessSlug, token);
@@ -437,6 +456,11 @@ export function OperatorSessionProvider({
   return (
     <OperatorSessionContext.Provider value={value}>{children}</OperatorSessionContext.Provider>
   );
+}
+
+/** Como `useOperatorSession`, pero null fuera del provider (selector de sedes). */
+export function useOptionalOperatorSession(): OperatorSessionContextValue | null {
+  return useContext(OperatorSessionContext);
 }
 
 export function useOperatorSession(): OperatorSessionContextValue {
