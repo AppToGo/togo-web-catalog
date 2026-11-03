@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { KeyRound, Loader2, MapPin, X } from 'lucide-react';
 import { operatorLoginAction } from '@/lib/operator-actions';
 import type { OperatorLoginBranch } from '@/src/types/catalog.types';
@@ -79,8 +79,9 @@ function OperatorLoginModal({
     if (result.status === 'ERROR') {
       setError(result.error);
       setSubmitting(false);
-      // Credenciales erradas: vuelve al formulario aunque estuviera eligiendo sede.
-      setBranches(null);
+      // Credenciales erradas: vuelve al formulario. Otro error (sin turno,
+      // demasiados intentos) deja la lista: reintentar es tocar la sede.
+      if (result.invalidCredentials) setBranches(null);
       return;
     }
     if (!storeOperatorToken(businessSlug, result.token)) {
@@ -91,6 +92,14 @@ function OperatorLoginModal({
     // Carga completa: el provider de la sede levanta el token guardado.
     window.location.assign(`/${businessSlug}/${result.branch.slug}`);
   };
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !submitting) onClose();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [submitting, onClose]);
 
   return (
     <div

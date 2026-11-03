@@ -237,7 +237,12 @@ export async function verifyOperatorPasswordAction(
 export type OperatorLoginActionResult =
   | { status: 'OK'; token: string; branch: OperatorLoginBranch }
   | { status: 'BRANCH_REQUIRED'; branches: OperatorLoginBranch[] }
-  | { status: 'ERROR'; error: string };
+  | {
+      status: 'ERROR';
+      error: string;
+      /** Credenciales erradas: hay que volver a escribirlas */
+      invalidCredentials?: boolean;
+    };
 
 /**
  * Login de operarios: mismo usuario y contraseña del admin. Abre (o
@@ -262,7 +267,11 @@ export async function operatorLoginAction(
               : error.message,
           };
         case 401:
-          return { status: 'ERROR', error: 'Correo o contraseña incorrectos.' };
+          return {
+            status: 'ERROR',
+            error: 'Correo o contraseña incorrectos.',
+            invalidCredentials: true,
+          };
         case 403:
           return { status: 'ERROR', error: error.message };
         case 429:

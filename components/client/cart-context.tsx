@@ -58,10 +58,11 @@ interface CartContextType {
   updateItemNotes: (productId: string, notes: string, variantId?: string) => Promise<void>;
   clearCart: () => void;
   /**
-   * Vacía el carrito y empieza uno nuevo también en el servidor (otro
-   * sessionId). Para el modo operador, tras enviar un pedido.
+   * Solo modo operador: vacía el carrito y empieza uno nuevo también en el
+   * servidor (otro sessionId), tras enviar un pedido. En el cliente rompería
+   * el seguimiento de su pedido (su sessionId lo ubica).
    */
-  resetCart: () => void;
+  resetOperatorCart: () => void;
   syncCart: () => Promise<void>;
   setCustomerPhone: (phone: string) => void;
   setCustomerName: (name: string) => void;
@@ -589,7 +590,7 @@ export function CartProvider({
   // Con otro sessionId arranca limpio; el viejo caduca solo (TTL de
   // PublicCartService). No sirve para el cliente: su sessionId también
   // ubica su pedido existente.
-  const resetCart = useCallback(() => {
+  const resetOperatorCart = useCallback(() => {
     const newSessionId = generateSessionId();
     localStorage.setItem(`session-${businessSlug}`, newSessionId);
     setSessionId(newSessionId);
@@ -633,7 +634,7 @@ export function CartProvider({
       removeItem,
       updateItemNotes,
       clearCart,
-      resetCart,
+      resetOperatorCart,
       syncCart,
       setCustomerPhone,
       setCustomerName,

@@ -21,7 +21,7 @@ interface OperatorCartPanelProps {
  * carrito queda vacío para la siguiente mesa.
  */
 export function OperatorCartPanel({ business, onClose }: OperatorCartPanelProps) {
-  const { cart, addItem, updateItem, updateItemNotes, clearCart, resetCart, itemCount, syncCart, isSyncing } = useCart();
+  const { cart, addItem, updateItem, updateItemNotes, clearCart, resetOperatorCart, itemCount, syncCart, isSyncing } = useCart();
   const {
     token,
     info,
@@ -140,7 +140,7 @@ export function OperatorCartPanel({ business, onClose }: OperatorCartPanelProps)
       setEditingOrderId(null);
       setEditingTableId(null);
       setNotes('');
-      resetCart();
+      resetOperatorCart();
       onOrderUpdated(result.data);
       return;
     }
@@ -170,9 +170,9 @@ export function OperatorCartPanel({ business, onClose }: OperatorCartPanelProps)
 
     idempotencyKeyRef.current = null;
     setNotes('');
-    resetCart();
+    resetOperatorCart();
     onOrderCreated(result.data);
-  }, [token, cart.items, selectedTableId, notes, orderFingerprint, editingOrderId, business.slug, syncCart, resetCart, onOrderCreated, onOrderUpdated, invalidate]);
+  }, [token, cart.items, selectedTableId, notes, orderFingerprint, editingOrderId, business.slug, syncCart, resetOperatorCart, onOrderCreated, onOrderUpdated, invalidate]);
 
   const submitLabel = editingOrderId
     ? 'Actualizar pedido'
