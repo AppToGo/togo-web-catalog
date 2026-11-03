@@ -57,6 +57,11 @@ interface CartContextType {
   removeItem: (productId: string, variantId?: string) => void;
   updateItemNotes: (productId: string, notes: string, variantId?: string) => Promise<void>;
   clearCart: () => void;
+  /**
+   * Vacía el carrito y empieza uno nuevo también en el servidor (otro
+   * sessionId). Para el modo operador, tras enviar un pedido.
+   */
+  resetCart: () => void;
   syncCart: () => Promise<void>;
   setCustomerPhone: (phone: string) => void;
   setCustomerName: (name: string) => void;
@@ -578,6 +583,19 @@ export function CartProvider({
     }
   }, [businessSlug, cart, sessionId]);
 
+  // El pedido del operador no pasa por el endpoint público que borra el
+  // carrito de Redis, así que con `clearCart` el carrito servidor seguía
+  // vivo y la sincronización al reabrir el navegador lo volvía a cargar.
+  // Con otro sessionId arranca limpio; el viejo caduca solo (TTL de
+  // PublicCartService). No sirve para el cliente: su sessionId también
+  // ubica su pedido existente.
+  const resetCart = useCallback(() => {
+    const newSessionId = generateSessionId();
+    localStorage.setItem(`session-${businessSlug}`, newSessionId);
+    setSessionId(newSessionId);
+    setCart(emptyCart);
+  }, [businessSlug]);
+
   // ═══════════════════════════════════════════════════════
   // CUSTOMER ACTIONS
   // ═══════════════════════════════════════════════════════
@@ -615,6 +633,7 @@ export function CartProvider({
       removeItem,
       updateItemNotes,
       clearCart,
+      resetCart,
       syncCart,
       setCustomerPhone,
       setCustomerName,
