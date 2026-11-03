@@ -572,11 +572,14 @@ export interface OperatorSessionOrder {
   orderNumber: string;
   tableLabel: string | null;
   status: string;
-  /** PAID = cobrado; el resto cuenta en "Por cobrar" */
-  paymentStatus: string;
+  /**
+   * PENDING / FAILED cuentan en "Por cobrar". Opcional mientras la API
+   * anterior (sin el campo) siga desplegada.
+   */
+  paymentStatus?: string;
   total: number;
-  /** Unidades del pedido (suma de cantidades) */
-  itemCount: number;
+  /** Unidades del pedido (suma de cantidades); opcional por la misma razón */
+  itemCount?: number;
   createdAt: string;
 }
 

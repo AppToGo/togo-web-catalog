@@ -31,6 +31,8 @@ function UnpaidBadge({ count, className }: { count: number; className: string })
  * Barra inferior del modo operador en el celular: Tomar pedido / Mis
  * pedidos. Solo con la sesión activa; el cliente nunca la ve. Deja un
  * despeje de su alto al final de la página para que no tape contenido.
+ * Cambian de vista sin navegar: botones con `aria-pressed`, no
+ * `aria-current="page"` (anunciaría una página que no cambió).
  */
 export function OperatorNav() {
   const { status, info, view, setView } = useOperatorSession();
@@ -52,7 +54,7 @@ export function OperatorNav() {
               key={target}
               type="button"
               onClick={() => setView(target)}
-              aria-current={current ? 'page' : undefined}
+              aria-pressed={current}
               className={`relative flex flex-col items-center justify-center gap-[3px] text-[12px] ${
                 current ? 'text-[var(--accent)] font-semibold' : 'text-[var(--ink-2)] font-medium'
               }`}
@@ -84,7 +86,7 @@ export function OperatorViewTabs({ className = '' }: { className?: string }) {
             key={target}
             type="button"
             onClick={() => setView(target)}
-            aria-current={current ? 'page' : undefined}
+            aria-pressed={current}
             className={`inline-flex items-center gap-[6px] min-h-9 px-3 rounded-lg focus-visible:outline-[var(--surface)] ${
               current ? 'bg-white/15 font-semibold' : 'opacity-80 hover:opacity-100'
             }`}

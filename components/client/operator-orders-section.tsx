@@ -306,7 +306,13 @@ export function OperatorOrdersSection() {
 
 function OrderCard({ order, onOpen }: { order: OperatorSessionOrder; onOpen: () => void }) {
   const meta = statusMeta(order.status);
-  const units = order.itemCount === 1 ? '1 producto' : `${order.itemCount} productos`;
+  // Sin el campo (API anterior) se omite en vez de mostrar "undefined productos".
+  const units =
+    order.itemCount === undefined
+      ? null
+      : order.itemCount === 1
+        ? '1 producto'
+        : `${order.itemCount} productos`;
   return (
     <button
       type="button"
@@ -325,7 +331,8 @@ function OrderCard({ order, onOpen }: { order: OperatorSessionOrder; onOpen: () 
       </span>
       <span className="flex w-full items-center gap-2 text-[13px] text-[var(--ink-2)]">
         <span>
-          {formatTime(order.createdAt)} · {units}
+          {formatTime(order.createdAt)}
+          {units && ` · ${units}`}
         </span>
         <span className="flex-1" />
         {isUnpaid(order) && (
