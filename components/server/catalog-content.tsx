@@ -1,4 +1,6 @@
 import { OperatorBar } from "@/components/client/operator-bar";
+import { OperatorNav } from "@/components/client/operator-nav";
+import { OperatorOrdersSection } from "@/components/client/operator-orders-section";
 import type {
   CatalogResponse,
   CatalogProduct,
@@ -224,7 +226,10 @@ export function CatalogContent({ catalog, changeBranchHref }: CatalogContentProp
             </IndustrySection>
           ))}
         </CatalogShell>
+        {/* Solo en modo operador: barra inferior y sección "Mis pedidos". */}
+        <OperatorNav />
       </div>
+      <OperatorOrdersSection />
     </SearchProvider>
   );
 }

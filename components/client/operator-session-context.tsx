@@ -97,6 +97,9 @@ type OperatorStatus = 'none' | 'loading' | 'active' | 'error' | 'invalid' | 'loc
 /** Por qué pide clave: verificarla, o que el dueño asigne una. */
 export type OperatorLockReason = 'VERIFY' | 'NO_PASSWORD';
 
+/** Sección del operador a la vista: tomar pedido o "Mis pedidos". */
+export type OperatorView = 'catalog' | 'orders';
+
 interface OperatorSessionContextValue {
   status: OperatorStatus;
   isOperatorMode: boolean;
@@ -149,6 +152,12 @@ interface OperatorSessionContextValue {
    */
   refreshOrders: () => Promise<boolean>;
   exit: () => void;
+  /**
+   * Sección a la vista. "Mis pedidos" se monta encima del catálogo, que
+   * sigue montado: el carrito, la mesa y el scroll no se pierden.
+   */
+  view: OperatorView;
+  setView: (view: OperatorView) => void;
 }
 
 export interface OperatorCartLoadItem {
@@ -197,6 +206,7 @@ export function OperatorSessionProvider({
   const [orderVersion, setOrderVersion] = useState(0);
   const [pendingLoad, setPendingLoad] = useState<OperatorCartLoad | null>(null);
   const [lockReason, setLockReason] = useState<OperatorLockReason | null>(null);
+  const [view, setView] = useState<OperatorView>('catalog');
 
   const invalidate = useCallback(
     (message: string) => {
@@ -204,6 +214,7 @@ export function OperatorSessionProvider({
       setToken(null);
       setInfo(null);
       setLockReason(null);
+      setView('catalog');
       setStatus('invalid');
       setError(message);
     },
@@ -410,6 +421,7 @@ export function OperatorSessionProvider({
     setSelectedTableId(null);
     setLockReason(null);
     setError(null);
+    setView('catalog');
     setStatus('none');
   }, [businessSlug, token]);
 
@@ -420,6 +432,7 @@ export function OperatorSessionProvider({
     setSelectedTableId(null);
     setLockReason(null);
     setError(null);
+    setView('catalog');
     setStatus('none');
   }, [businessSlug]);
 
@@ -449,8 +462,10 @@ export function OperatorSessionProvider({
       lockReason,
       verify,
       leave,
+      view,
+      setView,
     }),
-    [status, token, businessSlug, info, error, retry, selectedTableId, lastOrder, orders, onOrderCreated, onOrderUpdated, invalidate, refreshOrders, exit, orderVersion, pendingLoad, requestCartLoad, clearCartLoad, lockReason, verify, leave],
+    [status, token, businessSlug, info, error, retry, selectedTableId, lastOrder, orders, onOrderCreated, onOrderUpdated, invalidate, refreshOrders, exit, orderVersion, pendingLoad, requestCartLoad, clearCartLoad, lockReason, verify, leave, view],
   );
 
   return (
