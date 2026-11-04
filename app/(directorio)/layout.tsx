@@ -19,8 +19,18 @@ export default function DirectoryLayout({ children }: { children: React.ReactNod
   return (
     <div data-togo-theme className={`${dmSans.variable} min-h-screen`}>
       {children}
-      <footer className="mx-auto max-w-6xl px-4 pt-6 pb-10 text-[12px] text-(--togo-ink-2)">
-        © {new Date().getFullYear()} TOGO. Los pedidos los atiende cada negocio por WhatsApp.
+      <footer className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-2 px-4 pt-6 pb-10 text-[12px] text-(--togo-ink-2)">
+        <span>
+          © {new Date().getFullYear()} TOGO. Los pedidos los atiende cada negocio por WhatsApp.
+        </span>
+        <a
+          href="https://wa.me/573118415812"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="font-medium underline underline-offset-2 hover:opacity-80"
+        >
+          WhatsApp +57 311 841 5812
+        </a>
       </footer>
     </div>
   );
