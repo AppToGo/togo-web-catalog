@@ -196,7 +196,6 @@ export function CatalogContent({ catalog, changeBranchHref }: CatalogContentProp
         <OperatorBar />
         <CatalogHeader
           business={business}
-          branchName={showBranch ? catalog.selectedBranch?.name : undefined}
           changeBranchHref={showBranch ? changeBranchHref : undefined}
         />
 
