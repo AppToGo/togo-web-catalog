@@ -134,6 +134,9 @@ function ProductSheetContent({ product, showPhoto, onClose }: ProductSheetConten
   const [descOverflows, setDescOverflows] = useState(false);
   const [compactHeader, setCompactHeader] = useState(false);
   const [imageError, setImageError] = useState(false);
+  // La foto grande tarda (variante sin cachear): mientras tanto se muestra la
+  // miniatura ya descargada, escalada con blur, y se funde al cargar.
+  const [photoLoaded, setPhotoLoaded] = useState(false);
 
   const photoRef = useRef<HTMLDivElement>(null);
   const titleRef = useRef<HTMLHeadingElement>(null);
@@ -253,14 +256,30 @@ function ProductSheetContent({ product, showPhoto, onClose }: ProductSheetConten
         {showPhoto ? (
           <div ref={photoRef} className="relative aspect-3/2 bg-(--accent-soft)">
             {product.image && !imageError ? (
-              <Image
-                src={product.image}
-                alt={product.name}
-                fill
-                className="object-cover"
-                sizes="(min-width: 1024px) 560px, 100vw"
-                onError={() => setImageError(true)}
-              />
+              <>
+                {/* Miniatura ya en caché (mismo `sizes` de la fila): sale al
+                    instante y se funde cuando carga la variante grande. */}
+                <Image
+                  src={product.image}
+                  alt=""
+                  aria-hidden="true"
+                  fill
+                  className={`object-cover blur-md scale-105 transition-opacity duration-300 ${
+                    photoLoaded ? "opacity-0" : "opacity-100"
+                  }`}
+                  sizes="(min-width: 1024px) 72px, 52px"
+                  onError={() => setImageError(true)}
+                />
+                <Image
+                  src={product.image}
+                  alt={product.name}
+                  fill
+                  className="object-cover"
+                  sizes="(min-width: 1024px) 560px, 100vw"
+                  onLoad={() => setPhotoLoaded(true)}
+                  onError={() => setImageError(true)}
+                />
+              </>
             ) : (
               <PhotoPlaceholder name={product.name} />
             )}
