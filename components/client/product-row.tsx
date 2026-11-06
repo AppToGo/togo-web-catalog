@@ -1,9 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import Image from "next/image";
 import { Plus, Minus } from "lucide-react";
-import { InitialsAvatar } from "@/components/ui/initials-avatar";
+import { ProductPhoto } from "./product-photo";
 import { useCart } from "./cart-context";
 import { useCartUI } from "./cart-ui-context";
 import { formatPrice } from "@/lib/utils";
@@ -99,10 +97,8 @@ export function useProductQuickAdd(product: CatalogProduct) {
 
 export function ProductRow({
   product,
-  subcatId,
   useProductImages,
 }: ProductRowProps) {
-  const [failedImageSrc, setFailedImageSrc] = useState<string | null>(null);
   const {
     hasVariants,
     qty,
@@ -114,9 +110,6 @@ export function ProductRow({
     handleMinus,
     handlePlus,
   } = useProductQuickAdd(product);
-  const showImage = Boolean(
-    product.image && failedImageSrc !== product.image,
-  );
 
   return (
     <div
@@ -128,21 +121,14 @@ export function ProductRow({
         onClick={openDetail}
         aria-label={`Ver detalle de ${product.name}`}
       >
-        {useProductImages &&
-          (showImage && product.image ? (
-            <div className="w-13 h-13 lg:w-18 lg:h-18 rounded-lg lg:rounded-xl shrink-0 relative overflow-hidden">
-              <Image
-                src={product.image}
-                alt={product.name}
-                fill
-                className="object-cover"
-                sizes="(min-width: 1024px) 72px, 52px"
-                onError={() => setFailedImageSrc(product.image ?? null)}
-              />
-            </div>
-          ) : (
-            <InitialsAvatar name={product.name} subcatId={subcatId} />
-          ))}
+        {useProductImages && (
+          <ProductPhoto
+            src={product.image}
+            name={product.name}
+            sizes="(min-width: 1024px) 72px, 52px"
+            className="w-13 lg:w-18 rounded-lg lg:rounded-xl"
+          />
+        )}
 
         <div className="flex flex-col gap-0.5 flex-1 min-w-0">
           <div
