@@ -23,6 +23,8 @@ import {
   type CatalogProduct,
   type CatalogVariant,
 } from '@/src/types/catalog.types';
+import { trackCatalogEvent } from '@/lib/analytics';
+import { ProductRating } from '@/components/ui/product-rating';
 
 interface ProductModalProps {
   /** Mismo ajuste del negocio que en la lista: sin fotos, la hoja tampoco las muestra */
@@ -42,6 +44,16 @@ export function ProductModal({ useProductImages, featuredProductIds }: ProductMo
   if (selectedProduct && selectedProduct !== shownProduct) {
     setShownProduct(selectedProduct);
   }
+
+  // Analítica: cada producto que se abre (el tracker no repite el mismo en 30 min)
+  useEffect(() => {
+    if (selectedProduct) {
+      trackCatalogEvent('PRODUCT_VIEW', {
+        productId: selectedProduct.id,
+        categoryId: selectedProduct.categoryId || undefined,
+      });
+    }
+  }, [selectedProduct]);
 
   const handleClose = useCallback(() => {
     selectProduct(null);
@@ -325,6 +337,7 @@ function ProductSheetContent({ product, showPhoto, onClose }: ProductSheetConten
             >
               {product.name}
             </h1>
+            <ProductRating rating={product.rating} className="text-[13px]" />
             <span
               className="mt-0.5 text-xl font-bold tracking-[-0.03em] text-(--ink)"
               style={{ fontFamily: 'var(--font-display)' }}

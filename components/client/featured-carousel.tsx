@@ -17,6 +17,7 @@ import Image from 'next/image';
 import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
 import { useProductQuickAdd } from './product-row';
 import { useSearchContext } from './search-context';
+import { trackCatalogEvent } from '@/lib/analytics';
 import { formatPrice } from '@/lib/utils';
 import { getInitials } from '@/components/ui/initials-avatar';
 import type { CatalogProduct } from '@/src/types/catalog.types';
@@ -123,8 +124,17 @@ export function FeaturedCarousel({ products }: FeaturedCarouselProps) {
 }
 
 function FeaturedCard({ product, className = '' }: { product: CatalogProduct; className?: string }) {
-  const { hasVariants, displayPrice, isUnavailable, canAddMore, openDetail, handleAdd } =
-    useProductQuickAdd(product);
+  const quickAdd = useProductQuickAdd(product);
+  const { hasVariants, displayPrice, isUnavailable, canAddMore } = quickAdd;
+  // Analítica: lo que se abre o agrega desde el carrusel cuenta como clic en destacado.
+  const openDetail = () => {
+    trackCatalogEvent('FEATURED_CLICK', { productId: product.id });
+    quickAdd.openDetail();
+  };
+  const handleAdd = (e: React.MouseEvent) => {
+    trackCatalogEvent('FEATURED_CLICK', { productId: product.id });
+    quickAdd.handleAdd(e);
+  };
   // Misma regla que ProductRow: si la URL se rompe, iniciales sobre el fondo
   // del negocio en vez de una imagen rota.
   const [failedImageSrc, setFailedImageSrc] = useState<string | null>(null);

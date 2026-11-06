@@ -3,6 +3,7 @@
 import { useRef, useState, useEffect, useCallback, useMemo } from "react";
 import { FeaturedCarousel } from "./featured-carousel";
 import { useSearchContext } from "./search-context";
+import { trackCatalogEvent } from "@/lib/analytics";
 import type { Category, CatalogProduct } from "@/src/types/catalog.types";
 
 interface CategoryProductGroup {
@@ -19,6 +20,9 @@ interface CatalogShellProps {
   aside?: React.ReactNode;
   children: React.ReactNode;
 }
+
+/** Tiempo sin escribir para contar una búsqueda (además del debounce del input). */
+const SEARCH_SETTLE_MS = 1_500;
 
 function SearchEmptyState() {
   return (
@@ -48,7 +52,7 @@ export function CatalogShell({
   const tabsRef = useRef<HTMLDivElement>(null);
   const observerRef = useRef<IntersectionObserver | null>(null);
   const isScrollingToRef = useRef(false);
-  const { matches, isSearching } = useSearchContext();
+  const { query, matches, isSearching } = useSearchContext();
 
   const visibleCategories = useMemo(() => {
     if (!isSearching) return categories;
@@ -118,6 +122,7 @@ export function CatalogShell({
 
   const handleTabClick = useCallback((catId: string) => {
     setActiveId(catId);
+    trackCatalogEvent("CATEGORY_VIEW", { categoryId: catId });
     const section = document.getElementById(`cat-${catId}`);
     if (!section) return;
     isScrollingToRef.current = true;
@@ -137,6 +142,22 @@ export function CatalogShell({
       ),
     [categoryProductGroups, matches, isSearching],
   );
+
+  // Analítica: la búsqueda cuenta cuando el cliente deja de escribir, con
+  // cuántos productos encontró (0 = algo que busca y el negocio no tiene).
+  useEffect(() => {
+    if (!isSearching) return;
+    const timeout = setTimeout(() => {
+      const found = new Set<string>();
+      for (const { products } of categoryProductGroups) {
+        for (const product of products) {
+          if (matches(product)) found.add(product.id);
+        }
+      }
+      trackCatalogEvent("SEARCH", { query, resultCount: found.size });
+    }, SEARCH_SETTLE_MS);
+    return () => clearTimeout(timeout);
+  }, [query, isSearching, matches, categoryProductGroups]);
 
   return (
     // Escritorio: categorías | productos | carrito. Solo la columna de
