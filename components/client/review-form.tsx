@@ -136,6 +136,9 @@ export function ReviewForm({ businessSlug, token, order }: ReviewFormProps) {
   const [sent, setSent] = useState(false);
   const [isPending, startTransition] = useTransition();
 
+  // El negocio puede apagar la encuesta; los productos llegan vacíos si
+  // apagó la calificación de productos.
+  const surveyOn = order.options?.survey !== false;
   const hasOverall = answers.overall != null;
   const canSubmit = hasOverall || Object.keys(ratings).length > 0;
 
@@ -191,31 +194,33 @@ export function ReviewForm({ businessSlug, token, order }: ReviewFormProps) {
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-6">
-      <section className="flex flex-col gap-3">
-        <h2 className={sectionTitleClass} style={{ fontFamily: 'var(--font-display)' }}>
-          Tu pedido
-        </h2>
-        <ul className="m-0 p-0 list-none flex flex-col gap-3">
-          {questions.map((question) => (
-            <li
-              key={question.key}
-              className="flex flex-col gap-2 p-4 rounded-[18px] border border-(--line) bg-(--surface)"
-            >
-              <span className="text-[15px] font-semibold text-(--ink) tracking-[-0.01em]">
-                {question.label}
-              </span>
-              <StarRating
-                value={answers[question.key] ?? 0}
-                labels={question.labels}
-                ariaLabel={question.label}
-                onChange={(value) =>
-                  setAnswers((prev) => ({ ...prev, [question.key]: value }))
-                }
-              />
-            </li>
-          ))}
-        </ul>
-      </section>
+      {surveyOn && (
+        <section className="flex flex-col gap-3">
+          <h2 className={sectionTitleClass} style={{ fontFamily: 'var(--font-display)' }}>
+            Tu pedido
+          </h2>
+          <ul className="m-0 p-0 list-none flex flex-col gap-3">
+            {questions.map((question) => (
+              <li
+                key={question.key}
+                className="flex flex-col gap-2 p-4 rounded-[18px] border border-(--line) bg-(--surface)"
+              >
+                <span className="text-[15px] font-semibold text-(--ink) tracking-[-0.01em]">
+                  {question.label}
+                </span>
+                <StarRating
+                  value={answers[question.key] ?? 0}
+                  labels={question.labels}
+                  ariaLabel={question.label}
+                  onChange={(value) =>
+                    setAnswers((prev) => ({ ...prev, [question.key]: value }))
+                  }
+                />
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       {order.items.length > 0 && (
         <section className="flex flex-col gap-3">
@@ -280,25 +285,27 @@ export function ReviewForm({ businessSlug, token, order }: ReviewFormProps) {
         </section>
       )}
 
-      <section className="flex flex-col gap-3">
-        <h2 className={sectionTitleClass} style={{ fontFamily: 'var(--font-display)' }}>
-          ¿Algo más que quieras contarnos?
-        </h2>
-        <textarea
-          value={generalComment}
-          onChange={(e) => setGeneralComment(e.target.value)}
-          maxLength={COMMENT_MAX}
-          rows={3}
-          placeholder={
-            hasOverall
-              ? 'Tu comentario sobre el pedido (opcional)'
-              : 'Primero califica tu pedido en general'
-          }
-          disabled={!hasOverall}
-          aria-label="Comentario general del pedido"
-          className={`${textareaClass} disabled:opacity-50`}
-        />
-      </section>
+      {surveyOn && (
+        <section className="flex flex-col gap-3">
+          <h2 className={sectionTitleClass} style={{ fontFamily: 'var(--font-display)' }}>
+            ¿Algo más que quieras contarnos?
+          </h2>
+          <textarea
+            value={generalComment}
+            onChange={(e) => setGeneralComment(e.target.value)}
+            maxLength={COMMENT_MAX}
+            rows={3}
+            placeholder={
+              hasOverall
+                ? 'Tu comentario sobre el pedido (opcional)'
+                : 'Primero califica tu pedido en general'
+            }
+            disabled={!hasOverall}
+            aria-label="Comentario general del pedido"
+            className={`${textareaClass} disabled:opacity-50`}
+          />
+        </section>
+      )}
 
       {error && (
         <p role="alert" className="m-0 text-sm text-red-600 text-center">

@@ -307,6 +307,11 @@ export interface ReviewableOrder {
   orderDate: string;
   /** Define las preguntas de tiempo y de estado de la encuesta. */
   deliveryType: 'DELIVERY' | 'PICKUP' | 'DINE_IN' | 'COUNTER' | null;
+  /**
+   * Qué ofrece el negocio (lo apaga desde su configuración). Opcional: una
+   * API anterior no lo manda y entonces se muestra todo.
+   */
+  options?: { survey: boolean; productRatings: boolean };
   survey: SurveyAnswers | null;
   items: Array<{
     productId: string;
