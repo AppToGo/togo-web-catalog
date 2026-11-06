@@ -8,6 +8,7 @@ import { useCart } from "./cart-context";
 import { useCartUI } from "./cart-ui-context";
 import { formatPrice } from "@/lib/utils";
 import type { CatalogProduct } from "@/src/types/catalog.types";
+import { ProductRating } from "@/components/ui/product-rating";
 
 interface ProductRowProps {
   product: CatalogProduct;
@@ -164,6 +165,7 @@ export function ProductRow({
                 ? `Desde ${formatPrice(product.priceFrom)}`
                 : formatPrice(displayPrice ?? 0)}
             </span>
+            <ProductRating rating={product.rating} />
             {isUnavailable && (
               <span className="text-[10px] font-semibold text-(--ink-3) bg-(--line) px-1.5 py-0.5 rounded-sm">
                 Agotado

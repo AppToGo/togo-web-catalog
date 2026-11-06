@@ -11,6 +11,7 @@ import { createOrderAction, createOrderPublicAction, updateOrderAction, updateOr
 import { PhoneCaptureModal } from './phone-capture-modal';
 import type { BusinessInfo } from '@/src/types/catalog.types';
 import { formatPrice } from '@/lib/utils';
+import { trackCatalogEvent } from '@/lib/analytics';
 
 // Sin número de pedido a propósito: el consecutivo del negocio se asigna al
 // confirmar, así que acá el backend todavía devuelve el id legado alfanumérico
@@ -223,6 +224,7 @@ function CustomerCartPanel({ business, active, alwaysVisible = false, onClose }:
 
   const handleSubmitOrder = useCallback(async () => {
     if (cart.items.length === 0 || isCheckingOrder) return;
+    trackCatalogEvent('CHECKOUT_START');
     if (!isTableOrder) {
       if (!isIdentified) { setShowPhoneModal(true); return; }
       // All flows that use the public endpoint require a phone number
@@ -302,6 +304,9 @@ function CustomerCartPanel({ business, active, alwaysVisible = false, onClose }:
             items: cart.items, notes: notes.trim(), source: customer.origin, sessionId,
           });
       if (!result.success) throw new Error(result.error || 'Error al crear orden');
+      if (result.order?.orderId) {
+        trackCatalogEvent('ORDER_PLACED', { orderId: result.order.orderId });
+      }
 
       // Priority: order.branchPhone (branch's own WhatsApp) → context branchPhone → business.phone
       const phoneForWaMe = result.order?.branchPhone ?? branchPhone ?? business.phone;

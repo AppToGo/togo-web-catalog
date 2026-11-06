@@ -8,6 +8,7 @@ import type {
   SubCategory,
 } from "@/src/types/catalog.types";
 import { CatalogHeader } from "@/components/client/catalog-header";
+import { PendingReviewBanner } from "@/components/server/pending-review-banner";
 import { CategorySection } from "@/components/client/category-section";
 import { IndustrySection } from "@/components/client/industry-section";
 import { CatalogShell } from "@/components/client/catalog-shell";
@@ -197,6 +198,10 @@ export function CatalogContent({ catalog, changeBranchHref }: CatalogContentProp
         <CatalogHeader
           business={business}
           changeBranchHref={showBranch ? changeBranchHref : undefined}
+        />
+        <PendingReviewBanner
+          businessSlug={business.slug}
+          pendingReview={catalog.pendingReview}
         />
 
         <CatalogShell

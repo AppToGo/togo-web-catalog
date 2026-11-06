@@ -27,6 +27,7 @@ import {
   addToCartByTokenAction,
   removeFromCartByTokenAction,
 } from '@/lib/cart-actions';
+import { trackCatalogEvent } from '@/lib/analytics';
 
 // ═══════════════════════════════════════════════════════════
 // TYPES
@@ -322,6 +323,7 @@ export function CartProvider({
     // La hoja de recomendados escucha `lastAdded`: se avisa recién cuando el
     // servidor confirmó el agregado, nunca si el carrito vuelve atrás.
     const isNewProduct = !previousCart.items.some(i => i.productId === item.productId);
+    trackCatalogEvent('ADD_TO_CART', { productId: item.productId });
     const notifyAdded = () => {
       if (isNewProduct) setLastAdded({ productId: item.productId, at: Date.now() });
     };
