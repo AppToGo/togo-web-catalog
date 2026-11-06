@@ -12,12 +12,12 @@ interface PageProps {
 }
 
 export const metadata: Metadata = {
-  title: 'Califica tu pedido',
+  title: 'Encuesta de satisfacción',
   robots: { index: false },
 };
 
 /**
- * Calificación de un pedido entregado (flag PRODUCT_REVIEWS). Se llega con el
+ * Encuesta de satisfacción de un pedido entregado (flag PRODUCT_REVIEWS). Se llega con el
  * enlace firmado que el bot agrega al aviso de "pedido entregado".
  */
 export default async function ReviewPage({ params }: PageProps) {
@@ -55,7 +55,8 @@ export default async function ReviewPage({ params }: PageProps) {
                 ¿Qué tal estuvo tu pedido?
               </h1>
               <p className="m-0 text-[15px] text-(--ink-2) leading-relaxed">
-                Tu opinión ayuda a {order.businessName} a mejorar y a otros clientes a elegir.
+                Te toma menos de un minuto. Tu opinión ayuda a {order.businessName} a mejorar y a
+                otros clientes a elegir.
               </p>
             </header>
             <ReviewForm businessSlug={businessSlug} token={token} order={order} />
