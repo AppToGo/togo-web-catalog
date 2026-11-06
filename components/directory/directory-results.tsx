@@ -22,6 +22,8 @@ interface DirectoryResultsProps {
   related?: Array<{ title: string; links: Array<{ label: string; href: string }> }>;
   /** Numera las tarjetas (ranking de las landings). */
   ranked?: boolean;
+  /** Secciones arriba de la lista (destacados de la landing de ciudad). */
+  highlights?: React.ReactNode;
 }
 
 export function DirectoryResults({
@@ -33,6 +35,7 @@ export function DirectoryResults({
   breadcrumb,
   related,
   ranked,
+  highlights,
 }: DirectoryResultsProps) {
   const pages = Math.ceil(result.total / result.limit);
   const offset = (result.page - 1) * result.limit;
@@ -75,6 +78,8 @@ export function DirectoryResults({
           <div className="mb-3 md:hidden">
             <FilterChips facets={facets} filters={filters} />
           </div>
+
+          {highlights && <div className="mb-7 flex flex-col gap-7">{highlights}</div>}
 
           {!breadcrumb && (
             <div className="mb-4">

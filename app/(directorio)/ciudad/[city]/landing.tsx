@@ -5,11 +5,12 @@
 
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { fetchDirectory, fetchDirectoryFacets } from "@/lib/api";
+import { fetchDirectory, fetchDirectoryFacets, fetchDirectoryHighlights } from "@/lib/api";
 import { DIRECTORY_PAGE_SIZE, directoryHref } from "@/lib/directory";
 import { isValidSlug } from "@/lib/utils";
 import { generateDirectoryMetadata, generateDirectoryStructuredData, jsonLd } from "@/lib/seo";
 import { DirectoryResults } from "@/components/directory/directory-results";
+import { TopProducts } from "@/components/directory/top-products";
 
 export interface LandingParams {
   city: string;
@@ -18,15 +19,22 @@ export interface LandingParams {
 
 async function loadLanding({ city, category }: LandingParams) {
   if (!isValidSlug(city) || (category !== undefined && !isValidSlug(category))) notFound();
-  const [facets, result] = await Promise.all([
+  const [facets, result, highlights] = await Promise.all([
     fetchDirectoryFacets(city),
     fetchDirectory({ city, category, limit: DIRECTORY_PAGE_SIZE }),
+    // Los platos destacados van solo en la landing de la ciudad, no en la de tipo de comida.
+    category
+      ? Promise.resolve(null)
+      : fetchDirectoryHighlights(city).catch((error) => {
+          console.error("[directory] No se pudieron cargar los destacados:", error);
+          return null;
+        }),
   ]);
   const cityFacet = facets.cities.find((c) => c.slug === city);
   const categoryFacet = category ? facets.categories.find((c) => c.slug === category) : undefined;
   // Ciudad sin negocios listados o tipo de comida sin negocios en esa ciudad.
   if (!cityFacet || (category && !categoryFacet)) notFound();
-  return { facets, result, cityName: cityFacet.name, categoryName: categoryFacet?.name };
+  return { facets, result, highlights, cityName: cityFacet.name, categoryName: categoryFacet?.name };
 }
 
 function copy(cityName: string, categoryName: string | undefined, total: number) {
@@ -49,7 +57,7 @@ export async function landingMetadata(params: LandingParams): Promise<Metadata> 
 }
 
 export async function DirectoryLanding(params: LandingParams) {
-  const { facets, result, cityName, categoryName } = await loadLanding(params);
+  const { facets, result, highlights, cityName, categoryName } = await loadLanding(params);
   const { title, description } = copy(cityName, categoryName, result.total);
   const path = directoryHref({ city: params.city, category: params.category });
 
@@ -77,6 +85,13 @@ export async function DirectoryLanding(params: LandingParams) {
         title={title}
         subtitle={description}
         ranked
+        // La lista ya va ordenada por calidad: aquí solo suman los platos.
+        highlights={
+          highlights &&
+          highlights.topProducts.length > 0 && (
+            <TopProducts title={`Platos mejor calificados en ${cityName}`} products={highlights.topProducts} />
+          )
+        }
         breadcrumb={[
           { label: "Inicio", href: "/" },
           { label: cityName, href: categoryName ? directoryHref({ city: params.city }) : undefined },

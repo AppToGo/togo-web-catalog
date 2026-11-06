@@ -31,10 +31,12 @@ import type {
   OperatorLoginResult,
   DirectoryFacets,
   DirectoryFilters,
+  DirectoryHighlights,
   DirectoryResult,
   DirectorySitemap,
   TipRequest,
   ReviewableOrder,
+  SurveyAnswers,
 } from "@/src/types/catalog.types";
 
 // Re-export legacy types for backward compatibility during migration
@@ -858,6 +860,7 @@ function directoryQuery(filters: DirectoryFilters): string {
   if (filters.category) params.set("category", filters.category);
   if (filters.city) params.set("city", filters.city);
   if (filters.openNow) params.set("openNow", "true");
+  if (filters.minRating) params.set("minRating", String(filters.minRating));
   if (filters.page && filters.page > 1) params.set("page", String(filters.page));
   if (filters.limit) params.set("limit", String(filters.limit));
   const query = params.toString();
@@ -877,6 +880,10 @@ export function fetchDirectory(filters: DirectoryFilters): Promise<DirectoryResu
 
 export function fetchDirectoryFacets(city?: string): Promise<DirectoryFacets> {
   return fetchDirectoryJson(`directory/facets${directoryQuery({ city })}`);
+}
+
+export function fetchDirectoryHighlights(city?: string): Promise<DirectoryHighlights> {
+  return fetchDirectoryJson(`directory/highlights${directoryQuery({ city })}`);
 }
 
 /** El sitemap se regenera cada hora (ver app/sitemap.ts); no necesita el refresco de 60 s. */
@@ -942,6 +949,7 @@ export async function submitProductReviews(
   businessSlug: string,
   token: string,
   items: Array<{ productId: string; rating: number; comment?: string }>,
+  survey?: SurveyAnswers,
 ): Promise<{ saved: number }> {
   const response = await fetch(
     buildPublicCatalogUrl(businessSlug, `/reviews/${encodeURIComponent(token)}`),
@@ -949,7 +957,7 @@ export async function submitProductReviews(
       method: "POST",
       cache: "no-store",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ items }),
+      body: JSON.stringify({ items, ...(survey && { survey }) }),
     },
   );
   return handleResponse<{ saved: number }>(response);
