@@ -87,6 +87,9 @@ export interface CatalogProduct {
    * variante — ahí se usa la predeterminada o la única, como antes.
    */
   recommendedVariantIds?: string[];
+
+  /** Calificación de los clientes; solo llega con suficientes calificaciones. */
+  rating?: { average: number; count: number };
 }
 
 /** Ingredientes normalizados: string separado por comas o saltos de línea, sin vacíos */
@@ -277,6 +280,26 @@ export interface CatalogResponse {
 
   /** Productos destacados de la sede, en el orden del carrusel. */
   featuredProductIds?: string[];
+
+  /** El negocio tiene activa la analítica del catálogo: se envían eventos. */
+  analyticsEnabled?: boolean;
+
+  /** Cliente con token y un pedido entregado sin calificar (banner). */
+  pendingReview?: { token: string; orderNumber: string };
+}
+
+/** Pedido entregado a calificar (enlace del aviso de entregado). */
+export interface ReviewableOrder {
+  businessName: string;
+  orderNumber: string;
+  orderDate: string;
+  items: Array<{
+    productId: string;
+    name: string;
+    image: string | null;
+    rating: number | null;
+    comment: string | null;
+  }>;
 }
 
 /**

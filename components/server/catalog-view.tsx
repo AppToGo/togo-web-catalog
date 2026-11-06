@@ -20,6 +20,7 @@ import { productsForRecommendations } from "@/lib/recommendations";
 import { CartDrawer } from "@/components/client/cart-drawer";
 import { ProductModal } from "@/components/client/product-modal";
 import { FloatingCart } from "@/components/client/floating-cart";
+import { CatalogAnalytics } from "@/components/client/catalog-analytics";
 import type { CustomerOrigin } from "@/lib/types";
 import { getColorContrast } from "@/components/utils/getColorContrast";
 import Link from "next/link";
@@ -105,6 +106,10 @@ export function CatalogView({
         whatsappToken={token}
         initialCart={initialCart}
       >
+        <CatalogAnalytics
+          businessSlug={businessSlug}
+          enabled={catalog.analyticsEnabled ?? false}
+        />
         <CartUIProvider>
           <RecommendationsProvider
             products={productsForRecommendations(catalog.products)}

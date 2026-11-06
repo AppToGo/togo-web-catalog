@@ -34,6 +34,7 @@ import type {
   DirectoryResult,
   DirectorySitemap,
   TipRequest,
+  ReviewableOrder,
 } from "@/src/types/catalog.types";
 
 // Re-export legacy types for backward compatibility during migration
@@ -919,4 +920,37 @@ export async function operatorLogin(
     throw new OperatorLoginError(response.status, message);
   }
   return response.json();
+}
+
+// ═══════════════════════════════════════════════════════════
+// CALIFICACIÓN DE PRODUCTOS (enlace del aviso de entregado)
+// ═══════════════════════════════════════════════════════════
+
+/** Pedido entregado a calificar. 404 (NotFoundError) si el enlace no sirve. */
+export async function getReviewableOrder(
+  businessSlug: string,
+  token: string,
+): Promise<ReviewableOrder> {
+  const response = await fetch(
+    buildPublicCatalogUrl(businessSlug, `/reviews/${encodeURIComponent(token)}`),
+    { cache: "no-store", headers: { Accept: "application/json" } },
+  );
+  return handleResponse<ReviewableOrder>(response);
+}
+
+export async function submitProductReviews(
+  businessSlug: string,
+  token: string,
+  items: Array<{ productId: string; rating: number; comment?: string }>,
+): Promise<{ saved: number }> {
+  const response = await fetch(
+    buildPublicCatalogUrl(businessSlug, `/reviews/${encodeURIComponent(token)}`),
+    {
+      method: "POST",
+      cache: "no-store",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ items }),
+    },
+  );
+  return handleResponse<{ saved: number }>(response);
 }

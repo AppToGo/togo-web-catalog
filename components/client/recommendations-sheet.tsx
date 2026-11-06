@@ -23,6 +23,7 @@ import type { CatalogProduct, CatalogVariant } from '@/src/types/catalog.types';
 import { formatPrice } from '@/lib/utils';
 import { InitialsAvatar } from '@/components/ui/initials-avatar';
 import { useCart } from './cart-context';
+import { trackCatalogEvent } from '@/lib/analytics';
 import { useCartUI } from './cart-ui-context';
 import { useRecommendations, type RecommendedPick } from './recommendations-context';
 
@@ -173,7 +174,14 @@ export function RecommendationsSheet({ useProductImages }: RecommendationsSheetP
                 </div>
                 <button
                   type="button"
-                  onClick={() => toggle({ product, variant })}
+                  onClick={() => {
+                    if (!isAdded) {
+                      trackCatalogEvent('RECOMMENDATION_CLICK', {
+                        productId: product.id,
+                      });
+                    }
+                    toggle({ product, variant });
+                  }}
                   aria-pressed={isAdded}
                   aria-label={`${isAdded ? 'Quitar' : 'Agregar'} ${label}`}
                   className={`min-h-10 px-4 rounded-full border-[1.5px] border-[var(--accent)] text-[14px] font-bold transition-colors ${
