@@ -8,7 +8,7 @@
 
 import type { Metadata } from "next";
 import Link from "next/link";
-import { fetchDirectory, fetchDirectoryFacets } from "@/lib/api";
+import { fetchDirectory, fetchDirectoryFacets, fetchDirectoryHighlights } from "@/lib/api";
 import {
   DIRECTORY_PAGE_SIZE,
   directoryHref,
@@ -17,13 +17,23 @@ import {
   queryWithoutCity,
 } from "@/lib/directory";
 import { generateDirectoryMetadata } from "@/lib/seo";
-import type { DirectoryFacets, DirectoryFilters, DirectoryResult } from "@/src/types/catalog.types";
+import type {
+  DirectoryFacets,
+  DirectoryFilters,
+  DirectoryHighlights,
+  DirectoryResult,
+} from "@/src/types/catalog.types";
 import { BusinessCard } from "@/components/directory/business-card";
 import { CategoryTiles } from "@/components/directory/category-tiles";
 import { DirectoryHeader } from "@/components/directory/directory-header";
 import { DirectoryResults } from "@/components/directory/directory-results";
 import { JoinCta } from "@/components/directory/join-cta";
 import { SearchForm } from "@/components/directory/search-form";
+import { TopBusinesses } from "@/components/directory/top-businesses";
+import { TopProducts } from "@/components/directory/top-products";
+
+/** Sin destacados el inicio sigue funcionando: las secciones no se muestran. */
+const NO_HIGHLIGHTS: DirectoryHighlights = { topBusinesses: [], topProducts: [] };
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
@@ -51,11 +61,18 @@ export default async function DirectoryPage({ searchParams }: { searchParams: Se
   let facets: DirectoryFacets;
   let result: DirectoryResult;
   let openNow: DirectoryResult | null = null;
+  let highlights = NO_HIGHLIGHTS;
   try {
-    [facets, result, openNow] = await Promise.all([
+    [facets, result, openNow, highlights] = await Promise.all([
       fetchDirectoryFacets(filters.city),
       fetchDirectory({ ...filters, limit: DIRECTORY_PAGE_SIZE }),
       hasActiveFilters(filters) ? Promise.resolve(null) : fetchDirectory({ openNow: true, limit: 8 }),
+      hasActiveFilters(filters)
+        ? Promise.resolve(NO_HIGHLIGHTS)
+        : fetchDirectoryHighlights().catch((error) => {
+            console.error("[directory] No se pudieron cargar los destacados:", error);
+            return NO_HIGHLIGHTS;
+          }),
     ]);
   } catch (error) {
     console.error("[directory] No se pudo cargar el directorio:", error);
@@ -103,6 +120,9 @@ export default async function DirectoryPage({ searchParams }: { searchParams: Se
             <CategoryTiles categories={facets.categories} />
           </section>
         )}
+
+        <TopBusinesses title="Los más recomendados" businesses={highlights.topBusinesses} />
+        <TopProducts title="Platos mejor calificados" products={highlights.topProducts} />
 
         {openNow && openNow.items.length > 0 && (
           <section>
@@ -178,7 +198,7 @@ function resultsTitle(result: DirectoryResult, facets: DirectoryFacets, filters:
     (filters.q && filters.q.charAt(0).toUpperCase() + filters.q.slice(1)) ||
     facets.categories.find((c) => c.slug === filters.category)?.name ||
     facets.industries.find((i) => i.slug === filters.industry)?.name ||
-    (filters.openNow ? "Abiertos ahora" : "Negocios");
+    (filters.openNow ? "Abiertos ahora" : filters.minRating ? `Negocios con ${filters.minRating}★ o más` : "Negocios");
   return result.city ? `${what} en ${result.city.name}` : what;
 }
 

@@ -14,6 +14,7 @@ import { CartProvider } from "@/components/client/cart-context";
 import { OperatorSessionProvider } from "@/components/client/operator-session-context";
 import { OperatorLoginLink } from "@/components/client/operator-login";
 import { CartUIProvider } from "@/components/client/cart-ui-context";
+import { ProductDeepLink } from "@/components/client/product-deep-link";
 import { RecommendationsSheet } from "@/components/client/recommendations-sheet";
 import { RecommendationsProvider } from "@/components/client/recommendations-context";
 import { productsForRecommendations } from "@/lib/recommendations";
@@ -138,6 +139,7 @@ export function CatalogView({
               useProductImages={useProductImages}
               featuredProductIds={catalog.featuredProductIds}
             />
+            <ProductDeepLink products={catalog.products ?? []} />
             <CartDrawer business={catalog.business} />
             <RecommendationsSheet useProductImages={useProductImages} />
           </RecommendationsProvider>

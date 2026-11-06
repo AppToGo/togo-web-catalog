@@ -26,19 +26,27 @@ export function parseDirectorySearchParams(
 ): DirectoryFilters {
   const q = Array.isArray(params.q) ? params.q[0] : params.q;
   const page = Number(Array.isArray(params.page) ? params.page[0] : params.page);
+  const rating = Number(Array.isArray(params.rating) ? params.rating[0] : params.rating);
   return {
     q: q?.trim().slice(0, 100) || undefined,
     industry: slugParam(params.industry),
     category: slugParam(params.category),
     city: slugParam(params.city),
     openNow: params.open === "1",
+    minRating: Number.isInteger(rating) && rating >= 1 && rating <= 5 ? rating : undefined,
     page: Number.isInteger(page) && page > 1 ? Math.min(page, 100) : undefined,
   };
 }
 
 export function hasActiveFilters(filters: DirectoryFilters): boolean {
   return Boolean(
-    filters.q || filters.industry || filters.category || filters.city || filters.openNow || filters.page,
+    filters.q ||
+      filters.industry ||
+      filters.category ||
+      filters.city ||
+      filters.openNow ||
+      filters.minRating ||
+      filters.page,
   );
 }
 
@@ -48,8 +56,8 @@ export function hasActiveFilters(filters: DirectoryFilters): boolean {
  * query string.
  */
 export function directoryHref(filters: DirectoryFilters): string {
-  const { q, industry, category, city, openNow, page } = filters;
-  if (city && !q && !industry && !openNow && !page) {
+  const { q, industry, category, city, openNow, minRating, page } = filters;
+  if (city && !q && !industry && !openNow && !minRating && !page) {
     return category ? `/ciudad/${city}/${category}` : `/ciudad/${city}`;
   }
   const params = new URLSearchParams();
@@ -58,6 +66,7 @@ export function directoryHref(filters: DirectoryFilters): string {
   if (industry) params.set("industry", industry);
   if (category) params.set("category", category);
   if (openNow) params.set("open", "1");
+  if (minRating) params.set("rating", String(minRating));
   if (page && page > 1) params.set("page", String(page));
   const query = params.toString();
   return query ? `/?${query}` : "/";
