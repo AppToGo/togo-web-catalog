@@ -24,7 +24,7 @@ export function ProductPhoto({ src, name, sizes, className = "" }: ProductPhotoP
   const showImage = !!src && !failed;
 
   return (
-    <div className={`relative aspect-4/5 shrink-0 overflow-hidden @container ${className}`}>
+    <div className={`relative aspect-square shrink-0 overflow-hidden @container ${className}`}>
       {showImage && src ? (
         <Image
           src={src}
