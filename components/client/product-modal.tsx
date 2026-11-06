@@ -267,7 +267,7 @@ function ProductSheetContent({ product, showPhoto, onClose }: ProductSheetConten
       >
         {showPhoto ? (
           <div className="flex justify-center bg-(--accent-soft)">
-            <div ref={photoRef} className="relative aspect-4/5 h-[52dvh] max-h-[560px] w-auto max-w-full">
+            <div ref={photoRef} className="relative aspect-square h-[52dvh] max-h-[560px] w-auto max-w-full">
             {product.image && !imageError ? (
               <>
                 {/* Miniatura ya en caché (mismo `sizes` de la fila): sale al
