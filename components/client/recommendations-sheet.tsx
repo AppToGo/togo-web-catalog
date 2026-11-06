@@ -17,11 +17,10 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import Image from 'next/image';
 import { Check, X } from 'lucide-react';
+import { ProductPhoto } from './product-photo';
 import type { CatalogProduct, CatalogVariant } from '@/src/types/catalog.types';
 import { formatPrice } from '@/lib/utils';
-import { InitialsAvatar } from '@/components/ui/initials-avatar';
 import { useCart } from './cart-context';
 import { trackCatalogEvent } from '@/lib/analytics';
 import { useCartUI } from './cart-ui-context';
@@ -147,23 +146,14 @@ export function RecommendationsSheet({ useProductImages }: RecommendationsSheetP
                 key={`${product.id}-${variant.id}`}
                 className={`grid ${useProductImages ? 'grid-cols-[52px_1fr_auto]' : 'grid-cols-[1fr_auto]'} items-center gap-3 px-4 py-3 border-b border-[var(--line)] last:border-b-0`}
               >
-                {useProductImages &&
-                  (product.image ? (
-                    <div className="w-13 h-13 rounded-lg shrink-0 relative overflow-hidden">
-                      <Image
-                        src={product.image}
-                        alt=""
-                        fill
-                        className="object-cover"
-                        sizes="52px"
-                      />
-                    </div>
-                  ) : (
-                    <InitialsAvatar
-                      name={product.name}
-                      subcatId={product.categoryId ?? product.id}
-                    />
-                  ))}
+                {useProductImages && (
+                  <ProductPhoto
+                    src={product.image}
+                    name={product.name}
+                    sizes="52px"
+                    className="w-13 rounded-lg"
+                  />
+                )}
                 <div className="flex flex-col gap-0.5 min-w-0">
                   <span className="text-[14px] font-semibold text-[var(--ink)] truncate tracking-[-0.01em]">
                     {label}

@@ -8,10 +8,9 @@
  */
 
 import { useState, useTransition } from 'react';
-import Image from 'next/image';
 import { CheckCircle } from 'lucide-react';
 import { submitReviewsAction } from '@/lib/review-actions';
-import { getInitials } from '@/components/ui/initials-avatar';
+import { ProductPhoto } from './product-photo';
 import type { ReviewableOrder, SurveyAnswers } from '@/src/types/catalog.types';
 
 const STAR_LABELS = ['Muy malo', 'Malo', 'Regular', 'Bueno', 'Excelente'];
@@ -236,18 +235,12 @@ export function ReviewForm({ businessSlug, token, order }: ReviewFormProps) {
                   className="flex flex-col gap-3 p-4 rounded-[18px] border border-(--line) bg-(--surface)"
                 >
                   <div className="flex items-center gap-3">
-                    {item.image ? (
-                      <div className="w-12 h-12 rounded-lg shrink-0 relative overflow-hidden">
-                        <Image src={item.image} alt="" fill className="object-cover" sizes="48px" />
-                      </div>
-                    ) : (
-                      <div
-                        aria-hidden="true"
-                        className="w-12 h-12 rounded-lg shrink-0 flex items-center justify-center bg-(--accent-soft) text-(--accent) font-bold"
-                      >
-                        {getInitials(item.name)}
-                      </div>
-                    )}
+                    <ProductPhoto
+                      src={item.image}
+                      name={item.name}
+                      sizes="48px"
+                      className="w-12 rounded-lg"
+                    />
                     <span
                       className="text-[15px] font-semibold text-(--ink) tracking-[-0.01em]"
                       style={{ fontFamily: 'var(--font-display)' }}
