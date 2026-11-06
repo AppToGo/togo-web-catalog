@@ -35,6 +35,7 @@ import type {
   DirectorySitemap,
   TipRequest,
   ReviewableOrder,
+  SurveyAnswers,
 } from "@/src/types/catalog.types";
 
 // Re-export legacy types for backward compatibility during migration
@@ -942,6 +943,7 @@ export async function submitProductReviews(
   businessSlug: string,
   token: string,
   items: Array<{ productId: string; rating: number; comment?: string }>,
+  survey?: SurveyAnswers,
 ): Promise<{ saved: number }> {
   const response = await fetch(
     buildPublicCatalogUrl(businessSlug, `/reviews/${encodeURIComponent(token)}`),
@@ -949,7 +951,7 @@ export async function submitProductReviews(
       method: "POST",
       cache: "no-store",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ items }),
+      body: JSON.stringify({ items, ...(survey && { survey }) }),
     },
   );
   return handleResponse<{ saved: number }>(response);

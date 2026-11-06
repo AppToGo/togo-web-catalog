@@ -288,11 +288,26 @@ export interface CatalogResponse {
   pendingReview?: { token: string; orderNumber: string };
 }
 
+/** Respuestas de la encuesta de satisfacción, todas de 1 a 5 estrellas. */
+export interface SurveyAnswers {
+  overall: number;
+  time?: number | null;
+  condition?: number | null;
+  place?: number | null;
+  service?: number | null;
+  bot?: number | null;
+  recommend?: number | null;
+  comment?: string | null;
+}
+
 /** Pedido entregado a calificar (enlace del aviso de entregado). */
 export interface ReviewableOrder {
   businessName: string;
   orderNumber: string;
   orderDate: string;
+  /** Define las preguntas de tiempo y de estado de la encuesta. */
+  deliveryType: 'DELIVERY' | 'PICKUP' | 'DINE_IN' | 'COUNTER' | null;
+  survey: SurveyAnswers | null;
   items: Array<{
     productId: string;
     name: string;
