@@ -34,6 +34,18 @@ function openNowToggle(filters: DirectoryFilters): Toggle {
   };
 }
 
+/** Calificación mínima del filtro "4★ o más". */
+const MIN_RATING_FILTER = 4;
+
+function ratingToggle(filters: DirectoryFilters): Toggle {
+  const active = filters.minRating === MIN_RATING_FILTER;
+  return {
+    label: `${MIN_RATING_FILTER}★ o más`,
+    active,
+    href: directoryHref({ ...filters, page: undefined, minRating: active ? undefined : MIN_RATING_FILTER }),
+  };
+}
+
 function Group({ title, items }: { title: string; items: Toggle[] }) {
   if (items.length === 0) return null;
   return (
@@ -68,6 +80,7 @@ export function FilterSidebar({ facets, filters }: FiltersProps) {
   return (
     <nav aria-label="Filtros" className="flex flex-col gap-5">
       <Group title="Disponibilidad" items={[openNowToggle(filters)]} />
+      <Group title="Calificación" items={[ratingToggle(filters)]} />
       <Group title="Ciudad" items={toggles(filters, "city", facets.cities)} />
       <Group title="Industria" items={toggles(filters, "industry", facets.industries)} />
       <Group title="Tipo de comida" items={toggles(filters, "category", facets.categories.slice(0, 12))} />
@@ -79,6 +92,7 @@ export function FilterSidebar({ facets, filters }: FiltersProps) {
 export function FilterChips({ facets, filters }: FiltersProps) {
   const chips = [
     openNowToggle(filters),
+    ratingToggle(filters),
     ...toggles(filters, "industry", facets.industries),
     ...toggles(filters, "category", facets.categories.slice(0, 8)),
   ];

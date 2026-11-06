@@ -69,6 +69,7 @@
   --togo-rule: #e8e8ea;
   --togo-open: #047857;
   --togo-open-soft: #ecfdf5;
+  --togo-star: #d97706; /* estrellas de las calificaciones; no está en el manual */
   background: var(--togo-paper);
   color: var(--togo-ink);
   font-family: var(--font-dm-sans), "DM Sans", ui-sans-serif, system-ui, sans-serif;

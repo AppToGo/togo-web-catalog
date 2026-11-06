@@ -3,6 +3,7 @@ import type { DirectoryBusiness } from "@/src/types/catalog.types";
 import { getInitials } from "@/components/ui/initials-avatar";
 import { getColorContrast } from "@/components/utils/getColorContrast";
 import { businessHref } from "@/lib/directory";
+import { Badges, RatingLine } from "./rating-summary";
 
 const FALLBACK_COLOR = "#6b6b6b";
 const HEX = /^#[0-9a-f]{6}$/i;
@@ -64,6 +65,8 @@ export function BusinessCard({ business, rank }: { business: DirectoryBusiness; 
           )}
         </div>
         {location && <p className="mt-0.5 truncate text-[12px] text-(--togo-ink-2)">{location}</p>}
+        {business.rating && <RatingLine rating={business.rating} className="mt-0.5" />}
+        <Badges badges={business.badges} />
         {business.categories.length > 0 && (
           <ul className="mt-2 flex flex-wrap gap-1">
             {business.categories.map((c) => (

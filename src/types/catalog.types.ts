@@ -672,6 +672,16 @@ export interface DirectoryBranch {
   isOpen: boolean;
 }
 
+/** Calificación pública del negocio (pregunta general de la encuesta). */
+export interface DirectoryRating {
+  average: number;
+  count: number;
+  /** % que respondió 4 o 5 a si lo recomendaría. */
+  recommendShare: number | null;
+}
+
+export type DirectoryBadge = "RECOMMENDED" | "ON_TIME" | "GREAT_SERVICE";
+
 export interface DirectoryBusiness {
   id: string;
   name: string;
@@ -687,6 +697,29 @@ export interface DirectoryBusiness {
   matches: string[];
   /** Ruta del catálogo del negocio (o de su sede). */
   path: string;
+  /**
+   * Null con menos de 5 encuestas o si el negocio no publica calificaciones.
+   * Opcionales: una API anterior (o una respuesta en caché) no los trae.
+   */
+  rating?: DirectoryRating | null;
+  badges?: DirectoryBadge[];
+}
+
+/** Plato destacado del directorio (3 o más calificaciones). */
+export interface DirectoryTopProduct {
+  productId: string;
+  name: string;
+  image: string | null;
+  priceFrom: number | null;
+  ratingAvg: number;
+  ratingCount: number;
+  business: { name: string; slug: string; logo: string | null; primaryColor: string | null };
+  path: string;
+}
+
+export interface DirectoryHighlights {
+  topBusinesses: DirectoryBusiness[];
+  topProducts: DirectoryTopProduct[];
 }
 
 export interface DirectoryResult {
@@ -716,6 +749,8 @@ export interface DirectoryFilters {
   category?: string;
   city?: string;
   openNow?: boolean;
+  /** Solo negocios con al menos estas estrellas (filtro "4★ o más"). */
+  minRating?: number;
   page?: number;
   limit?: number;
 }
