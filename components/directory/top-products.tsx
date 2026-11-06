@@ -36,11 +36,11 @@ export function TopProducts({ title, products }: { title: string; products: Dire
               >
                 {p.image ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={p.image} alt="" loading="lazy" className="aspect-[4/3] w-full object-cover" />
+                  <img src={p.image} alt="" loading="lazy" className="aspect-[4/5] w-full object-cover" />
                 ) : (
                   <span
                     aria-hidden
-                    className="flex aspect-[4/3] w-full items-center justify-center text-[22px] font-bold"
+                    className="flex aspect-[4/5] w-full items-center justify-center text-[22px] font-bold"
                     style={{ background: color, color: getColorContrast(color) }}
                   >
                     {getInitials(p.name)}

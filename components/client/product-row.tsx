@@ -130,7 +130,7 @@ export function ProductRow({
       >
         {useProductImages &&
           (showImage && product.image ? (
-            <div className="w-13 h-13 lg:w-18 lg:h-18 rounded-lg lg:rounded-xl shrink-0 relative overflow-hidden">
+            <div className="w-13 lg:w-18 aspect-[4/5] rounded-lg lg:rounded-xl shrink-0 relative overflow-hidden">
               <Image
                 src={product.image}
                 alt={product.name}

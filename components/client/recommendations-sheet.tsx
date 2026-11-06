@@ -149,7 +149,7 @@ export function RecommendationsSheet({ useProductImages }: RecommendationsSheetP
               >
                 {useProductImages &&
                   (product.image ? (
-                    <div className="w-13 h-13 rounded-lg shrink-0 relative overflow-hidden">
+                    <div className="w-13 aspect-[4/5] rounded-lg shrink-0 relative overflow-hidden">
                       <Image
                         src={product.image}
                         alt=""

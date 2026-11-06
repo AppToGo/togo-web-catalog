@@ -150,7 +150,7 @@ function FeaturedCard({ product, className = '' }: { product: CatalogProduct; cl
         type="button"
         onClick={openDetail}
         aria-label={`Ver detalle de ${product.name}`}
-        className="relative block w-full aspect-[16/9] lg:aspect-auto lg:h-42 bg-(--accent-soft) cursor-pointer"
+        className="relative block w-full aspect-[4/5] bg-(--accent-soft) cursor-pointer"
       >
         {showImage && product.image ? (
           <Image

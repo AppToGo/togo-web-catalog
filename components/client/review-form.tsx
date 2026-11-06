@@ -237,7 +237,7 @@ export function ReviewForm({ businessSlug, token, order }: ReviewFormProps) {
                 >
                   <div className="flex items-center gap-3">
                     {item.image ? (
-                      <div className="w-12 h-12 rounded-lg shrink-0 relative overflow-hidden">
+                      <div className="w-12 aspect-[4/5] rounded-lg shrink-0 relative overflow-hidden">
                         <Image src={item.image} alt="" fill className="object-cover" sizes="48px" />
                       </div>
                     ) : (
